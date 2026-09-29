@@ -1,0 +1,9 @@
+{
+  "version": 23,
+  "date": "2026-09-28",
+  "changes": [
+    "🎂 Birthday button now shows HOW MANY birthdays are coming soon — tap it for names & dates.",
+    "🚀 New auto-upgrade popup: when a fresh version is deployed, open tabs get notified and can update with one tap.",
+    "📊 The live deployed version is shown on the home screen and in the admin panel."
+  ]
+}

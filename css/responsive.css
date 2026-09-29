@@ -1,0 +1,170 @@
+/* ============================================================
+   responsive.css — Mobile & tablet refinements
+   ============================================================ */
+@media (max-width:900px){
+  .panel-content{max-width:100%}
+  .info-content{padding:1.4rem 1rem}
+}
+
+@media (max-width:600px){
+  .home-screen{padding:1rem .75rem}
+  .home-hero-card{padding:1.3rem .95rem 1.2rem;border-radius:1.4rem}
+  .home-inner{gap:.7rem}
+
+  /* Compact, auto-fitting person grid */
+  .home-grid{
+    grid-template-columns:repeat(auto-fit,minmax(105px,1fr));
+    gap:.5rem;
+  }
+  .home-btn{
+    font-size:.78rem;
+    padding:.6rem .4rem .55rem;
+    min-height:80px;
+    border-radius:.9rem;
+    gap:.2rem;
+  }
+  .home-btn .home-btn-emoji{font-size:1.3rem}
+  .home-btn-bday{font-size:.52rem;padding:.08rem .4rem}
+
+  .home-title{font-size:1.35rem;letter-spacing:1px}
+  .home-sub{font-size:.8rem}
+  .home-intro,.home-changelog{padding:.8rem .85rem;border-radius:1rem}
+  .home-intro .hi-step{padding:.5rem .6rem}
+  .home-intro .hi-title{font-size:.82rem}
+  .home-intro .hi-lead{font-size:.76rem}
+  .home-intro .hi-step .hi-h{font-size:.76rem}
+  .home-intro .hi-step .hi-p{font-size:.7rem}
+  .home-intro .hi-toggle button{font-size:.72rem;padding:.32rem .85rem}
+
+  .home-reviews{padding:.85rem;border-radius:1rem}
+  .home-reviews .hr-title{font-size:.88rem}
+  .home-reviews .hr-item{padding:.55rem .7rem}
+  .home-reviews .hr-msg{font-size:.78rem}
+  .home-reviews .hr-line{font-size:.72rem}
+
+  .home-changelog .hcl-item{font-size:.68rem}
+
+  .home-stat-chip{font-size:.68rem;padding:.28rem .65rem}
+  .home-stat-chip .hsc-num{font-size:.82rem}
+
+  /* Viewer */
+  .card{padding:1.4rem 1rem;border-radius:1.2rem}
+  h1.card-title{font-size:1.55rem}
+  .names{font-size:1.1rem;padding:.4rem 1.4rem}
+  .message{font-size:.95rem;padding:1.05rem .9rem}
+  .message .greeting{font-size:1.02rem}
+  .cake-emoji{font-size:2.6rem}
+  .subhead{font-size:.88rem;padding:.42rem 1rem}
+  .gift-box .gift-emoji{font-size:2.6rem}
+  .gift-box .gift-label{font-size:.72rem}
+  .heart-row{font-size:1.15rem;letter-spacing:4px}
+  .from span:first-child{font-size:.75rem;letter-spacing:2.2px}
+
+  .counter-item{padding:.45rem .25rem;gap:.5rem}
+  .counter-icon{font-size:1.15rem}
+  .counter-label{font-size:.7rem}
+  .counter-time{font-size:.82rem}
+  .counter-date{font-size:.68rem}
+  .counters-title{font-size:.88rem}
+
+  .open-btn{font-size:.88rem;padding:.65rem 1.4rem;margin-top:1rem}
+  .extra-btn{font-size:.76rem;padding:.5rem .9rem}
+
+  .slideshow-nav{width:2.4rem;height:2.4rem;font-size:1rem}
+  .slideshow-nav.prev{left:.4rem}
+  .slideshow-nav.next{right:.4rem}
+  .slideshow-close{top:.5rem;right:.5rem;width:1.9rem;height:1.9rem;font-size:.95rem}
+
+  .panel-content{padding:1.15rem .85rem;border-radius:1.15rem}
+  .info-content{padding:1.2rem .9rem;border-radius:1.25rem}
+  .pw-content{padding:1.4rem 1rem}
+  .slider-row{flex-wrap:wrap}
+  .slider-row label{flex:1 1 100%;margin-bottom:.2rem}
+  .slider-row .slider-val{flex:0 0 40px}
+  .tz-row{grid-template-columns:1fr}
+  .tz-row .tz-select{min-width:0}
+  .panel-tab{font-size:.7rem;padding:.45rem .6rem}
+
+  .viewer-topbar{flex-wrap:wrap;gap:.3rem}
+  .viewer-back,.viewer-share-btn,.viewer-darkmode-btn,
+  .viewer-edit-card-btn{padding:.35rem .7rem;font-size:.72rem}
+  .viewer-seen-pill{font-size:.62rem;padding:.25rem .55rem}
+
+  .reaction-btn{min-width:44px;padding:.4rem .5rem;font-size:1.05rem}
+  .reaction-btn .rb-count{font-size:.58rem}
+  .reaction-bar-title{font-size:.66rem}
+
+  .music-toggle,.lang-toggle,.darkmode-toggle{
+    width:2.6rem;height:2.6rem;font-size:1.05rem;
+  }
+  .lang-toggle{right:3.8rem}
+  .darkmode-toggle{right:6.8rem}
+  .map-canvas{height:260px}
+}
+
+@media (max-width:420px){
+  .home-grid{
+    grid-template-columns:repeat(auto-fit,minmax(92px,1fr));
+    gap:.45rem;
+  }
+  .home-btn{
+    font-size:.72rem;
+    padding:.55rem .35rem .5rem;
+    min-height:74px;
+    border-radius:.8rem;
+  }
+  .home-btn .home-btn-emoji{font-size:1.15rem}
+  .home-btn-bday{font-size:.48rem;padding:.06rem .35rem}
+  .home-title{font-size:1.2rem}
+  .home-sub{font-size:.75rem}
+  .home-stat-chip{font-size:.64rem}
+}
+
+@media (max-width:380px){
+  .home-grid{
+    grid-template-columns:repeat(auto-fit,minmax(84px,1fr));
+    gap:.4rem;
+  }
+  .home-btn{
+    font-size:.68rem;
+    padding:.5rem .3rem .45rem;
+    min-height:70px;
+  }
+  .home-btn .home-btn-emoji{font-size:1.05rem}
+  .home-btn-bday{font-size:.44rem}
+  .home-title{font-size:1.1rem}
+  .home-sub{font-size:.7rem}
+
+  h1.card-title{font-size:1.35rem}
+  .names{font-size:1rem;padding:.35rem 1.15rem}
+  .cd-box{min-width:56px;padding:.5rem .35rem}
+  .open-early-btn{font-size:.85rem;padding:.65rem 1.2rem}
+  .panel-tab{font-size:.64rem;padding:.4rem .5rem}
+
+  .open-btn{font-size:.82rem;padding:.6rem 1.2rem}
+  .extra-btn{font-size:.72rem;padding:.45rem .8rem}
+  .reaction-btn{min-width:40px;padding:.35rem .45rem;font-size:.95rem}
+}
+
+/* Very small / landscape phones */
+@media (max-height:640px){
+  .home-hero-card{padding:1rem .85rem 1rem}
+  .home-grid{gap:.4rem}
+  .home-btn{min-height:66px;padding:.5rem .35rem .45rem}
+  .home-btn .home-btn-emoji{font-size:1.1rem}
+}
+
+@media (hover:none){
+  .home-btn:hover{transform:none;background:rgba(255,255,255,.14)}
+  .home-reviews .hr-item:hover{transform:none}
+  .gift-box:hover{transform:none}
+  .reaction-btn:hover{transform:none}
+  .theme-swatch:hover{transform:none}
+}
+
+@media (prefers-reduced-motion: reduce){
+  .home-screen::before,.home-screen::after{animation:none}
+  .home-emoji::before,.home-emoji::after{animation:none}
+  .home-title{animation:none}
+  .hf,.home-hero-card::before{animation:none}
+}

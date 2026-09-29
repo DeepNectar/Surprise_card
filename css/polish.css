@@ -1,0 +1,633 @@
+/* ============================================================
+   polish.css — Professional refinement layer
+   Typography upgrade · refined surfaces · consistent motion
+   Loaded last so it can gently override earlier styles.
+   ============================================================ */
+
+/* ---------- 1. Typography system ----------
+   Spec compliance: NO external font CDNs are loaded — only the local
+   Georgia / 'Times New Roman' serif stack defined in variables.css is used. */
+:root{
+  --font-main:Georgia,'Times New Roman',serif;
+  --font-display:Georgia,'Times New Roman',serif;
+  --font-ui:Georgia,'Times New Roman',serif;
+  --ease-out-quint:cubic-bezier(.22,1,.36,1);
+  --ease-spring:cubic-bezier(.34,1.45,.64,1);
+}
+
+body{letter-spacing:.01em}
+
+/* ---------- 2. Home screen — hero (original look preserved) ---------- */
+.home-title{
+  font-family:var(--font-display);
+  letter-spacing:.015em;
+}
+
+.home-sub{
+  font-style:normal;
+  font-size:clamp(.85rem,2.8vw,.95rem);
+  color:rgba(255,255,255,.88);
+  font-weight:400;
+  letter-spacing:.02em;
+  max-width:420px;
+}
+
+/* Gold ornamental divider under the hero title (pure CSS, no markup change) */
+.home-hero-card .home-title::after{
+  content:"";
+  display:block;
+  width:132px;
+  height:2px;
+  margin:.85rem auto 0;
+  border-radius:2px;
+  background:linear-gradient(90deg,transparent,rgba(255,215,0,.9),transparent);
+}
+
+/* Softer, more premium glass card */
+.home-hero-card{
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:1.8rem;
+  box-shadow:
+    0 40px 80px -30px rgba(0,0,0,.6),
+    0 0 0 1px rgba(255,255,255,.06) inset,
+    0 1px 0 rgba(255,255,255,.18) inset;
+  padding:2rem 1.4rem 1.7rem;
+}
+.home-hero-card::before{animation-duration:9s;opacity:.8}
+
+/* ---------- 3. Person tiles — refined cards ---------- */
+.home-btn{
+  font-family:var(--font-ui);
+  font-style:normal;
+  font-weight:600;
+  font-size:.9rem;
+  letter-spacing:.01em;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:1.1rem;
+  min-height:96px;
+  transition:transform .35s var(--ease-out-quint),
+             box-shadow .35s ease,
+             background .35s ease,
+             border-color .35s ease;
+}
+.home-btn:hover{
+  transform:translateY(-4px);
+  background:rgba(255,255,255,.14);
+  border-color:rgba(255,215,0,.55);
+  box-shadow:
+    0 18px 36px -14px rgba(0,0,0,.55),
+    0 0 0 1px rgba(255,215,0,.25),
+    0 1px 0 rgba(255,255,255,.2) inset;
+}
+.home-btn:active{transform:translateY(-1px) scale(.98)}
+.home-btn-emoji{
+  filter:drop-shadow(0 4px 8px rgba(0,0,0,.35));
+  transition:transform .35s var(--ease-spring);
+}
+.home-btn:hover .home-btn-emoji{transform:scale(1.15) translateY(-2px)}
+
+/* Guest tile gets a subtle gold identity */
+.home-btn.guest{border-color:rgba(255,215,0,.4)}
+.home-btn.guest:hover{border-color:rgba(255,215,0,.75)}
+
+/* ---------- 4. Intro panel — calm & structured ---------- */
+.home-intro{
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:1.4rem;
+  padding:1.1rem 1.15rem;
+}
+.home-intro .hi-title{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:1.05rem;
+  color:#ffe9a8;
+}
+.home-intro .hi-lead{
+  font-style:normal;
+  font-size:.83rem;
+  color:rgba(255,255,255,.85);
+  line-height:1.65;
+}
+.home-intro .hi-step{
+  background:rgba(255,255,255,.96);
+  border-left:3px solid var(--c-primary-2);
+  border-radius:.9rem;
+  padding:.65rem .8rem;
+  box-shadow:0 6px 18px -10px rgba(0,0,0,.35);
+}
+.home-intro .hi-step .hi-h{
+  font-style:normal;
+  font-weight:700;
+  font-size:.82rem;
+  letter-spacing:.01em;
+}
+.home-intro .hi-step .hi-p{
+  font-size:.76rem;
+  color:#5a4048;
+  line-height:1.55;
+}
+.home-intro .hi-step .hi-num{
+  flex:0 0 1.6rem;height:1.6rem;
+  color:#fff;
+  font-family:var(--font-ui);
+  box-shadow:0 4px 10px -4px rgba(0,0,0,.4);
+}
+.home-intro .hi-foot{
+  font-style:normal;
+  color:rgba(255,255,255,.75);
+  font-size:.73rem;
+}
+.home-intro .hi-toggle button{
+  font-family:var(--font-ui);
+  font-style:normal;
+  font-weight:600;
+  letter-spacing:.02em;
+  background:rgba(255,255,255,.14);
+  color:#ffe9a8;
+  border:1px solid rgba(255,215,0,.45);
+  padding:.4rem 1.1rem;
+  transition:background .3s ease,transform .3s var(--ease-out-quint);
+}
+.home-intro .hi-toggle button:hover{
+  background:rgba(255,215,0,.18);
+  transform:translateY(-1px);
+}
+
+/* ---------- 5. Changelog & finished — quieter surfaces ---------- */
+.home-changelog{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,215,0,.3);
+  border-radius:1.4rem;
+}
+.home-changelog .hcl-title{
+  font-family:Georgia,'Times New Roman',serif;
+  font-weight:600;
+  letter-spacing:.14em;
+  font-size:.95rem;
+}
+.home-changelog .hcl-item{
+  background:rgba(255,255,255,.96);
+  border-left:3px solid var(--c-primary-2);
+  font-size:.74rem;
+}
+.home-finished{
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:1.4rem;
+}
+.home-finished .hf-title{
+  font-family:Georgia,'Times New Roman',serif;
+  font-weight:600;
+  letter-spacing:.14em;
+  font-size:.95rem;
+}
+
+/* ---------- 6. Stats chips ---------- */
+.home-stat-chip{
+  font-family:var(--font-ui);
+  font-style:normal;
+  font-weight:600;
+  letter-spacing:.02em;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.22);
+}
+
+/* ---------- 7. Footer ---------- */
+.home-footer{
+  font-style:normal;
+  letter-spacing:.02em;
+  opacity:.85;
+}
+
+/* ---------- 8. Lock screen — refined countdown ---------- */
+.lock-title{
+  font-style:normal;
+  font-weight:600;
+  letter-spacing:.02em;
+}
+.lock-subtitle{font-style:normal;color:rgba(255,255,255,.85)}
+.cd-box{
+  background:rgba(255,255,255,.96);
+  border-radius:1.1rem;
+  box-shadow:0 10px 26px -10px rgba(0,0,0,.45),
+             inset 0 0 0 1px rgba(255,215,0,.5);
+  transition:transform .3s var(--ease-out-quint);
+}
+.open-early-btn{
+  font-style:normal;
+  font-family:var(--font-ui);
+  font-weight:700;
+  letter-spacing:.02em;
+  transition:transform .3s var(--ease-out-quint),box-shadow .3s ease,filter .3s ease;
+}
+.open-early-btn:hover{filter:brightness(1.05)}
+
+/* ---------- 8b. Passcode modal — clean input focus ---------- */
+.pw-content{border-radius:1.4rem}
+.pw-title{letter-spacing:.02em}
+.pw-input{
+  font-family:var(--font-ui);
+  letter-spacing:.35em;
+  transition:border-color .3s ease,box-shadow .3s ease;
+}
+.pw-btn{
+  font-style:normal;
+  font-family:var(--font-ui);
+  font-weight:700;
+  letter-spacing:.02em;
+  transition:transform .3s var(--ease-out-quint),filter .3s ease;
+}
+.pw-btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+
+/* ---------- 9. Viewer cards — consistent rhythm ---------- */
+.card{
+  border-radius:1.4rem;
+  box-shadow:0 18px 44px -20px rgba(0,0,0,.35),
+             0 1px 0 rgba(255,255,255,.5) inset;
+}
+.subhead{letter-spacing:.06em}
+
+/* Smooth entrance for interactive panels */
+@keyframes riseIn{
+  from{opacity:0;transform:translateY(14px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.card,.panel,[class*="-panel"]{animation:riseIn .5s var(--ease-out-quint) both}
+
+/* ---------- 9b. Accessibility — honour reduced-motion everywhere ---------- */
+@media (prefers-reduced-motion: reduce){
+  .card,.panel,[class*="-panel"]{animation:none}
+  .home-btn,.home-btn-emoji,.cd-box,.pw-btn,.btn,.primary-btn,.action-btn,
+  .open-early-btn,.home-intro .hi-toggle button{transition-duration:.01ms!important}
+  .home-hero-card::before{animation:none}
+}
+
+/* ---------- 10. Buttons across the app — unified feel ---------- */
+button{font-family:var(--font-ui)}
+.btn,.primary-btn,.action-btn{
+  transition:transform .3s var(--ease-out-quint),box-shadow .3s ease,filter .3s ease;
+}
+.btn:hover,.primary-btn:hover,.action-btn:hover{
+  transform:translateY(-2px);
+  filter:brightness(1.05);
+}
+.btn:active,.primary-btn:active,.action-btn:active{transform:translateY(0)}
+
+/* ---------- 11. Toast — refined notification ---------- */
+.toast{
+  font-family:var(--font-ui);
+  font-weight:600;
+  letter-spacing:.01em;
+  background:rgba(20,24,34,.92);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 16px 40px -12px rgba(0,0,0,.5);
+}
+.toast.err{background:rgba(140,20,40,.94)}
+
+/* ---------- 12. Selection & caret polish ---------- */
+::selection{background:rgba(255,215,0,.35);color:inherit}
+input,textarea{caret-color:var(--c-primary-2)}
+
+/* ---------- 13. Print-friendly (cards can be saved as PDF) ---------- */
+@media print{
+  .home-floaters,.float-item,.balloon-layer,.cursor-sparkle{display:none!important}
+  body{background:#fff!important;color:#000!important}
+}
+
+/* ---------- 14. Perceived-speed polish (cosmetic only) ---------- */
+/* Immediate tactile feedback on every tap/click — the UI feels instant
+   even while async work happens behind the scenes. No behavior changes. */
+button:active, .home-btn:active, .repeat-add:active, .panel-btn:active,
+.viewer-pill:active, .viewer-share-btn:active{
+  transform:scale(.965);
+  transition-duration:.05s;
+}
+/* Cursor: pointer everywhere it's clickable (perceived responsiveness). */
+button, .home-btn, .clickable, [role="button"]{cursor:pointer}
+
+/* ============================================================
+   15. ADVANCED HOME SCREEN — premium visual layer (cosmetic only)
+   No selectors change layout rules or behavior; everything here
+   is additive styling for the existing markup & classes.
+   ============================================================ */
+
+/* ---------- Staggered tile entrance animation ---------- */
+@keyframes tileIn{
+  from{opacity:0;transform:translateY(14px) scale(.96)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+.tile-in{
+  animation:tileIn .5s var(--ease-out-quint, cubic-bezier(.22,1,.36,1)) both;
+}
+
+/* ---------- Person tiles: per-hue gradient glass + gold ring on focus ---------- */
+.home-grid .home-btn:not(.guest):not(.finished-btn){
+  background:
+    linear-gradient(150deg,
+      hsla(calc(330 + var(--tile-hue-shift, 0)), 85%, 62%, .20),
+      rgba(255,255,255,.10) 55%),
+    rgba(255,255,255,.08);
+}
+.home-grid .home-btn:nth-child(6n+1){--tile-hue-shift:0}
+.home-grid .home-btn:nth-child(6n+2){--tile-hue-shift:-26}   /* coral */
+.home-grid .home-btn:nth-child(6n+3){--tile-hue-shift:-52}   /* amber */
+.home-grid .home-btn:nth-child(6n+4){--tile-hue-shift:26}    /* rose */
+.home-grid .home-btn:nth-child(6n+5){--tile-hue-shift:52}    /* magenta */
+.home-grid .home-btn:nth-child(6n+6){--tile-hue-shift:-78}   /* gold */
+.home-btn:focus-visible{
+  outline:none;
+  box-shadow:
+    0 0 0 3px rgba(255,215,0,.85),
+    0 14px 30px -10px rgba(0,0,0,.55)!important;
+}
+.home-btn .home-btn-emoji{transition:transform .3s var(--ease-spring, ease)}
+.home-btn:hover .home-btn-emoji{transform:scale(1.18) rotate(-8deg)}
+
+/* Guest tile gets a gentle golden breathing glow to draw the eye */
+@keyframes guestGlow{
+  0%,100%{box-shadow:0 10px 22px -8px rgba(255,138,61,.5),0 0 0 1px rgba(255,255,255,.25) inset,0 1px 0 rgba(255,255,255,.55) inset}
+  50%{box-shadow:0 12px 30px -6px rgba(255,138,61,.85),0 0 22px rgba(255,215,0,.35),0 0 0 1px rgba(255,255,255,.25) inset,0 1px 0 rgba(255,255,255,.55) inset}
+}
+.home-btn.guest{animation-name:tileIn,guestGlow;animation-duration:.5s,3.2s;animation-delay:inherit,0s;animation-timing-function:cubic-bezier(.22,1,.36,1),ease-in-out;animation-fill-mode:both,none;animation-iteration-count:1,infinite}
+
+/* ---------- Sparkling "birthday soon" stat chip / button ---------- */
+.home-stat-chip.upcoming{
+  border-color:rgba(255,215,0,.75);
+  background:linear-gradient(120deg,rgba(255,77,109,.35),rgba(255,215,0,.30));
+  animation:tileIn .5s both,bdaySoonPulse 1.8s ease-in-out infinite;
+  max-width:100%;
+}
+/* Make the birthday chip look & feel like a real button */
+button.bday-soon-btn{
+  cursor:pointer;font:inherit;color:#fff;
+  transition:transform .15s ease,filter .15s ease;
+}
+button.bday-soon-btn:hover{transform:translateY(-1px) scale(1.03);filter:brightness(1.12)}
+button.bday-soon-btn:active{transform:scale(.97)}
+button.bday-soon-btn:focus-visible{outline:2px solid rgba(255,215,0,.9);outline-offset:2px}
+.bday-soon-btn .bsp-caret{font-size:.6rem;opacity:.85;margin-left:.1rem;transition:transform .2s ease}
+.bday-soon-btn.open .bsp-caret{transform:rotate(180deg)}
+/* Names of the people whose birthday is coming up (legacy inline list) */
+.home-stat-chip.upcoming .hsc-names{
+  font-weight:700;font-size:.72rem;color:#fff;opacity:.95;
+  white-space:normal;overflow-wrap:anywhere;
+}
+@keyframes bdaySoonPulse{
+  0%,100%{box-shadow:0 6px 16px -8px rgba(0,0,0,.45)}
+  50%{box-shadow:0 8px 22px -6px rgba(255,77,109,.65),0 0 18px rgba(255,215,0,.4)}
+}
+
+/* ---------- 🎂 "Birthdays coming soon" popup panel ---------- */
+.bday-soon-pop{
+  position:absolute;top:calc(100% + .5rem);left:50%;transform:translateX(-50%);
+  z-index:60;width:min(300px,86vw);
+  background:linear-gradient(160deg,rgba(40,20,40,.97),rgba(60,28,52,.97));
+  border:1.5px solid rgba(255,215,0,.55);border-radius:1rem;
+  padding:.7rem .8rem .55rem;
+  box-shadow:0 18px 40px -12px rgba(0,0,0,.7),0 0 22px rgba(255,215,0,.18);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  animation:bspPop .22s cubic-bezier(.22,1,.36,1) both;text-align:left;
+}
+@keyframes bspPop{from{opacity:0;transform:translateX(-50%) translateY(-6px) scale(.96)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+.bday-soon-pop::before{ /* little arrow pointing at the button */
+  content:'';position:absolute;top:-6px;left:50%;margin-left:-6px;
+  width:12px;height:12px;transform:rotate(45deg);
+  background:rgba(48,24,46,.97);
+  border-left:1.5px solid rgba(255,215,0,.55);border-top:1.5px solid rgba(255,215,0,.55);
+}
+.bday-soon-pop .bsp-head{
+  display:flex;align-items:center;gap:.4rem;
+  font-family:var(--font-ui);font-weight:800;font-size:.82rem;color:#fff;
+  padding-bottom:.45rem;margin-bottom:.35rem;
+  border-bottom:1px dashed rgba(255,255,255,.22);
+}
+.bday-soon-pop .bsp-count{
+  margin-left:auto;background:linear-gradient(120deg,#ff4d6d,#ffd700);
+  color:#2a1020;font-weight:900;font-size:.72rem;border-radius:40px;padding:.08rem .5rem;
+}
+.bday-soon-pop .bsp-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.15rem}
+.bday-soon-pop .bsp-item{
+  display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  padding:.3rem .35rem;border-radius:.55rem;
+}
+.bday-soon-pop .bsp-item.today{background:rgba(255,215,0,.14)}
+.bday-soon-pop .bsp-name{font-weight:700;font-size:.8rem;color:#fff;overflow-wrap:anywhere}
+.bday-soon-pop .bsp-when{font-size:.7rem;font-weight:800;color:var(--c-accent);white-space:nowrap}
+.bday-soon-pop .bsp-item.today .bsp-when{color:#ffd700}
+.bday-soon-pop .bsp-empty{padding:.35rem;font-size:.75rem;color:rgba(255,255,255,.7)}
+.bday-soon-pop .bsp-foot{
+  margin-top:.4rem;padding-top:.35rem;border-top:1px dashed rgba(255,255,255,.18);
+  font-size:.62rem;color:rgba(255,255,255,.55);text-align:center;font-style:italic;
+}
+
+/* ---------- Hero title: tiny twinkling stars beside it (pure CSS) ---------- */
+.home-title{position:relative}
+.home-title::before{
+  content:'✦';
+  position:absolute;top:-.55em;left:50%;margin-left:-1.9em;
+  font-size:.55em;color:rgba(255,237,128,.9);font-style:normal;
+  text-shadow:0 0 10px rgba(255,215,0,.9);
+  animation:twinkle 2.4s ease-in-out infinite;
+}
+.home-hero-card .home-title::after{content:""} /* keep gold divider intact */
+@keyframes twinkle{
+  0%,100%{opacity:.25;transform:scale(.7) rotate(0deg)}
+  50%{opacity:1;transform:scale(1.15) rotate(20deg)}
+}
+
+/* ---------- Section heads: chevron rotates smoothly when open ---------- */
+.hf-chev,.hcl-chev,.hr-chev{display:inline-block}
+.home-reviews:not(.collapsed) .hr-chev,
+.home-changelog:not(.collapsed) .hcl-chev,
+.home-finished:not(.collapsed) .hf-chev{transform:rotate(0deg)!important}
+
+/* ---------- Skeleton shimmer upgrade while first-loading ---------- */
+.skeleton.skel-btn{
+  min-height:88px;height:auto;border-radius:1rem;
+  background:linear-gradient(100deg,
+    rgba(255,255,255,.07) 30%,rgba(255,255,255,.18) 50%,rgba(255,255,255,.07) 70%);
+  background-size:220% 100%;
+  animation:skelShimmer 1.15s linear infinite;
+}
+@keyframes skelShimmer{
+  0%{background-position:180% 0}
+  100%{background-position:-40% 0}
+}
+
+/* ---------- Refined scroll feel on the home screen ---------- */
+.home-screen{scrollbar-gutter:stable}
+.home-inner{animation:innerFade .45s ease both}
+@keyframes innerFade{from{opacity:0}to{opacity:1}}
+
+/* Respect reduced motion: kill the decorative loops, keep instant UI */
+@media (prefers-reduced-motion: reduce){
+  .tile-in,.home-btn.guest,.home-stat-chip.upcoming,.home-title::before{animation:none!important}
+  .skeleton.skel-btn{animation:none}
+}
+
+/* ================= V3.0 additive styles (cosmetic only) ================= */
+/* Onboarding tour */
+.v3-overlay{position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(20,4,12,.72);backdrop-filter:blur(6px);opacity:0;transition:opacity .25s ease}
+.v3-overlay.active{opacity:1}
+.v3-card{position:relative;width:min(430px,94vw);border-radius:22px;padding:1.6rem 1.4rem 1.3rem;text-align:center;color:#fff;
+ background:linear-gradient(160deg,rgba(74,0,22,.96),rgba(150,20,50,.94));
+ border:1px solid rgba(255,215,0,.35);box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 40px rgba(255,105,140,.18);
+ animation:v3pop .35s cubic-bezier(.2,1.4,.4,1)}
+@keyframes v3pop{from{transform:scale(.82) translateY(18px);opacity:0}to{transform:none;opacity:1}}
+.v3-skip{position:absolute;top:.6rem;right:.8rem;background:none;border:none;color:rgba(255,255,255,.75);font-size:.85rem;cursor:pointer;padding:.3rem .5rem}
+.v3-skip:hover{color:#fff}
+.v3-emoji{font-size:3.2rem;line-height:1;margin-bottom:.5rem;animation:v3bounce 1.6s ease-in-out infinite}
+@keyframes v3bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.v3-title{font-size:1.25rem;font-weight:800;margin-bottom:.5rem;background:linear-gradient(90deg,#ffd700,#ff8fab,#ffd700);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:v3shine 3s linear infinite}
+@keyframes v3shine{to{background-position:200% center}}
+.v3-body{font-size:.95rem;line-height:1.55;color:rgba(255,255,255,.92);margin-bottom:1rem;min-height:3.2em}
+.v3-dots{display:flex;gap:.45rem;justify-content:center;margin-bottom:1rem}
+.v3-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.3);transition:all .25s}
+.v3-dot.on{background:#ffd700;transform:scale(1.35);box-shadow:0 0 10px rgba(255,215,0,.7)}
+.v3-actions{display:flex;gap:.6rem;justify-content:center}
+.v3-btn{min-height:44px;padding:.55rem 1.3rem;border-radius:999px;font-weight:700;font-size:.95rem;cursor:pointer;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;transition:transform .15s,background .2s}
+.v3-btn:active{transform:scale(.94)}
+.v3-btn.primary{background:linear-gradient(90deg,#c41e3a,#ff5e7a);border-color:transparent;box-shadow:0 6px 18px rgba(196,30,58,.45)}
+.v3-btn.ghost{background:transparent}
+.v3-btn:hover{background:rgba(255,255,255,.22)}
+.v3-btn.primary:hover{filter:brightness(1.1)}
+
+/* Home search + favourites + avatars */
+.home-search-wrap{display:flex;align-items:center;gap:.5rem;max-width:520px;margin:0 auto 1rem;position:relative}
+.home-search{flex:1;min-height:46px;border-radius:999px;border:1px solid rgba(255,215,0,.35);background:rgba(255,255,255,.08);color:#fff;padding:.6rem 2.6rem .6rem 1.1rem;font-size:1rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.home-search::placeholder{color:rgba(255,255,255,.55)}
+.home-search:focus{border-color:#ffd700;box-shadow:0 0 0 3px rgba(255,215,0,.18)}
+.home-search-clear{position:absolute;right:.55rem;background:none;border:none;color:rgba(255,255,255,.6);font-size:1rem;cursor:pointer;padding:.4rem}
+.home-search-clear:hover{color:#fff}
+.home-search-none{text-align:center;color:rgba(255,255,255,.65);padding:1.2rem;font-style:italic}
+.fav-heart{position:absolute;top:.4rem;right:.45rem;font-size:1.15rem;cursor:pointer;z-index:2;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));transition:transform .15s;user-select:none}
+.fav-heart:active{transform:scale(1.3)}
+.fav-heart.on{animation:v3heart .4s ease}
+@keyframes v3heart{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
+.home-avatar{display:inline-flex;align-items:center;justify-content:center;width:2.3rem;height:2.3rem;border-radius:50%;font-weight:800;color:#fff;font-size:1.05rem;margin-right:.6rem;box-shadow:0 3px 10px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35);vertical-align:middle;flex-shrink:0}
+
+/* Save progress bar */
+#v3ProgressBar{position:fixed;top:0;left:0;height:3px;width:0;z-index:9999;background:linear-gradient(90deg,#ffd700,#ff5e7a);box-shadow:0 0 12px rgba(255,215,0,.8);opacity:0;transition:width .3s ease,opacity .25s;border-radius:0 3px 3px 0}
+#v3ProgressBar.on{opacity:1}
+
+/* Konami easter egg */
+.konami-dance .home-btn,.konami-dance .hero-card{animation:v3wiggle .6s ease-in-out infinite}
+@keyframes v3wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(1.2deg)}75%{transform:rotate(-1.2deg)}}
+
+/* Sound toggle chip (matches existing music/lang toggles) */
+.sound-toggle{z-index:60}
+
+/* PWA install chip */
+#v3InstallChip{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 1rem);left:50%;transform:translateX(-50%);z-index:9990;min-height:44px;padding:.6rem 1.3rem;border-radius:999px;border:1px solid rgba(255,215,0,.5);background:linear-gradient(90deg,rgba(74,0,22,.95),rgba(150,20,50,.95));color:#fff;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45);animation:v3pop .4s ease}
+#v3InstallChip:active{transform:translateX(-50%) scale(.95)}
+
+@media (prefers-reduced-motion:reduce){
+ .v3-card,.v3-emoji,.v3-title,.fav-heart.on,.konami-dance .home-btn,.konami-dance .hero-card,#v3InstallChip{animation:none!important}
+}
+
+/* ================= V3 admin: Insights + Bulk share ================= */
+.ana-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.5rem}
+.ana-card{background:linear-gradient(145deg,#fff,#f4f6ff);border:1px solid rgba(99,102,241,.18);
+  border-radius:.8rem;padding:.7rem .5rem;text-align:center;box-shadow:0 2px 10px rgba(80,80,160,.07)}
+.ana-num{font-size:1.45rem;font-weight:800;color:#4338ca;line-height:1.1}
+.ana-lbl{font-size:.7rem;color:var(--c-text-muted);margin-top:.25rem}
+.ana-note{grid-column:1/-1;font-size:.68rem;color:var(--c-text-muted);opacity:.8;margin-top:.2rem}
+.ana-row{display:flex;align-items:center;gap:.5rem;padding:.45rem .3rem;border-bottom:1px dashed rgba(0,0,0,.07);font-size:.8rem}
+.ana-rank{width:1.3rem;height:1.3rem;flex:0 0 1.3rem;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);
+  color:#fff;font-size:.65rem;font-weight:800;display:grid;place-items:center}
+.ana-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%}
+.ana-meta{color:var(--c-text-muted);font-size:.7rem;white-space:nowrap}
+.ana-bar{flex:1;height:.45rem;border-radius:99px;background:rgba(99,102,241,.12);overflow:hidden;min-width:40px}
+.ana-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#6366f1,#ec4899)}
+.bulk-row{display:flex;align-items:center;gap:.55rem;padding:.5rem .35rem;border-bottom:1px dashed rgba(0,0,0,.08)}
+.bulk-row input[type=checkbox]{width:1.05rem;height:1.05rem;accent-color:#128C7E;flex:0 0 auto}
+.bulk-info{flex:1;min-width:0;display:flex;flex-direction:column}
+.bulk-info strong{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bulk-sub{font-size:.68rem;color:var(--c-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bulk-one{border:0;background:rgba(37,211,102,.12);color:#128C7E;border-radius:.5rem;
+  min-width:2rem;min-height:2rem;font-size:.85rem;cursor:pointer;transition:transform .12s ease}
+.bulk-one:active{transform:scale(.88)}
+@media (max-width:480px){.ana-grid{grid-template-columns:repeat(auto-fill,minmax(95px,1fr))}.ana-name{max-width:45%}}
+
+/* ================= V3 media repeater: thumbs + drag/move ================= */
+.gm-thumb{width:44px;height:44px;flex:0 0 44px;border-radius:.5rem;object-fit:cover;
+  border:1px solid rgba(99,102,241,.25);box-shadow:0 2px 6px rgba(0,0,0,.10);align-self:center}
+.gm-thumb-empty{display:grid;place-items:center;background:#f3f4ff;font-size:1.1rem}
+.gm-drag{cursor:grab;color:#8b8fa8;font-size:1rem;padding:0 .25rem;align-self:center;user-select:none;touch-action:none}
+.gm-drag:active{cursor:grabbing}
+.repeat-row.gm-dragging{opacity:.45}
+.repeat-row.gm-drop{outline:2px dashed #6366f1;outline-offset:-2px;background:#f5f3ff}
+.gm-move{display:flex;flex-direction:column;gap:1px;align-self:center;margin-right:.25rem}
+.gm-up,.gm-down{border:0;background:rgba(99,102,241,.10);color:#4338ca;border-radius:.3rem;
+  font-size:.6rem;line-height:1;min-width:1.3rem;min-height:1.05rem;cursor:pointer;padding:0}
+.gm-up:active,.gm-down:active{transform:scale(.85)}
+@media (max-width:560px){.gm-thumb{width:36px;height:36px;flex-basis:36px}}
+
+/* ================= V3 palette customizer row ================= */
+.palette-row{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;margin-top:.45rem}
+.pal-lbl{display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--c-text)}
+.pal-lbl input[type=color]{width:2.6rem;height:2rem;border:1px solid rgba(0,0,0,.15);border-radius:.45rem;background:#fff;padding:.1rem;cursor:pointer}
+.pal-prev-wrap{font-size:.75rem;color:var(--c-text-muted);display:flex;align-items:center;gap:.4rem}
+.palette-preview{display:inline-block;width:3.4rem;height:1.3rem;border-radius:99px;border:1px solid rgba(0,0,0,.12)}
+
+/* ================= 🚀 Update-available popup (js/update.js) ================= */
+.um-overlay{z-index:100010} /* above every other panel/modal */
+.um-overlay .panel-content.um-card{scroll-margin-top:1rem}
+.panel-content.um-card{max-width:430px;text-align:center;padding:1.6rem 1.3rem 1.2rem}
+.um-rocket{
+  font-size:2.6rem;line-height:1;margin-bottom:.35rem;
+  animation:umRocketBounce 1.6s ease-in-out infinite;display:inline-block;
+}
+@keyframes umRocketBounce{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-8px) rotate(6deg)}}
+.um-title{font-size:1.25rem;font-weight:900;color:var(--c-primary);letter-spacing:.01em}
+.um-sub{font-size:.88rem;color:var(--c-text);margin-top:.35rem;line-height:1.45}
+.um-sub strong{color:var(--c-accent)}
+.um-date{color:var(--c-text-muted);font-size:.78rem}
+.um-you{
+  margin:.6rem auto 0;max-width:340px;font-size:.76rem;color:var(--c-text-muted);
+  background:rgba(255,77,109,.08);border:1px dashed rgba(255,77,109,.35);
+  border-radius:.7rem;padding:.45rem .6rem;line-height:1.45;
+}
+.um-list-title{
+  margin-top:.85rem;font-size:.7rem;font-weight:900;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--c-accent);
+}
+.um-list{margin-top:.4rem;display:flex;flex-direction:column;gap:.3rem;text-align:left}
+.um-item{
+  display:flex;align-items:flex-start;gap:.45rem;font-size:.78rem;color:var(--c-text);
+  background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:.6rem;padding:.4rem .55rem;
+}
+.um-dot{color:var(--c-accent);font-weight:900;flex:0 0 auto}
+.um-actions{display:flex;gap:.55rem;justify-content:center;margin-top:1rem;flex-wrap:wrap}
+.um-btn{
+  border:none;border-radius:.8rem;padding:.65rem 1.15rem;font-weight:800;font-size:.88rem;
+  cursor:pointer;font-family:var(--font-ui);transition:transform .15s ease,filter .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.um-btn:hover{transform:translateY(-1px);filter:brightness(1.06)}
+.um-btn:active{transform:scale(.96)}
+.um-btn:focus-visible{outline:2px solid var(--c-accent);outline-offset:2px}
+.um-btn.primary{background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;box-shadow:0 10px 22px -8px rgba(201,24,74,.55)}
+.um-btn.ghost{background:transparent;color:var(--c-text-muted);border:1.5px solid rgba(0,0,0,.14)}
+/* "What's new" live rows injected from version.json */
+.hcl-item.hcl-live{color:#ffe9a8}
+.hcl-item.hcl-live .hcl-ico{filter:drop-shadow(0 0 6px rgba(255,215,0,.7))}
+/* Admin panel — "latest deployed" box */
+#adminDeployedBox{margin:0 0 .8rem;padding:.6rem .75rem;border-radius:.9rem;
+  background:linear-gradient(135deg,#eef2ff,#fdf2f8);border:2px solid #a855f7;text-align:left}
+.adb-main{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.adb-badge{background:linear-gradient(135deg,#128C7E,#25D366);color:#fff;font-weight:900;
+  font-size:.72rem;border-radius:40px;padding:.12rem .6rem;letter-spacing:.4px}
+.adb-text{font-size:.8rem;font-weight:700;color:#0d5c4a}
+.adb-local{font-size:.68rem;color:var(--c-text-muted);margin-top:.2rem}
+.adb-list{margin-top:.4rem;display:flex;flex-direction:column;gap:.2rem}
+.adb-item{font-size:.72rem;color:var(--c-text);background:rgba(255,255,255,.7);
+  border-radius:.5rem;padding:.3rem .5rem}
+@media (prefers-reduced-motion: reduce){
+  .um-rocket{animation:none}
+}
