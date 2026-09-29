@@ -169,10 +169,18 @@ body{letter-spacing:.01em}
   font-size:.95rem;
 }
 .home-changelog .hcl-item{
-  background:rgba(255,255,255,.96);
+  background:#ffffff;                       /* opaque card, not translucent */
+  color:#1a1025;                            /* near-black ink for max contrast */
   border-left:3px solid var(--c-primary-2);
-  font-size:.74rem;
+  font-size:.78rem;                         /* keep readable size (overrides .74) */
+  line-height:1.5;
+  font-weight:600;                          /* bold enough to read easily */
 }
+.home-changelog .hcl-item.hcl-live{
+  background:#fff8dc;color:#1a1025;
+  border:1px solid #b8860b;border-left:3px solid #b8860b;
+}
+.home-changelog .hcl-item strong{color:#0d2a6e;font-weight:800}
 .home-finished{
   background:rgba(255,255,255,.05);
   border:1px solid rgba(255,255,255,.16);
@@ -594,13 +602,14 @@ button.bday-soon-btn:focus-visible{outline:2px solid rgba(255,215,0,.9);outline-
   border-radius:.7rem;padding:.45rem .6rem;line-height:1.45;
 }
 .um-list-title{
-  margin-top:.85rem;font-size:.7rem;font-weight:900;letter-spacing:1.2px;
-  text-transform:uppercase;color:var(--c-accent);
+  margin-top:.85rem;font-size:.78rem;font-weight:900;letter-spacing:1.2px;
+  text-transform:uppercase;color:#a06b00;      /* dark gold — readable, was pale accent */
 }
 .um-list{margin-top:.4rem;display:flex;flex-direction:column;gap:.3rem;text-align:left}
 .um-item{
-  display:flex;align-items:flex-start;gap:.45rem;font-size:.78rem;color:var(--c-text);
-  background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:.6rem;padding:.4rem .55rem;
+  display:flex;align-items:flex-start;gap:.45rem;text-align:left;
+  font-size:.82rem;line-height:1.5;font-weight:600;color:#1a1025;   /* near-black ink */
+  background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:.6rem;padding:.45rem .6rem;
 }
 .um-dot{color:var(--c-accent);font-weight:900;flex:0 0 auto}
 .um-actions{display:flex;gap:.55rem;justify-content:center;margin-top:1rem;flex-wrap:wrap}
