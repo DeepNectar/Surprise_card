@@ -343,7 +343,9 @@ window.addFinishedPerson = function(person){
       display_name: person.display_name,
       birthday: person.birthday,
       requester_name: person.requester_name || '',
-      wiped_at: new Date().toISOString()
+      /* honour an explicit wipe date/time when given (the scheduled "said
+         date and time" the data is wiped out at); otherwise stamp now */
+      wiped_at: person.wiped_at || new Date().toISOString()
     });
     // cap to keep local storage small
     const trimmed = filtered.slice(0, 100);

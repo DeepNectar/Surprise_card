@@ -223,6 +223,24 @@ window.sb = {
 
       if(!due.length) return [];
 
+      /* Remember in the local finished list BEFORE deleting, so a failure
+         halfway through can never lose a person from the home screen.
+         Stamp with the scheduled wipe date/time ("said" date & time). */
+      if(window.addFinishedPerson){
+        due.forEach(p => {
+          try{
+            window.addFinishedPerson({
+              id: p.id,
+              slug: p.slug,
+              display_name: p.display_name,
+              birthday: p.birthday,
+              requester_name: p.requester_name || '',
+              wiped_at: p.wipe_iso || null
+            });
+          }catch(e){}
+        });
+      }
+
       // For each due person, wipe their tables + person row
       for(const p of due){
         try{
@@ -238,17 +256,6 @@ window.sb = {
             this.wipe(T_SETTINGS, p.id)
           ]);
           await this.delPerson(p.id);
-
-          // Remember in local finished list
-          if(window.addFinishedPerson){
-            window.addFinishedPerson({
-              id: p.id,
-              slug: p.slug,
-              display_name: p.display_name,
-              birthday: p.birthday,
-              requester_name: p.requester_name || ''
-            });
-          }
         }catch(e){ console.warn('wipe due person', p.id, e.message); }
       }
       return due;
@@ -291,9 +298,34 @@ window.sb = {
   }
 };
 
-/* ---------- Wipe one person completely ---------- */
+/* ---------- Wipe one person completely ----------
+   Also files them in the FINISHED list so they show up on the home screen
+   (with the date/time their data was wiped out), just like auto-expired ones. */
 window.wipeOnePerson = async function(pid){
   if(!pid) return;
+  /* Grab the row BEFORE deleting so we know who to remember. */
+  let person = null;
+  try{
+    const rows = await req(T_PEOPLE + '?select=id,slug,display_name,birthday,requester_name,wipe_iso&person_id=eq.' + encodeURIComponent(pid));
+    person = (rows && rows[0]) || null;
+  }catch(e){}
+  if(!person){
+    try{ person = (S.PEOPLE || []).find(p => String(p.id) === String(pid)) || null; }catch(e){}
+  }
+  /* Remember on the finished list — stamped with the scheduled wipe date/time
+     when known (the moment the data is set to be wiped out), else right now. */
+  if(person && window.addFinishedPerson){
+    try{
+      addFinishedPerson({
+        id: person.id,
+        slug: person.slug,
+        display_name: person.display_name,
+        birthday: person.birthday,
+        requester_name: person.requester_name || '',
+        wiped_at: person.wipe_iso || null
+      });
+    }catch(e){}
+  }
   try{
     await Promise.all([
       sb.wipe(T_MEDIA,   pid),
@@ -310,10 +342,41 @@ window.wipeOnePerson = async function(pid){
   }catch(e){ console.warn('[wipe] failed for ' + pid, e.message); }
 };
 
+/* Merge anything wiped by OTHER tabs/browsers since our last sync into the
+   local finished list, so every visitor sees all finished people — not only
+   the ones wiped while their own tab happened to be open. */
+window.syncFinishedFromCloud = async function syncFinishedFromCloud(){
+  try{
+    const rows = await req(
+      T_PEOPLE + '?select=id,slug,display_name,birthday,requester_name,wipe_iso'
+      + '&wipe_iso=not.is.null&wipe_iso=lte.' + encodeURIComponent(new Date().toISOString())
+      + '&order=wipe_iso.desc&limit=200'
+    ) || [];
+    if(!rows.length) return false;
+    const known = {};
+    (window.getFinishedPeople ? getFinishedPeople() : []).forEach(f => { known[String(f.slug)] = 1; });
+    let added = 0;
+    rows.forEach(p => {
+      if(!p.slug || known[String(p.slug)]) return;
+      if(window.addFinishedPerson){
+        addFinishedPerson({
+          id: p.id, slug: p.slug, display_name: p.display_name,
+          birthday: p.birthday, requester_name: p.requester_name || '',
+          /* stamp with the ACTUAL scheduled wipe date/time */
+          wiped_at: p.wipe_iso || null
+        });
+        added++;
+      }
+    });
+    return added > 0;
+  }catch(e){ return false; }
+}
+
 window.checkWipe = async function(){
   try{
     const rows = await sb.wipeExpiredAndReturn();
-    if(!rows || !rows.length) return;
+    const synced = await syncFinishedFromCloud();
+    if((!rows || !rows.length) && !synced) return;
     S.PEOPLE = await sb.people() || [];
     if(window.buildHome) window.buildHome();
   }catch(e){}

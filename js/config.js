@@ -29,12 +29,12 @@ window.T_REVIEWS  = 'reviews';
    Open tabs compare themselves against /version.json and pop up an
    "upgrade" modal pointing at the latest deployed version; the home
    screen ("✨ What's new") and admin panel always show what is LIVE. */
-window.APP_VERSION   = 23;
-window.RELEASE_DATE  = '2026-09-28';
+window.APP_VERSION   = 24;
+window.RELEASE_DATE  = '2026-09-29';
 window.CHANGELOG_LIVE = [
-  '🎂 Birthday button now shows HOW MANY birthdays are coming soon — tap it for names & dates.',
-  '🚀 New auto-upgrade popup: when a fresh version is deployed, open tabs get notified and can update with one tap.',
-  '📊 The live deployed version is shown on the home screen and in the admin panel.'
+  '💐 Finished people now appear on the home screen automatically — stamped with the exact date & time their data was wiped out (works for scheduled auto-wipes AND admin deletes, and syncs across devices).',
+  '🚀 The ⬆️ "Update now" button is now one-time only: once used for a deployed version it never repeats — you will only be notified again when something NEWER ships.',
+  '🎂 Birthday button still shows HOW MANY birthdays are coming soon — tap it for names & dates.'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;

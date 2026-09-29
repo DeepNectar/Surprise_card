@@ -61,6 +61,10 @@ function saveHomeSnapshot(){
     }));
   }catch(e){}
 }
+/* Drop the cached home snapshot (e.g. right after a hard reload / upgrade). */
+window.clearHomeSnapshot = function(){
+  try{ localStorage.removeItem(HOME_SNAP_KEY); }catch(e){}
+}
 function loadHomeSnapshot(){
   try{
     const raw = localStorage.getItem(HOME_SNAP_KEY);
@@ -110,6 +114,15 @@ async function boot(){
 
   const wiped = await wipeP;
   if(wiped && wiped.length) S.__justWiped = wiped;
+
+  /* Merge finished people wiped by OTHER tabs/browsers into the local list,
+     so the home "Finished" section shows ALL auto-wiped people on load. */
+  try{
+    if(window.syncFinishedFromCloud){
+      const synced = await window.syncFinishedFromCloud();
+      if(synced && window.clearHomeSnapshot) window.clearHomeSnapshot();
+    }
+  }catch(e){}
 
   const freshPeople = await peopleP;
   if(freshPeople !== null) S.PEOPLE = freshPeople || [];

@@ -24,6 +24,7 @@
 const CHECK_EVERY_MS = 5 * 60 * 1000; /* re-poll while the tab stays open */
 const FIRST_CHECK_DELAY_MS = 2500;    /* let the UI paint before checking */
 const LS_KEY         = 'lastSeenVerV1';
+const USED_KEY       = 'upgradeUsedForV1'; /* versions whose ⬆️ button was already used */
 const POPUP_ID       = 'updateModal';
 
 let checking    = false;
@@ -122,8 +123,25 @@ function closePopup(){
   popupOpen = false;
 }
 
-/* Nuclear reload: bypass the immutable-cache copies of css/js entirely. */
+/* Nuclear reload: bypass the immutable-cache copies of css/js entirely.
+   The ⬆️ button is ONE-SHOT per deployed version: we mark this version as
+   "used" BEFORE reloading, so after the refresh the popup never offers the
+   same deployment again — only a NEWER one will. */
 function doHardReload(){
+  const vKey = String(remoteInfo && remoteInfo.version != null ? remoteInfo.version : '');
+  try{
+    if(vKey){
+      const used = JSON.parse(localStorage.getItem(USED_KEY) || '[]');
+      if(!Array.isArray(used)) throw 0;
+      if(used.indexOf(vKey) < 0) used.push(vKey);
+      localStorage.setItem(USED_KEY, JSON.stringify(used));
+    }
+  }catch(e){
+    try{ localStorage.setItem(USED_KEY, JSON.stringify([vKey])); }catch(_){}
+  }
+  /* Drop the cached home snapshot so the fresh load paints real data
+     (including any people wiped while this tab was away). */
+  try{ if(window.clearHomeSnapshot) window.clearHomeSnapshot(); }catch(e){}
   try{
     if(window.caches && caches.keys){
       caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
@@ -134,6 +152,14 @@ function doHardReload(){
   u.searchParams.set('_v', (remoteInfo && remoteInfo.version ? 'v' + remoteInfo.version + '-' : '') + Date.now());
   u.searchParams.delete('nocache');
   location.replace(u.toString());
+}
+
+/* Has the ⬆️ upgrade button already been used for this deployed version? */
+function upgradeAlreadyUsedFor(version){
+  try{
+    const used = JSON.parse(localStorage.getItem(USED_KEY) || '[]');
+    return Array.isArray(used) && used.indexOf(String(version)) >= 0;
+  }catch(e){ return false; }
 }
 
 /* ---------- version check ---------- */
@@ -155,9 +181,14 @@ async function checkForUpdate(force){
           visitors never see the popup — only tabs that missed a deploy. */
     const rv = vNum(j.version), lv = vNum(window.APP_VERSION);
     if(rv > lv){
+      /* The upgrade button may be used only ONCE for what has been deployed:
+         once this version was applied (or dismissed with "Not now"), never
+         nag about it again — only a NEWER deployment can pop up. */
+      if(upgradeAlreadyUsedFor(j.version)) return;
       let seen = '';
       try{ seen = localStorage.getItem(LS_KEY) || ''; }catch(e){}
-      if(force || seen !== String(j.version)) openPopup();
+      if(seen === String(j.version)) return;
+      openPopup();
     }
   }catch(e){
     /* Offline / file:// / blocked — stay silent, retry on next poll. */

@@ -215,7 +215,14 @@ function renderFinishedSection(){
   const list = $('homeFinishedList');
   if(list){
     list.innerHTML = finished.map(p => {
-      const when = p.wiped_at ? new Date(p.wiped_at).toLocaleDateString() : '';
+      let when = '';
+      if(p.wiped_at){
+        const dt = new Date(p.wiped_at);
+        if(!isNaN(dt)){
+          when = dt.toLocaleDateString() + ' · ' +
+                 dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      }
       return '<button type="button" class="home-btn finished-btn" data-slug="' + escAttr(p.slug) + '" data-name="' + escAttr(String(p.display_name || p.slug || '').toLowerCase()) + '">' +
         '<span class="home-btn-emoji">💐</span>' +
         '<span>' + esc(p.display_name || p.slug) + '</span>' +
