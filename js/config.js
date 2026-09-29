@@ -32,9 +32,9 @@ window.T_REVIEWS  = 'reviews';
 window.APP_VERSION   = '0.2';
 window.RELEASE_DATE  = '2026-09-29';
 window.CHANGELOG_LIVE = [
-  '🏷️ Version labels renamed: the site now shows "HD0.2 Version" everywhere (home badge, admin panel, upgrade popup) instead of "LIVE v…".',
   '💐 Finished people now appear on the home screen automatically — stamped with the exact date & time their data was wiped out (works for scheduled auto-wipes AND admin deletes, and syncs across devices).',
-  '🚀 The ⬆️ "Update now" button is now one-time only: once used for a deployed version it never repeats — you will only be notified again when something NEWER ships.'
+  '🚀 The ⬆️ "Update now" button is now one-time only: once used for a deployed version it never repeats — you will only be notified again when something NEWER ships.',
+  '🏷️ The upgrade popup now highlights WHAT\'S NEW in each deployment, titled simply "HD0.2 Version upgraded".'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;

@@ -56,8 +56,6 @@ function ensurePopupDom(){
   let el = document.getElementById(POPUP_ID);
   if(el) return el;
   const v   = remoteInfo && remoteInfo.version != null ? remoteInfo.version : (window.APP_VERSION || 0);
-  const d   = remoteInfo && remoteInfo.date ? remoteInfo.date : (window.RELEASE_DATE || '');
-  const cur = window.APP_VERSION || 0;
   /* Prefer the freshly fetched highlights; fall back to the bundled changelog. */
   const chg = Array.isArray(remoteInfo && remoteInfo.changes) && remoteInfo.changes.length
               ? remoteInfo.changes
@@ -71,12 +69,10 @@ function ensurePopupDom(){
     '<div class="panel-modal um-overlay" id="' + POPUP_ID + '" role="dialog" aria-modal="true" aria-label="Site update available">' +
       '<div class="panel-content um-card">' +
         '<div class="um-rocket">🚀</div>' +
-        '<div class="um-title">A new version is live!</div>' +
-        '<div class="um-sub">The site was just upgraded to <strong>' + versionLabel(v) + '</strong>' +
-          (d ? ' <span class="um-date">· ' + E(d) + '</span>' : '') +
-        '</div>' +
-        '<div class="um-you">You are viewing an older copy (' + versionLabel(cur) + '). One tap loads the latest deployed version.</div>' +
-        (items ? '<div class="um-list-title">✨ What\'s new</div><div class="um-list">' + items + '</div>' : '') +
+        '<div class="um-title">HD' + E(v) + ' Version upgraded</div>' +
+        /* The popup's ONLY purpose: show what's NEW in this deployment. */
+        (items ? '<div class="um-list-title">✨ What\'s new</div><div class="um-list">' + items + '</div>'
+               : '<div class="um-sub">Fresh content has been deployed — one tap loads the latest version.</div>') +
         '<div class="um-actions">' +
           '<button type="button" class="um-btn primary" id="umUpdateNow">⬆️ Update now</button>' +
           '<button type="button" class="um-btn ghost" id="umLater">Not now</button>' +
@@ -199,8 +195,9 @@ async function checkForUpdate(force){
 
 /* ---------- display label for a deployed version ----------
    Version labels are shown as "HD<x> Version" everywhere in the UI
-   (home badge, admin panel, upgrade popup). Numeric comparisons still
-   use parseFloat-friendly values from version.json / APP_VERSION. *
+   (home badge, admin panel). The upgrade popup uses its own fixed
+   "HD<x> Version upgraded" title. Numeric comparisons still use
+   parseFloat-friendly values from version.json / APP_VERSION. */
 function versionLabel(v){
   return 'HD' + E(v) + ' Version';
 }
@@ -214,7 +211,8 @@ function applyDeployedToHome(j){
   }
   const badge = document.querySelector('#homeChangelog .hcl-badge');
   if(badge){
-    badge.textContent = 'HD' + j.version + ' Version';
+    /* Home shows WHAT'S NEW; badge names the new deployment once. */
+    badge.textContent = 'HD' + j.version + ' Version upgraded';
     badge.title = 'Latest deployed version' + (j.date ? ' · ' + j.date : '');
   }
   /* Prepend the freshly deployed highlights (from version.json) so the
