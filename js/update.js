@@ -33,7 +33,7 @@ let remoteInfo  = null;   /* last version.json payload {version,date,changes} */
 let listenersOn = false;
 
 /* ---------- helpers ---------- */
-function vNum(v){ return parseInt(String(v || '').replace(/[^\d]/g, ''), 10) || 0; }
+function vNum(v){ return parseFloat(String(v == null ? '' : v)) || 0; }
 /* esc() lives in utils.js; keep a local fallback so this file never throws. */
 function E(s){
   if(typeof window.esc === 'function') return window.esc(s);
@@ -72,10 +72,10 @@ function ensurePopupDom(){
       '<div class="panel-content um-card">' +
         '<div class="um-rocket">🚀</div>' +
         '<div class="um-title">A new version is live!</div>' +
-        '<div class="um-sub">The site was just upgraded to <strong>v' + E(v) + '</strong>' +
+        '<div class="um-sub">The site was just upgraded to <strong>' + versionLabel(v) + '</strong>' +
           (d ? ' <span class="um-date">· ' + E(d) + '</span>' : '') +
         '</div>' +
-        '<div class="um-you">You are viewing an older copy (v' + E(cur) + '). One tap loads the latest deployed version.</div>' +
+        '<div class="um-you">You are viewing an older copy (' + versionLabel(cur) + '). One tap loads the latest deployed version.</div>' +
         (items ? '<div class="um-list-title">✨ What\'s new</div><div class="um-list">' + items + '</div>' : '') +
         '<div class="um-actions">' +
           '<button type="button" class="um-btn primary" id="umUpdateNow">⬆️ Update now</button>' +
@@ -197,6 +197,14 @@ async function checkForUpdate(force){
   }
 }
 
+/* ---------- display label for a deployed version ----------
+   Version labels are shown as "HD<x> Version" everywhere in the UI
+   (home badge, admin panel, upgrade popup). Numeric comparisons still
+   use parseFloat-friendly values from version.json / APP_VERSION. *
+function versionLabel(v){
+  return 'HD' + E(v) + ' Version';
+}
+
 /* ---------- surface "latest deployed" on the HOME screen ---------- */
 function applyDeployedToHome(j){
   const head = document.getElementById('homeChangelogHead');
@@ -206,7 +214,7 @@ function applyDeployedToHome(j){
   }
   const badge = document.querySelector('#homeChangelog .hcl-badge');
   if(badge){
-    badge.textContent = 'LIVE v' + j.version;
+    badge.textContent = 'HD' + j.version + ' Version';
     badge.title = 'Latest deployed version' + (j.date ? ' · ' + j.date : '');
   }
   /* Prepend the freshly deployed highlights (from version.json) so the
@@ -232,12 +240,12 @@ function applyDeployedToHome(j){
 function applyDeployedToAdmin(j){
   const box = document.getElementById('adminDeployedBox');
   if(!box) return;
-  const localTxt = 'This admin console build: v' + (window.APP_VERSION || '?');
+  const localTxt = 'This admin console build: ' + versionLabel(window.APP_VERSION || '?');
   const rows = (Array.isArray(j.changes) ? j.changes : []).slice(0, 3)
     .map(t => '<div class="adb-item">🚀 ' + E(t) + '</div>').join('');
   box.innerHTML =
     '<div class="adb-main">' +
-      '<span class="adb-badge">LIVE v' + E(j.version) + '</span>' +
+      '<span class="adb-badge">' + versionLabel(j.version) + '</span>' +
       '<span class="adb-text">Latest deployed' + (j.date ? ' · ' + E(j.date) : '') + '</span>' +
     '</div>' +
     '<div class="adb-local">' + E(localTxt) + '</div>' +
