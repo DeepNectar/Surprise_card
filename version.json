@@ -1,9 +1,9 @@
 {
-  "version": 23,
-  "date": "2026-09-28",
+  "version": "0.2",
+  "date": "2026-09-29",
   "changes": [
-    "🎂 Birthday button now shows HOW MANY birthdays are coming soon — tap it for names & dates.",
-    "🚀 New auto-upgrade popup: when a fresh version is deployed, open tabs get notified and can update with one tap.",
-    "📊 The live deployed version is shown on the home screen and in the admin panel."
+    "🏷️ Version labels renamed: the site now shows \"HD0.2 Version\" everywhere (home badge, admin panel, upgrade popup) instead of \"LIVE v…\".",
+    "💐 Finished people now appear on the home screen automatically — stamped with the exact date & time their data was wiped out (works for scheduled auto-wipes AND admin deletes, and syncs across devices).",
+    "🚀 The ⬆️ \"Update now\" button is now one-time only: once used for a deployed version it never repeats — you will only be notified again when something NEWER ships."
   ]
 }
