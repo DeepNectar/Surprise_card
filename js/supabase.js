@@ -51,6 +51,61 @@ async function once(path, opts, ms){
   }
 }
 
+/* ---------- Supabase Storage (finished-people cloud ledger) ----------
+   Finished people are ALSO saved as a JSON file in the project's cloud
+   storage bucket, so the 💐 Finished list survives even when every
+   database table is wiped out on the scheduled date & time. */
+const FINISHED_BUCKET = window.FINISHED_BUCKET || 'site-ledger';
+const FINISHED_FILE   = 'finished_people.json';
+
+function sbStoragePath(p){ return URL + '/storage/v1/' + p; }
+
+window.sbPutFinishedJson = async function(data){
+  try{
+    const fd = new FormData();
+    fd.append('cache-control', '30');
+    fd.append('content-type', 'application/json');
+    fd.append('bucketId', FINISHED_BUCKET);
+    fd.append('objectPath', FINISHED_FILE);
+    fd.append('file', new Blob([JSON.stringify(data)], {type:'application/json'}));
+    const r = await fetch(sbStoragePath('object/' + FINISHED_BUCKET + '/' + FINISHED_FILE + '?x-upsert=true'), {
+      method: 'POST',
+      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY },
+      body: fd,
+      cache: 'no-store'
+    });
+    return r.ok;
+  }catch(e){ return false; }
+};
+
+window.sbGetFinishedJson = async function(){
+  try{
+    const r = await fetch(sbStoragePath('object/public/' + FINISHED_BUCKET + '/' + FINISHED_FILE + '?cb=' + Date.now()), { cache:'no-store' });
+    if(!r.ok) return null;
+    const j = await r.json();
+    return (j && Array.isArray(j.people)) ? j : null;
+  }catch(e){ return null; }
+};
+
+/* One-time setup helper: creates the public 'site-ledger' bucket and the
+   anon write / public read policies.  Paste this into Supabase Dashboard →
+   SQL Editor and run it once. */
+window.LEDGER_SETUP_SQL =
+  "insert into storage.buckets (id, name, public) values ('" + FINISHED_BUCKET + "','" + FINISHED_BUCKET + "',true) on conflict (id) do nothing;\n" +
+  "drop policy if exists \"ledger_public_read\" on storage.objects;\n" +
+  "create policy \"ledger_public_read\" on storage.objects for select to public using (bucket_id = '" + FINISHED_BUCKET + "');\n" +
+  "drop policy if exists \"ledger_anon_write\" on storage.objects;\n" +
+  "create policy \"ledger_anon_write\" on storage.objects for insert to anon with check (bucket_id = '" + FINISHED_BUCKET + "');\n" +
+  "drop policy if exists \"ledger_anon_update\" on storage.objects;\n" +
+  "create policy \"ledger_anon_update\" on storage.objects for update to anon using (bucket_id = '" + FINISHED_BUCKET + "') with check (bucket_id = '" + FINISHED_BUCKET + "');";
+
+window.ledgerBucketExists = async function(){
+  try{
+    const r = await fetch(sbStoragePath('bucket/' + FINISHED_BUCKET), { headers: hdr(), cache:'no-store' });
+    return r.ok;
+  }catch(e){ return false; }
+};
+
 async function req(path, opts){
   opts = opts || {};
   const isGet = !opts.method || opts.method === 'GET';
