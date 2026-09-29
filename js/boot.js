@@ -105,6 +105,7 @@ async function boot(){
 
   /* Kick off ALL independent reads in parallel — total wait ≈ one round trip. */
   const wipeP   = sb.wipeExpiredAndReturn().catch(() => []);
+  const ledgerP = (window.pullFinishedLedger ? pullFinishedLedger() : Promise.resolve(false)).catch(() => false);
   const peopleP = sb.people().catch(() => null);
   const setP    = sb.getSet(null).catch(() => null);
   /* Reviews are fetched directly (same query as loadReviews) so boot does not
@@ -118,10 +119,16 @@ async function boot(){
   /* Merge finished people wiped by OTHER tabs/browsers into the local list,
      so the home "Finished" section shows ALL auto-wiped people on load. */
   try{
+    /* 1) CLOUD LEDGER (Supabase Storage): the permanent master copy of all
+          finished people — it survives every database wipe, so the 💐 Finished
+          tab is ALWAYS there on the home screen. */
+    const fromLedger = await ledgerP;
+    /* 2) Also merge anything due/overdue still sitting in the people table */
+    let synced = false;
     if(window.syncFinishedFromCloud){
-      const synced = await window.syncFinishedFromCloud();
-      if(synced && window.clearHomeSnapshot) window.clearHomeSnapshot();
+      synced = await window.syncFinishedFromCloud();
     }
+    if((fromLedger || synced) && window.clearHomeSnapshot) window.clearHomeSnapshot();
   }catch(e){}
 
   const freshPeople = await peopleP;

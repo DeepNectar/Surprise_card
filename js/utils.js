@@ -318,7 +318,13 @@ window.__trapFocus = function(container){
 };
 
 /* ============================================================
-   FINISHED PEOPLE — local cache of auto-wiped persons
+   FINISHED PEOPLE — cloud ledger + local cache of auto-wiped persons
+
+   The master copy lives in Supabase Storage (cloud): a public JSON file
+   in the 'site-ledger' bucket.  That file is NEVER touched by table
+   wipes, so finished people stay on the home screen forever — even after
+   all their data has been wiped out on the scheduled date & time.
+   localStorage is only a fast offline mirror of that cloud ledger.
    ============================================================ */
 const FINISHED_KEY = 'surprise_finished_people_v1';
 
@@ -331,13 +337,41 @@ window.getFinishedPeople = function(){
   }catch(e){ return []; }
 };
 
+/* Push the current local list up to the cloud ledger (debounced). */
+let _ledgerPushT = null;
+window.pushFinishedLedger = function(){
+  clearTimeout(_ledgerPushT);
+  _ledgerPushT = setTimeout(async () => {
+    try{
+      if(!window.sbPutFinishedJson) return;
+      await sbPutFinishedJson({ updated_at: new Date().toISOString(),
+                                people: getFinishedPeople() });
+    }catch(e){}
+  }, 800);
+};
+
+/* Merge one finished-person record into the local mirror. Returns true if new. */
+function mergeFinishedEntry(p){
+  if(!p || !p.slug) return false;
+  const list = getFinishedPeople();
+  const i = list.findIndex(x => String(x.slug) === String(p.slug));
+  if(i >= 0){
+    /* keep the EARLIEST known wipe stamp (the "said" date & time) */
+    const old = list[i];
+    const keepWiped = [old.wiped_at, p.wiped_at].filter(Boolean).sort()[0];
+    list[i] = Object.assign({}, old, p, { wiped_at: keepWiped || old.wiped_at });
+    localStorage.setItem(FINISHED_KEY, JSON.stringify(list.slice(0, 200)));
+    return false;
+  }
+  list.unshift(Object.assign({}, p, { wiped_at: p.wiped_at || new Date().toISOString() }));
+  localStorage.setItem(FINISHED_KEY, JSON.stringify(list.slice(0, 200)));
+  return true;
+}
+
 window.addFinishedPerson = function(person){
   if(!person || !person.slug) return;
   try{
-    const list = getFinishedPeople();
-    // Remove any previous entry with same slug
-    const filtered = list.filter(x => x.slug !== person.slug);
-    filtered.unshift({
+    const added = mergeFinishedEntry({
       id: person.id,
       slug: person.slug,
       display_name: person.display_name,
@@ -347,21 +381,39 @@ window.addFinishedPerson = function(person){
          date and time" the data is wiped out at); otherwise stamp now */
       wiped_at: person.wiped_at || new Date().toISOString()
     });
-    // cap to keep local storage small
-    const trimmed = filtered.slice(0, 100);
-    localStorage.setItem(FINISHED_KEY, JSON.stringify(trimmed));
+    if(added){ pushFinishedLedger(); }  /* keep the cloud ledger in sync */
   }catch(e){}
 };
 
-window.removeFinishedPerson = function(slug){
+window.removeFinishedPerson = async function(slug){
   try{
     const list = getFinishedPeople().filter(x => x.slug !== slug);
     localStorage.setItem(FINISHED_KEY, JSON.stringify(list));
+    /* also remove from the CLOUD ledger so it doesn't come back on reload */
+    if(window.sbPutFinishedJson){
+      try{ await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: list }); }catch(e){}
+    }
   }catch(e){}
 };
 
 window.clearFinishedPeople = function(){
   try{ localStorage.removeItem(FINISHED_KEY); }catch(e){}
+};
+
+/* Pull the cloud ledger and merge it into the local mirror.
+   Returns true if anything new appeared (callers can repaint the home). */
+window.pullFinishedLedger = async function(){
+  try{
+    if(!window.sbGetFinishedJson) return false;
+    const cloud = await sbGetFinishedJson();
+    if(!cloud || !Array.isArray(cloud.people)) return false;
+    let changed = false;
+    /* oldest first so newest ends up on top after unshift-merges */
+    cloud.people.slice().reverse().forEach(p => {
+      if(mergeFinishedEntry(p)) changed = true;
+    });
+    return changed;
+  }catch(e){ return false; }
 };
 
 })();
