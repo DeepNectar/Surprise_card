@@ -251,7 +251,7 @@ function renderFinishedSection(){
         const ok = await __confirm({
           icon: '💐',
           title: 'Remove from finished list?',
-          message: 'This person has already been auto-wiped. Remove them from the finished list permanently?',
+          message: 'This surprise is finished. Remove them from the finished list permanently?',
           okText: 'Remove',
           danger: true
         });
