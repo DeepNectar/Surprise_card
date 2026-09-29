@@ -615,7 +615,14 @@ button.bday-soon-btn:focus-visible{outline:2px solid rgba(255,215,0,.9);outline-
 .um-btn.primary{background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;box-shadow:0 10px 22px -8px rgba(201,24,74,.55)}
 .um-btn.ghost{background:transparent;color:var(--c-text-muted);border:1.5px solid rgba(0,0,0,.14)}
 /* "What's new" live rows injected from version.json */
-.hcl-item.hcl-live{color:#ffe9a8}
+/* "What's new" LIVE rows — dark readable text on a warm gold card */
+.hcl-item.hcl-live{
+  background:linear-gradient(135deg,#fff7e0,#ffe9b3);
+  color:#3d2b00;
+  border-left-color:#f4b400;
+  font-weight:700;
+}
+.hcl-item.hcl-live strong{color:#7a4d00}
 .hcl-item.hcl-live .hcl-ico{filter:drop-shadow(0 0 6px rgba(255,215,0,.7))}
 /* Admin panel — "latest deployed" box */
 #adminDeployedBox{margin:0 0 .8rem;padding:.6rem .75rem;border-radius:.9rem;
