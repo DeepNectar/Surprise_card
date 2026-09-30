@@ -660,9 +660,13 @@ window.loadGuestApprovals = async function(){
     });
 
     const el = document.createElement('div');
-    el.className = 'repeat-row';
-    el.innerHTML = `<div style="font-size:.85rem;line-height:1.6;">
-      <strong>🆕 ${esc(prop.display_name || r.target_person_slug)}</strong>
+    el.className = 'repeat-row guest-row collapsed';
+    el.dataset.expanded = '0';
+    el.innerHTML = `<div class="guest-row-head">
+      <span class="guest-caret">▸</span>
+      <span class="guest-row-summary"><strong>🆕 ${esc(prop.display_name || r.target_person_slug)}</strong>${gi.name ? ' · 👤 ' + esc(gi.name) : ''}${gi.occasion ? ' · 🎉 ' + esc(gi.occasion) : ''}</span>
+    </div>
+    <div class="guest-row-body" style="font-size:.85rem;line-height:1.6;">
       <em style="color:var(--c-text-muted);"> (login id: ${esc(prop.slug || r.target_person_slug)})</em><br>
       ${prop.birthday ? '🎂 Birthday: ' + esc(prop.birthday) + '<br>' : ''}
       <hr style="border:none;border-top:1px dashed rgba(196,30,58,.25);margin:.4rem 0;">
@@ -673,13 +677,23 @@ window.loadGuestApprovals = async function(){
       <hr style="border:none;border-top:1px dashed rgba(196,30,58,.25);margin:.4rem 0;">
       🎨 Theme: ${esc(pl.theme || '—')} · 🎁 Gifts: ${(pl.gifts || []).length} · 📖 Story: ${(pl.story || []).length} · 📅 Events: ${(pl.events || []).length} · 📸 Media (unique): ${dedupCount} · 🔊 Voice: ${(pl.voice || []).length} · 🎬 Video: ${(pl.video || []).length} · 🗺️ Pins: ${(pl.pins || []).length}
       ${dateLines ? ('<hr style="border:none;border-top:1px dashed rgba(196,30,58,.25);margin:.4rem 0;"><strong>📅 Dates &amp; times:</strong>' + dateLines) : ''}
-    </div>
-    <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
-      <button type="button" class="panel-btn edit" data-act="edit" data-id="${r.id}" style="min-width:0;padding:.45rem .9rem;font-size:.82rem;">✏️ Edit &amp; Approve</button>
-      <button type="button" class="repeat-add" data-act="approve" data-id="${r.id}" style="background:#0a7a3d;">✓ Quick Approve</button>
-      <button type="button" class="repeat-add" data-act="reject" data-id="${r.id}" style="background:#c41e3a;">✕ Reject</button>
+      <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
+        <button type="button" class="panel-btn edit" data-act="edit" data-id="${r.id}" style="min-width:0;padding:.45rem .9rem;font-size:.82rem;">✏️ Edit &amp; Approve</button>
+        <button type="button" class="repeat-add" data-act="approve" data-id="${r.id}" style="background:#0a7a3d;">✓ Quick Approve</button>
+        <button type="button" class="repeat-add" data-act="reject" data-id="${r.id}" style="background:#c41e3a;">✕ Reject</button>
+      </div>
     </div>`;
     list.appendChild(el);
+  });
+
+  /* Expand / collapse a submission when the admin clicks on it */
+  list.querySelectorAll('.guest-row').forEach(row => {
+    row.querySelector('.guest-row-head').onclick = () => {
+      const open = row.dataset.expanded === '1';
+      row.dataset.expanded = open ? '0' : '1';
+      row.classList.toggle('collapsed', open);
+      row.classList.toggle('expanded', !open);
+    };
   });
 
   list.querySelectorAll('button[data-act]').forEach(b => {
@@ -756,11 +770,14 @@ window.loadGuestHistory = async function(){
     );
 
     const el = document.createElement('div');
-    el.className = 'repeat-row';
+    el.className = 'repeat-row guest-row collapsed';
+    el.dataset.expanded = '0';
     el.style.background = 'linear-gradient(135deg,#f0fff4,#e8f5f0)';
-    el.innerHTML = `<div style="font-size:.85rem;line-height:1.6;">
-      <strong>✅ ${esc(prop.display_name || r.target_person_slug)}</strong>
-      ${r.approved_person_id ? ' <span class="person-id-pill">#' + r.approved_person_id + '</span>' : ''}
+    el.innerHTML = `<div class="guest-row-head">
+      <span class="guest-caret">▸</span>
+      <span class="guest-row-summary"><strong>✅ ${esc(prop.display_name || r.target_person_slug)}</strong>${r.approved_person_id ? ' <span class="person-id-pill">#' + r.approved_person_id + '</span>' : ''}${loginId ? ' · 🔑 ' + esc(loginId) : ''}</span>
+    </div>
+    <div class="guest-row-body" style="font-size:.85rem;line-height:1.6;">
       <em style="color:var(--c-text-muted);"> (login id: ${esc(loginId)})</em>
       ${created ? '<div style="font-size:.75rem;color:var(--c-text-muted);font-style:italic;">Submitted: ' + esc(created) + '</div>' : ''}
       ${sentAt ? '<div style="font-size:.75rem;color:var(--c-text-muted);font-style:italic;">Shared at: ' + esc(sentAt) + '</div>' : ''}
@@ -774,12 +791,22 @@ window.loadGuestHistory = async function(){
       ${pwd ? '<div><strong>🔒 Card Password:</strong> <code style="background:#fff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;">' + esc(pwd) + '</code></div>' : ''}
       ${editPw ? '<div><strong>✏️ EDIT password:</strong> <code style="background:#eef3ff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;color:#1a3d8f;">' + esc(editPw) + '</code></div>' : ''}
       <div><strong>🌐 Link:</strong> <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="color:#0a4f8f;word-break:break-all;">${esc(link)}</a></div>
-    </div>
-    <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
-      <button type="button" class="repeat-add reedit-btn" data-id="${r.id}" style="background:#2a5fd1;">✏️ Re-edit submission</button>
-      <button type="button" class="repeat-add resend-btn" data-id="${r.id}" style="background:linear-gradient(135deg,#25D366,#128C7E);">📲 Re-send credentials</button>
+      <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
+        <button type="button" class="repeat-add reedit-btn" data-id="${r.id}" style="background:#2a5fd1;">✏️ Re-edit submission</button>
+        <button type="button" class="repeat-add resend-btn" data-id="${r.id}" style="background:linear-gradient(135deg,#25D366,#128C7E);">📲 Re-send credentials</button>
+      </div>
     </div>`;
     list.appendChild(el);
+  });
+
+  /* Expand / collapse an approved submission when clicked */
+  list.querySelectorAll('.guest-row').forEach(row => {
+    row.querySelector('.guest-row-head').onclick = () => {
+      const open = row.dataset.expanded === '1';
+      row.dataset.expanded = open ? '0' : '1';
+      row.classList.toggle('collapsed', open);
+      row.classList.toggle('expanded', !open);
+    };
   });
 
   list.querySelectorAll('.resend-btn').forEach(b => {
@@ -809,6 +836,112 @@ window.loadGuestHistory = async function(){
     };
   });
 };
+
+/* ============================================================
+   LOAD REJECTED SUBMISSIONS
+   ============================================================ */
+window.loadGuestRejected = async function(){
+  const list = $('guestRejectedList');
+  if(!list) return;
+  list.textContent = 'Loading…';
+
+  const rows = await sb.guests();
+  const rejected = (rows || []).filter(r => r.status === 'rejected');
+
+  if(!rejected.length){
+    list.innerHTML = '<div class="empty-state"><span class="es-emoji">🗑️</span>No rejected submissions.</div>';
+    return;
+  }
+  list.innerHTML = '';
+
+  rejected.forEach(r => {
+    const pl = r.payload || {};
+    const prop = pl.person_proposal || {};
+    const gi = pl.guest_info || {};
+    const created = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+
+    const el = document.createElement('div');
+    el.className = 'repeat-row guest-row collapsed';
+    el.dataset.expanded = '0';
+    el.style.background = '#fdf1f2';
+    el.innerHTML = `<div class="guest-row-head">
+      <span class="guest-caret">▸</span>
+      <span class="guest-row-summary"><strong>🗑️ ${esc(prop.display_name || r.target_person_slug)}</strong>${gi.name ? ' · 👤 ' + esc(gi.name) : ''}</span>
+    </div>
+    <div class="guest-row-body" style="font-size:.85rem;line-height:1.6;">
+      ${created ? '<div style="font-size:.75rem;color:var(--c-text-muted);font-style:italic;">Submitted: ' + esc(created) + '</div>' : ''}
+      <strong>👤 Requester:</strong> ${esc(gi.name || r.guest_name || 'Guest')} ${gi.relation ? (' (' + esc(gi.relation) + ')') : ''}<br>
+      ${gi.occasion ? '🎉 ' + esc(gi.occasion) + '<br>' : ''}
+      ${gi.note ? '💬 ' + esc(gi.note) + '<br>' : ''}
+      <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
+        <button type="button" class="repeat-add rej-reopen" data-id="${r.id}" style="background:#b26a00;">↩️ Move back to Pending</button>
+      </div>
+    </div>`;
+    list.appendChild(el);
+  });
+
+  list.querySelectorAll('.guest-row').forEach(row => {
+    row.querySelector('.guest-row-head').onclick = () => {
+      const open = row.dataset.expanded === '1';
+      row.dataset.expanded = open ? '0' : '1';
+      row.classList.toggle('collapsed', open);
+      row.classList.toggle('expanded', !open);
+    };
+  });
+
+  list.querySelectorAll('.rej-reopen').forEach(b => {
+    b.onclick = async () => {
+      b.disabled = true;
+      try{
+        await sb.updGuest(parseInt(b.dataset.id, 10), {status: 'pending'});
+        __showToast('↩️ Moved back to Pending');
+        window.loadGuestRejected();
+        window.loadGuestApprovals();
+        window.loadGuestHistory();
+      }catch(e){
+        __showToast('❌ ' + e.message, false);
+        b.disabled = false;
+      }
+    };
+  });
+};
+
+/* ============================================================
+   GUEST APPROVAL STATUS TABS (Pending / Completed / Rejected)
+   Switch between lists AND expand/collapse each submission
+   when the admin clicks on a client's row.
+   ============================================================ */
+window.bindGuestStatusTabs = function(){
+  const tabs = document.querySelectorAll('#guestStatusTabs .panel-tab');
+  if(!tabs.length) return;
+  const sections = {
+    pending:   $('guestPendingSection'),
+    approved:  $('guestCompletedSection'),
+    rejected:  $('guestRejectedSection')
+  };
+  const loaders = {
+    pending:  () => window.loadGuestApprovals && window.loadGuestApprovals(),
+    approved: () => window.loadGuestHistory && window.loadGuestHistory(),
+    rejected: () => window.loadGuestRejected && window.loadGuestRejected()
+  };
+  tabs.forEach(tab => {
+    if(tab.dataset._bound === '1') return;
+    tab.dataset._bound = '1';
+    tab.onclick = () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const st = tab.dataset.guestStatus;
+      Object.keys(sections).forEach(k => {
+        if(sections[k]) sections[k].style.display = (k === st) ? '' : 'none';
+      });
+      if(loaders[st]) loaders[st]();
+    };
+  });
+};
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', () => window.bindGuestStatusTabs());
+} else { window.bindGuestStatusTabs(); }
 
 /* ============================================================
    OPEN GUEST PANEL (Guest side)

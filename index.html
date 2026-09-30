@@ -932,15 +932,25 @@
     </div>
 
     <div class="panel-pane" id="pane-guests">
-      <div class="panel-section">
+      <div class="panel-tabs" id="guestStatusTabs" style="margin-bottom:.8rem;">
+        <button type="button" class="panel-tab active" data-guest-status="pending">⏳ Pending</button>
+        <button type="button" class="panel-tab" data-guest-status="approved">✅ Completed</button>
+        <button type="button" class="panel-tab" data-guest-status="rejected">🗑️ Rejected</button>
+      </div>
+      <div class="panel-section" id="guestPendingSection">
         <div class="panel-section-title">✍️ Pending Guest Submissions</div>
         <div id="pendingGuestsList">Loading…</div>
         <button type="button" class="repeat-add" id="refreshGuests" style="margin-top:.6rem;">🔄 Refresh</button>
       </div>
-      <div class="panel-section">
-        <div class="panel-section-title">📜 Guest Submissions History (Approved)</div>
+      <div class="panel-section" id="guestCompletedSection" style="display:none;">
+        <div class="panel-section-title">📜 Guest Submissions History (Approved / Completed)</div>
         <div id="guestHistoryList">Loading…</div>
         <button type="button" class="repeat-add" id="refreshGuestHistory" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+      <div class="panel-section" id="guestRejectedSection" style="display:none;">
+        <div class="panel-section-title">🗑️ Rejected Submissions</div>
+        <div id="guestRejectedList">Loading…</div>
+        <button type="button" class="repeat-add" id="refreshGuestRejected" style="margin-top:.6rem;">🔄 Refresh</button>
       </div>
     </div>
 
