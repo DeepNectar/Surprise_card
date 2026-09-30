@@ -812,6 +812,7 @@ function bindAdminSlideshow(){
    PEOPLE REPEATER
    ============================================================ */
 function renderPeopleRepeater(){
+  window.renderPeopleRepeater = renderPeopleRepeater; // expose for guests.js approval flow
   const w = $('peopleRepeater');
   if(!w) return;
   w.innerHTML = '';
