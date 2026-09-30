@@ -148,6 +148,8 @@ async function boot(){
   }
 
   if(window.buildHome) window.buildHome();
+  /* keep the 💐 Finished tab badge in the admin panel fresh on load */
+  if(window.updateFinishedBadge) window.updateFinishedBadge();
   saveHomeSnapshot();
 
   if(window.SS_restoreSession && window.SS_restoreSession()) return;

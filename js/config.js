@@ -29,12 +29,12 @@ window.T_REVIEWS  = 'reviews';
    Open tabs compare themselves against /version.json and pop up an
    "upgrade" modal pointing at the latest deployed version; the home
    screen ("✨ What's new") and admin panel always show what is LIVE. */
-window.APP_VERSION   = '0.2';
-window.RELEASE_DATE  = '2026-09-29';
+window.APP_VERSION   = '0.5';
+window.RELEASE_DATE  = '2026-09-30';
 window.CHANGELOG_LIVE = [
-  '💐 Finished people now appear on the home screen automatically — stamped with the exact date & time their data was wiped out (works for scheduled auto-wipes AND admin deletes, and syncs across devices).',
-  '🚀 The ⬆️ "Update now" button is now one-time only: once used for a deployed version it never repeats — you will only be notified again when something NEWER ships.',
-  '🏷️ The upgrade popup now highlights WHAT\'S NEW in each deployment, titled simply "HD0.2 Version upgraded".'
+  '💐 NEW 💐 Finished tab in the admin Guests panel — moving a person to Finished now takes them OUT of ✅ Completed into 💐 Finished (with a live count badge), exactly where they show up on the home screen.',
+  '↩️ One-tap "Undo — move back to Completed" on every finished person; requester details stay private for 🔔 Reminders and nothing is ever deleted.',
+  '🏷️ Deployed today as "HD 0.5" — the upgrade popup and ✨ What\'s new badge now read "HD0.5 Version upgraded".'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;
