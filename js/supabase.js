@@ -95,6 +95,9 @@ window.LEDGER_SETUP_SQL =
   "drop policy if exists \"ledger_public_read\" on storage.objects;\n" +
   "create policy \"ledger_public_read\" on storage.objects for select to public using (bucket_id = '" + FINISHED_BUCKET + "');\n" +
   "drop policy if exists \"ledger_anon_write\" on storage.objects;\n" +
+  /* upsert sends POST when the file is new and PUT when it already exists —
+     so this single INSERT-or-UPDATE policy covers every browser pushing
+     finished people to the shared cloud ledger */
   "create policy \"ledger_anon_write\" on storage.objects for insert to anon with check (bucket_id = '" + FINISHED_BUCKET + "');\n" +
   "drop policy if exists \"ledger_anon_update\" on storage.objects;\n" +
   "create policy \"ledger_anon_update\" on storage.objects for update to anon using (bucket_id = '" + FINISHED_BUCKET + "') with check (bucket_id = '" + FINISHED_BUCKET + "');";
@@ -430,9 +433,16 @@ window.syncFinishedFromCloud = async function syncFinishedFromCloud(){
 window.checkWipe = async function(){
   try{
     const rows = await sb.wipeExpiredAndReturn();
+    /* keep the 💐 Finished tab in sync with the CLOUD ledger, so entries
+       finished in another browser/device appear here without a reload */
+    let pulled = false;
+    if(window.pullFinishedLedger){
+      try{ pulled = await pullFinishedLedger(); }catch(e){}
+    }
     const synced = await syncFinishedFromCloud();
-    if((!rows || !rows.length) && !synced) return;
+    if((!rows || !rows.length) && !synced && !pulled) return;
     S.PEOPLE = await sb.people() || [];
+    if(window.clearHomeSnapshot) window.clearHomeSnapshot();
     if(window.buildHome) window.buildHome();
   }catch(e){}
 };
