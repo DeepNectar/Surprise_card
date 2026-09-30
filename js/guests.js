@@ -987,6 +987,45 @@ window.moveCompletedGuestsToFinished = async function(ids){
   __showToast('💐 ' + moved + ' moved to Finished' + (failed ? (' · ' + failed + ' failed') : ''));
 };
 
+/* ============================================================
+   🗑️ DELETE FROM THE DATABASE  (admin action — ✅ Completed tab)
+
+   HD0.5 — permanently removes the ticked submission rows from the
+   guest_submissions table (sb.delGuest). This is DIFFERENT from the
+   💐 Finished "Remove from home screen" action: here the record itself
+   disappears from the database, so it also vanishes from the admin
+   ✅ Completed list for every device. Nothing else is touched.
+   ============================================================ */
+window.deleteCompletedGuestsFromDb = async function(ids){
+  ids = (ids || []).filter(Boolean);
+  if(!ids.length){ __showToast('⚠️ Tick at least one ✅ Completed row first.', false); return; }
+
+  const ok = await __confirm({
+    icon: '🗑️',
+    title: 'Delete ' + ids.length + ' from the database?',
+    message: 'The ticked ✅ Completed submission rows will be PERMANENTLY removed from the database.\n\nThis cannot be undone from the admin panel — use 💐 Move to Finished instead if you only want them off the active list.',
+    okText: '🗑️ Delete forever'
+  });
+  if(!ok) return;
+
+  __showToast('⏳ Deleting from database…');
+  let done = 0, failed = 0;
+  for(const id of ids){
+    try{
+      const del = sb.delGuest ? await sb.delGuest(parseInt(id, 10)) : false;
+      if(del === false) failed++; else done++;
+    }catch(e){
+      console.warn('deleteCompletedGuestsFromDb', id, e.message);
+      failed++;
+    }
+  }
+
+  window.loadGuestHistory();
+  if(window.loadAdminFinished) window.loadAdminFinished();
+  if(window.updateFinishedBadge) window.updateFinishedBadge();
+  __showToast('🗑️ ' + done + ' deleted from the database' + (failed ? (' · ' + failed + ' failed') : ''), !done);
+};
+
 /* Wipe a person's data WITHOUT re-adding them to the finished list twice
    (the caller above already filed them with the correct manual stamp). */
 window.wipeOnePersonQuiet = async function(pid){  if(!pid) return;
@@ -1156,6 +1195,7 @@ window.loadAdminFinished = async function(){
     el.style.background = 'linear-gradient(135deg,#faf4fd,#f3e8fa)';
     el.innerHTML = `<div class="guest-row-head">
       <span class="guest-caret">▸</span>
+      <input type="checkbox" class="guest-check finished-check" data-slug="${esc(String(p.slug || ''))}" title="Tick to select this person for 🗑️ Remove selected from home screen" onclick="event.stopPropagation()">
       <span class="guest-row-summary"><strong style="color:#8e44ad;">💐 ${esc(p.display_name || p.slug)}</strong>${p.finished_manually ? '' : ' <span class="person-id-pill">🕊️ auto-wiped</span>'}</span>
     </div>
     <div class="guest-row-body" style="font-size:.85rem;line-height:1.6;">
@@ -1167,8 +1207,10 @@ window.loadAdminFinished = async function(){
       ${wa ? '📱 ' + esc(wa) + ' ' + (waLink ? '<a href="' + waLink + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#25D366;color:#fff;padding:.15rem .55rem;border-radius:40px;font-size:.75rem;text-decoration:none;font-weight:800;">💬 Chat</a>' : '') + '<br>' : ''}
       <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
         ${(sub && sub.status === 'finished') ? '<button type="button" class="repeat-add fin-undo-btn" data-id="' + sub.id + '" style="background:#0a7a3d;">↩️ Undo — move back to Completed</button>' : ''}
+        <button type="button" class="repeat-add fin-del-btn" data-slug="${esc(String(p.slug || ''))}" style="background:#c0392b;">🗑️ Remove from home screen</button>
       </div>
     </div>`;
+    el.dataset.slug = String(p.slug || '');
     list.appendChild(el);
   });
 
@@ -1196,6 +1238,85 @@ window.loadAdminFinished = async function(){
       }
     };
   });
+
+  /* ---- HD0.5 — 🗑️ per-row "Remove from home screen" (admin action):
+     files a cloud-synced delete tombstone so the person disappears from
+     the 💐 Finished list on the HOME SCREEN for every visitor/device.
+     The full record stays in the private 🗑️ Wiped Out archive. ---- */
+  list.querySelectorAll('.fin-del-btn').forEach(b => {
+    b.onclick = async () => {
+      const slug = b.dataset.slug;
+      if(!slug) return;
+      const ok = await __confirm({
+        icon: '🗑️',
+        title: 'Remove from home screen?',
+        message: '"' + slug + '" will disappear from the 💐 Finished list on the home screen — for everyone, on every device & domain.\n\nTheir record stays safe in the 🗑️ Wiped Out archive and can be restored anytime.',
+        okText: '🗑️ Remove'
+      });
+      if(!ok) return;
+      b.disabled = true;
+      __showToast('⏳ Removing…');
+      try{
+        await window.removeFinishedPerson(slug);
+        __showToast('🗑️ Removed from the home screen 💐 Finished list');
+      }catch(e){
+        __showToast('❌ ' + e.message, false);
+        b.disabled = false;
+      }
+      window.loadAdminFinished();
+      if(window.renderFinishedSection) window.renderFinishedSection();
+      if(window.updateFinishedBadge) window.updateFinishedBadge();
+    };
+  });
+
+  /* ---- Tick rows → remove ALL selected finished people at once ---- */
+  const finSelBar = $('finishedSelectedActions');
+  const checks = Array.from(list.querySelectorAll('.finished-check'));
+  const updateFinSelBar = () => {
+    const n = checks.filter(c => c.checked).length;
+    if(finSelBar) finSelBar.style.display = n ? 'flex' : 'none';
+    const countEl = $('finishedSelCount');
+    if(countEl) countEl.textContent = n + ' selected';
+    const btn = $('removeSelectedFromFinished');
+    if(btn) btn.textContent = n ? ('🗑️ Remove ' + n + ' from home screen') : '🗑️ Remove from home screen';
+  };
+  checks.forEach(c => { c.onchange = updateFinSelBar; c.onclick = e => e.stopPropagation(); });
+  updateFinSelBar();
+
+  const finDelBtn = $('removeSelectedFromFinished');
+  if(finDelBtn && finDelBtn.dataset._bound !== '1'){
+    finDelBtn.dataset._bound = '1';
+    finDelBtn.onclick = () => window.removeSelectedFinishedPeople();
+  }
+};
+
+/* HD0.5 — 🗑️ Remove SELECTED finished people from the home screen
+   (multi-select in the admin 💐 Finished tab). Each deletion is written
+   as a private tombstone into both cloud ledger copies, so it propagates
+   to every browser / domain and never gets resurrected by sync. */
+window.removeSelectedFinishedPeople = async function(){
+  const list = $('adminFinishedList');
+  if(!list) return;
+  const slugs = Array.from(list.querySelectorAll('.finished-check:checked'))
+    .map(c => c.dataset.slug).filter(Boolean);
+  if(!slugs.length){ __showToast('Tick at least one 💐 Finished row first', false); return; }
+  const ok = await __confirm({
+    icon: '🗑️',
+    title: 'Remove ' + slugs.length + ' from home screen?',
+    message: 'They will disappear from the 💐 Finished list on the home screen — for everyone, on every device & domain.\n\nTheir records stay safe in the 🗑️ Wiped Out archive and can be restored anytime.',
+    okText: '🗑️ Remove all'
+  });
+  if(!ok) return;
+  __showToast('⏳ Removing ' + slugs.length + '…');
+  try{
+    await window.removeFinishedPeople(slugs);
+    __showToast('🗑️ ' + slugs.length + ' removed from the home screen');
+  }catch(e){
+    __showToast('❌ ' + e.message, false);
+  }
+  window.loadAdminFinished();
+  if(window.renderFinishedSection) window.renderFinishedSection();
+  if(window.updateFinishedBadge) window.updateFinishedBadge();
 };
 
 /* Count badge on the 💐 Finished tab = everyone on the home-screen Finished list */

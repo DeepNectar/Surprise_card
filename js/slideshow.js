@@ -92,11 +92,20 @@ function SS_musicDuringVideo(){
 function SS_playVideo(v, unmuteBtn){
   if(!v) return;
   try{ v.currentTime = 0; }catch(e){}
-  v.muted = false;
+  /* 🎵 "Keep background music playing during video slides" is ON →
+     the video must NOT steal the audio focus: play it muted so the
+     background track keeps ducking-and-playing underneath. The viewer
+     can still tap 🔊 for the video's own sound. When the option is OFF
+     we keep the old behaviour (music is paused, video plays with sound). */
+  const keepMusic = SS_musicDuringVideo();
+  v.muted = keepMusic;
   v.volume = 1;
   const p = v.play();
   if(p && p.then){
-    p.then(() => { if(unmuteBtn) unmuteBtn.classList.remove('show'); dbg('▶', 'video playing'); })
+    p.then(() => {
+      if(unmuteBtn) unmuteBtn.classList.toggle('show', !!keepMusic);
+      dbg('▶', 'video playing' + (keepMusic ? ' (muted — music kept on)' : ''));
+    })
      .catch(() => {
        if(!v) return;
        v.muted = true;
@@ -133,6 +142,38 @@ function SS_fadeVolume(target, duration){
 /* ============================================================
    MUSIC HANDOFF for video/photo
    ============================================================ */
+
+/* 🎵 Keep the background track alive even when the browser (iOS Safari /
+   Android Chrome) silently pauses the <audio> element under a playing
+   video — the classic reason "keep music during video slides" fails. */
+let SS_musicGuardInt = null;
+function SS_stopMusicGuard(){
+  if(SS_musicGuardInt){ clearInterval(SS_musicGuardInt); SS_musicGuardInt = null; }
+}
+function SS_startMusicGuard(){
+  SS_stopMusicGuard();
+  let tries = 0;
+  SS_musicGuardInt = setInterval(() => {
+    const a = window.getAudioPlayer ? window.getAudioPlayer() : $('audioPlayer');
+    /* handover finished, we paused on purpose, or no slideshow music → stop */
+    if(!SS_isOpen || SS_musicPausedForVideo || !SS_musicDuringVideo()){ SS_stopMusicGuard(); return; }
+    if(!a || !a.src){ SS_stopMusicGuard(); return; }
+    if(a.paused){
+      tries++;
+      dbg('🎵', 'guard: browser paused music → resuming (' + tries + ')');
+      try{
+        a.volume = Math.max(0, Math.min(1, parseFloat((S.CURR.shared || {}).vol_video_music || '0.35')));
+        const p = a.play();
+        if(p && p.catch) p.catch(() => {});
+      }catch(e){}
+      if(tries >= 8) SS_stopMusicGuard();   /* give up after ~4s of failures */
+    } else if(tries > 0){
+      SS_stopMusicGuard();
+    }
+  }, 500);
+  setTimeout(SS_stopMusicGuard, 20000);     /* never run longer than 20s */
+}
+
 function SS_musicPauseForVideo(){
   if(!window.isMusicPlaying || !window.isMusicPlaying()){
     dbg('🎵', 'video slide (music not playing)');
@@ -145,9 +186,11 @@ function SS_musicPauseForVideo(){
     const vol = isFinite(target) ? Math.max(0, Math.min(1, target)) : 0.35;
     SS_fadeVolume(vol, 400);
     SS_musicPausedForVideo = false;
+    SS_startMusicGuard();
     dbg('🎵', 'ducked music to ' + vol + ' (during video)');
   } else {
     // Default: fully pause music for the video
+    SS_stopMusicGuard();
     if(window.pauseMusic) window.pauseMusic();
     SS_musicPausedForVideo = true;
     dbg('🎵', 'paused music for video');
@@ -155,6 +198,7 @@ function SS_musicPauseForVideo(){
 }
 
 function SS_musicResumeForVideo(){
+  SS_stopMusicGuard();
   // Detect if the browser silently paused our music (common on mobile)
   const a = window.getAudioPlayer ? window.getAudioPlayer() : $('audioPlayer');
   const musicActuallyPaused = !a || !a.src || a.paused;
@@ -543,6 +587,7 @@ function SS_close(){
   if(pb){ pb.style.transition = 'none'; pb.style.width = '0%'; }
 
   SS_musicPausedForVideo = false;
+  if(typeof SS_stopMusicGuard === 'function') SS_stopMusicGuard();
 
   if(window.stopMusic) window.stopMusic();
   if(window.startMusicFor) window.startMusicFor('card');

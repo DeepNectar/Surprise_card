@@ -958,14 +958,19 @@
           <label class="guest-select-all"><input type="checkbox" id="selectAllCompleted"> Select all</label>
           <span class="guest-sel-count" id="completedSelCount">0 selected</span>
           <button type="button" class="repeat-add" id="moveSelectedToFinished" style="background:#8e44ad;min-width:0;padding:.45rem .9rem;">💐 Move selected to Finished</button>
+          <button type="button" class="repeat-add" id="deleteSelectedFromDb" style="background:#c0392b;min-width:0;padding:.45rem .9rem;">🗑️ Delete selected from database</button>
         </div>
-        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Tick a completed submission and press “Move selected to Finished” — it moves out of ✅ Completed into the 💐 Finished tab here AND appears on the home screen for EVERY visitor, on every domain. Nothing is deleted.</div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Tick a completed submission and press “Move selected to Finished” — it moves out of ✅ Completed into the 💐 Finished tab here AND appears on the home screen for EVERY visitor, on every domain. Or press “🗑️ Delete selected from database” to permanently remove the ticked rows from the database.</div>
         <div id="guestHistoryList">Loading…</div>
         <button type="button" class="repeat-add" id="refreshGuestHistory" style="margin-top:.6rem;">🔄 Refresh</button>
       </div>
       <div class="panel-section" id="guestFinishedSection" style="display:none;">
         <div class="panel-section-title">💐 Finished People (shown on the home screen)</div>
-        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Everyone moved here from ✅ Completed (or auto-wiped after review) shows up in the 💐 Finished tab on the home screen for all visitors, stamped with the exact date &amp; time their data was wiped. Requester details stay private for 🔔 Reminders. Use 🗑️ Undo to bring someone back into ✅ Completed.</div>
+        <div class="guest-select-bar" id="finishedSelectedActions" style="display:none;">
+          <span class="guest-sel-count" id="finishedSelCount"></span>
+          <button type="button" class="repeat-add" id="removeSelectedFromFinished" style="background:#c0392b;min-width:0;padding:.45rem .9rem;">🗑️ Remove from home screen</button>
+        </div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Everyone moved here from ✅ Completed (or auto-wiped after review) shows up in the 💐 Finished tab on the home screen for all visitors, stamped with the exact date &amp; time their data was wiped. Requester details stay private for 🔔 Reminders. Use ↩️ Undo to bring someone back into ✅ Completed, or 🗑️ “Remove from home screen” (per row, or tick several rows) to delete them from the home screen for everyone — they stay safe in the 🗑️ Wiped Out archive and can be restored anytime.</div>
         <div id="adminFinishedList">Loading…</div>
         <button type="button" class="repeat-add" id="refreshAdminFinished" style="margin-top:.6rem;">🔄 Refresh</button>
       </div>

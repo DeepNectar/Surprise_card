@@ -687,9 +687,14 @@ window.removeFinishedPerson = async function(slug){
         if(mirror && Array.isArray(mirror.people)) cloudList = cloudList.concat(mirror.people);
       }catch(e){}
     }
+    /* NOTE: mergeTwoLists lets a DELETE marker beat a live record, but an
+       older plain entry can never overwrite the fresh tombstone we append
+       last — and if BOTH cloud fetches failed (offline / RLS error) the
+       marker is still appended, so the deletion always reaches the cloud. */
     const kept = mergeTwoLists(cloudList, getFinishedPeople())
       .filter(x => String(x.slug) !== key);
-    const payload = mergeTwoLists(kept, [tomb]);
+    const payload = mergeTwoLists(kept, [tomb])
+      .map(x => (x && String(x.slug) === key) ? tomb : x);
 
     localStorage.setItem(FINISHED_KEY, JSON.stringify(payload.filter(x => !x.deleted)));
 
