@@ -320,6 +320,17 @@ window.sb = {
   async updGuest(id, patch){
     return this.upd(T_GUEST, id, patch);
   },
+  /* HD0.5 — hard-delete a guest submission row (admin "Delete from database"
+     in the ✅ Completed tab). Returns true when the DELETE went through. */
+  async delGuest(id){
+    try{
+      await req(T_GUEST + '?id=eq.' + encodeURIComponent(id), {
+        method:'DELETE',
+        headers:{'Prefer':'return=minimal'}
+      });
+      return true;
+    }catch(e){ console.warn('[delGuest] failed for ' + id, e.message); return false; }
+  },
 
   /* ---------- Wipe expired people (returns the rows that were wiped) ---------- */
   async wipeExpiredAndReturn(){
