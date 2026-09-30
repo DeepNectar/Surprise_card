@@ -91,6 +91,9 @@ window.PUBLIC_CARD_LINK  = window.resolveCardLink('');
 window.DEFAULT_TZ        = 'Asia/Dubai';
 window.MODAL_IMG_DURATION_MS = 10000;
 
+/* ---------- Cloud storage bucket for the finished-people ledger ---------- */
+window.FINISHED_BUCKET   = 'site-ledger';
+
 /* ---------- Network timeout budgets (very short — fail fast, never hang) ----------
    sbGet : read queries that render the home screen — guests must see cards ASAP.
    sbMut : writes (login checks, approvals, saves) — a hair more generous.
