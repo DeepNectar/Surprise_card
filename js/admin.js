@@ -1917,6 +1917,12 @@ function bindAdminGuestActions(){
     r2.dataset._bound = '1';
     r2.onclick = () => window.loadGuestHistory && window.loadGuestHistory();
   }
+  const r4 = $('refreshGuestRejected');
+  if(r4 && r4.dataset._bound !== '1'){
+    r4.dataset._bound = '1';
+    r4.onclick = () => window.loadGuestRejected && window.loadGuestRejected();
+  }
+  if(window.bindGuestStatusTabs) window.bindGuestStatusTabs();
   const r3 = $('adminRefreshReviews');
   if(r3 && r3.dataset._bound !== '1'){
     r3.dataset._bound = '1';

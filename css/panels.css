@@ -408,3 +408,21 @@
   background:linear-gradient(135deg,var(--c-primary),var(--c-primary-2));
   color:var(--c-accent);
 }
+/* ---------- Guest approval expandable rows ---------- */
+.guest-row{cursor:default}
+.guest-row-head{
+  display:flex;align-items:center;gap:.5rem;
+  cursor:pointer;padding:.15rem 0;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.guest-caret{
+  flex:0 0 auto;font-size:.9rem;color:var(--c-primary);
+  transition:transform .2s ease;
+}
+.guest-row.expanded .guest-caret{transform:rotate(90deg)}
+.guest-row-summary{
+  flex:1 1 auto;min-width:0;font-size:.88rem;line-height:1.4;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.guest-row-body{margin-top:.35rem}
+.guest-row.collapsed .guest-row-body{display:none}
