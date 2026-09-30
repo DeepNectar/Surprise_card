@@ -337,15 +337,48 @@ window.getFinishedPeople = function(){
   }catch(e){ return []; }
 };
 
-/* Push the current local list up to the cloud ledger (debounced). */
+/* Merge two finished-person lists (cloud + local), de-duplicating by slug.
+   The EARLIEST known wipe stamp wins (that's the scheduled "said" time),
+   and any record present in only one of the lists is kept. */
+function mergeTwoLists(a, b){
+  const out = [];
+  const idx = {};
+  [].concat(a || [], b || []).forEach(p => {
+    if(!p || !p.slug) return;
+    const k = String(p.slug);
+    if(idx[k] !== undefined){
+      const old = out[idx[k]];
+      const keepWiped = [old.wiped_at, p.wiped_at].filter(Boolean).sort()[0];
+      out[idx[k]] = Object.assign({}, old, p, { wiped_at: keepWiped || old.wiped_at });
+    }else{
+      idx[k] = out.length;
+      out.push(Object.assign({}, p));
+    }
+  });
+  out.sort((x, y) => String(y.wiped_at || '').localeCompare(String(x.wiped_at || '')));
+  return out.slice(0, 200);
+}
+
+/* Push the merged (cloud ∪ local) list up to the cloud ledger (debounced).
+   Merging with the cloud before writing prevents one browser from
+   overwriting another browser's finished entries. */
 let _ledgerPushT = null;
 window.pushFinishedLedger = function(){
   clearTimeout(_ledgerPushT);
   _ledgerPushT = setTimeout(async () => {
     try{
       if(!window.sbPutFinishedJson) return;
-      await sbPutFinishedJson({ updated_at: new Date().toISOString(),
-                                people: getFinishedPeople() });
+      let cloudList = [];
+      if(window.sbGetFinishedJson){
+        try{
+          const cloud = await sbGetFinishedJson();
+          if(cloud && Array.isArray(cloud.people)) cloudList = cloud.people;
+        }catch(e){}
+      }
+      const merged = mergeTwoLists(cloudList, getFinishedPeople());
+      /* persist the merged view locally too, so this browser sees others' entries */
+      localStorage.setItem(FINISHED_KEY, JSON.stringify(merged));
+      await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: merged });
     }catch(e){}
   }, 800);
 };
@@ -389,9 +422,21 @@ window.removeFinishedPerson = async function(slug){
   try{
     const list = getFinishedPeople().filter(x => x.slug !== slug);
     localStorage.setItem(FINISHED_KEY, JSON.stringify(list));
-    /* also remove from the CLOUD ledger so it doesn't come back on reload */
+    /* also remove from the CLOUD ledger so it doesn't come back on reload.
+       Fetch-merge-write: only drop this slug, keep every other browser's rows. */
     if(window.sbPutFinishedJson){
-      try{ await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: list }); }catch(e){}
+      try{
+        let cloudList = [];
+        if(window.sbGetFinishedJson){
+          try{
+            const cloud = await sbGetFinishedJson();
+            if(cloud && Array.isArray(cloud.people)) cloudList = cloud.people;
+          }catch(e){}
+        }
+        const merged = mergeTwoLists(cloudList, list).filter(x => String(x.slug) !== String(slug));
+        localStorage.setItem(FINISHED_KEY, JSON.stringify(merged));
+        await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: merged });
+      }catch(e){}
     }
   }catch(e){}
 };
@@ -401,12 +446,20 @@ window.clearFinishedPeople = function(){
 };
 
 /* Pull the cloud ledger and merge it into the local mirror.
-   Returns true if anything new appeared (callers can repaint the home). */
+   Returns true if anything new appeared (callers can repaint the home).
+   If the cloud file does not exist yet but we have local entries,
+   bootstrap them upward so other browsers/devices can see them too. */
 window.pullFinishedLedger = async function(){
   try{
     if(!window.sbGetFinishedJson) return false;
     const cloud = await sbGetFinishedJson();
-    if(!cloud || !Array.isArray(cloud.people)) return false;
+    if(!cloud || !Array.isArray(cloud.people)){
+      /* first run: seed the cloud ledger from this browser's local list */
+      if(getFinishedPeople().length && window.sbPutFinishedJson){
+        pushFinishedLedger();
+      }
+      return false;
+    }
     let changed = false;
     /* oldest first so newest ends up on top after unshift-merges */
     cloud.people.slice().reverse().forEach(p => {
