@@ -328,6 +328,49 @@ window.__trapFocus = function(container){
    ============================================================ */
 const FINISHED_KEY = 'surprise_finished_people_v1';
 
+/* ---------- Shared helpers used across home / admin / guests ----------
+   daysUntilBirthday: whole days until the NEXT occurrence of a
+   'YYYY-MM-DD' birthday (0 = today). Works for finished-ledger entries
+   too, so the 💐 Finished tab can show "🎂 in N days" for everyone. */
+window.daysUntilBirthday = function(birthday){
+  if(!birthday) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const parts = String(birthday).slice(0,10).split('-');
+  if(parts.length !== 3) return null;
+  const m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  if(isNaN(m) || isNaN(d)) return null;
+  let next = new Date(today.getFullYear(), m - 1, d);
+  if(next < today) next = new Date(today.getFullYear() + 1, m - 1, d);
+  return Math.round((next - today) / (1000 * 60 * 60 * 24));
+};
+
+/* Format a birthday date (or its next occurrence) as a human date string. */
+window.formatBirthdayDate = function(birthday){
+  if(!birthday) return '';
+  const parts = String(birthday).slice(0,10).split('-');
+  if(parts.length !== 3) return String(birthday);
+  const m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  if(isNaN(m) || isNaN(d)) return String(birthday);
+  const today = new Date(); today.setHours(0,0,0,0);
+  let next = new Date(today.getFullYear(), m - 1, d);
+  if(next < today) next = new Date(today.getFullYear() + 1, m - 1, d);
+  try{ return next.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'}); }
+  catch(e){ return parts.join('-'); }
+};
+
+/* Person / finished-ledger lookup by slug (case-insensitive). */
+window.findPersonBySlug = function(slug){
+  if(!slug) return null;
+  const S = window.__PAGE_STATE__ || {};
+  const low = String(slug).toLowerCase();
+  const ppl = (S.PEOPLE || []).find(p => p && p.slug && String(p.slug).toLowerCase() === low);
+  if(ppl) return ppl;
+  if(window.getFinishedPeople){
+    return (getFinishedPeople() || []).find(f => f && f.slug && String(f.slug).toLowerCase() === low) || null;
+  }
+  return null;
+};
+
 window.getFinishedPeople = function(){
   try{
     const raw = localStorage.getItem(FINISHED_KEY);
@@ -437,6 +480,11 @@ window.addFinishedPerson = function(person){
       display_name: person.display_name,
       birthday: person.birthday,
       requester_name: person.requester_name || '',
+      /* relation is kept in the background (private ledger copy) so the
+         admin can message the requester ~10–15 days before the birthday */
+      requester_relation: person.requester_relation || '',
+      requester_whatsapp: person.requester_whatsapp || '',
+      finished_manually: !!person.finished_manually,
       /* honour an explicit wipe date/time when given (the scheduled "said
          date and time" the data is wiped out at); otherwise stamp now */
       wiped_at: person.wiped_at || new Date().toISOString()

@@ -213,6 +213,8 @@ function finishedFromPeopleTable(){
   }).map(p => ({
     id: p.id, slug: p.slug, display_name: p.display_name,
     birthday: p.birthday, requester_name: p.requester_name || '',
+    requester_relation: p.requester_relation || '',
+    requester_whatsapp: p.requester_whatsapp || '',
     wiped_at: p.wipe_iso
   }));
 }
@@ -250,19 +252,27 @@ function renderFinishedSection(){
 
   const list = $('homeFinishedList');
   if(list){
+    /* Tile format: 💐 Name · 🎂 next-birthday countdown · birthday date.
+       NO auto-wipe / remove button on the tile itself — finished people
+       stay visible to EVERY visitor forever, on every domain. The tile is
+       only removable by an admin (via confirmation) and never by time. */
     list.innerHTML = finished.map(p => {
-      let when = '';
-      if(p.wiped_at){
-        const dt = new Date(p.wiped_at);
-        if(!isNaN(dt)){
-          when = dt.toLocaleDateString() + ' · ' +
-                 dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
+      let bdayLine = '';
+      const d = window.daysUntilBirthday ? daysUntilBirthday(p.birthday) : null;
+      const dateStr = window.formatBirthdayDate ? formatBirthdayDate(p.birthday) : '';
+      if(d !== null && d !== undefined){
+        const label = (d === 0) ? '🎂 Birthday today!'
+                    : (d === 1) ? '🎂 Birthday tomorrow'
+                    : ('🎂 in ' + d + ' day' + (d === 1 ? '' : 's'));
+        bdayLine = '<span class="home-btn-bday finished-date">' + esc(label) +
+                   (dateStr ? (' · ' + esc(dateStr)) : '') + '</span>';
+      } else if(dateStr){
+        bdayLine = '<span class="home-btn-bday finished-date">🎂 ' + esc(dateStr) + '</span>';
       }
       return '<button type="button" class="home-btn finished-btn" data-slug="' + escAttr(p.slug) + '" data-name="' + escAttr(String(p.display_name || p.slug || '').toLowerCase()) + '">' +
         '<span class="home-btn-emoji">💐</span>' +
         '<span>' + esc(p.display_name || p.slug) + '</span>' +
-        (when ? '<span class="home-btn-bday finished-date">💐 ' + esc(when) + '</span>' : '') +
+        bdayLine +
       '</button>';
     }).join('');
   }
