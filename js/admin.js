@@ -1922,7 +1922,13 @@ function bindAdminGuestActions(){
     r4.dataset._bound = '1';
     r4.onclick = () => window.loadGuestRejected && window.loadGuestRejected();
   }
+  const r5 = $('refreshGuestReminders');
+  if(r5 && r5.dataset._bound !== '1'){
+    r5.dataset._bound = '1';
+    r5.onclick = () => window.loadGuestReminders && window.loadGuestReminders();
+  }
   if(window.bindGuestStatusTabs) window.bindGuestStatusTabs();
+  if(window.updateReminderBadge) window.updateReminderBadge();
   const r3 = $('adminRefreshReviews');
   if(r3 && r3.dataset._bound !== '1'){
     r3.dataset._bound = '1';
