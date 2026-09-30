@@ -113,10 +113,17 @@
     <div class="home-changelog collapsed" id="homeChangelog">
       <div class="hcl-head" id="homeChangelogHead">
         <span class="hcl-title">✨ What's new</span>
-        <span class="hcl-badge">HD0.2 Version upgraded</span>
+        <span class="hcl-badge">HD0.5 Version upgraded</span>
         <span class="hcl-chev">▼</span>
       </div>
       <div class="hcl-body">
+        <div class="hcl-group">
+          <div class="hcl-group-title">🆕 New in HD 0.5 (deployed today)</div>
+          <div class="hcl-list">
+            <div class="hcl-item"><span class="hcl-ico">💐</span><span><strong>New 💐 Finished tab in the admin panel</strong> — moving a person to Finished now takes them OUT of ✅ Completed into the 💐 Finished tab (with a live count badge), exactly where they appear on this home screen.</span></div>
+            <div class="hcl-item"><span class="hcl-ico">↩️</span><span><strong>One-tap Undo</strong> — every finished person can be moved back into ✅ Completed; requester details stay private for 🔔 Reminders and nothing is ever deleted.</span></div>
+          </div>
+        </div>
         <div class="hcl-group">
           <div class="hcl-group-title">🎨 Home screen</div>
           <div class="hcl-list">
@@ -936,6 +943,7 @@
       <div class="panel-tabs" id="guestStatusTabs" style="margin-bottom:.8rem;">
         <button type="button" class="panel-tab active" data-guest-status="pending">⏳ Pending</button>
         <button type="button" class="panel-tab" data-guest-status="approved">✅ Completed</button>
+        <button type="button" class="panel-tab" data-guest-status="finished">💐 Finished <span class="reminder-badge" id="finishedBadge" style="display:none;background:#8e44ad;">0</span></button>
         <button type="button" class="panel-tab" data-guest-status="rejected">🗑️ Rejected</button>
         <button type="button" class="panel-tab" data-guest-status="reminders">🔔 Reminders <span class="reminder-badge" id="reminderBadge" style="display:none;">0</span></button>
       </div>
@@ -951,9 +959,15 @@
           <span class="guest-sel-count" id="completedSelCount">0 selected</span>
           <button type="button" class="repeat-add" id="moveSelectedToFinished" style="background:#8e44ad;min-width:0;padding:.45rem .9rem;">💐 Move selected to Finished</button>
         </div>
-        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Tick a completed submission and press “Move selected to Finished” — it appears in the 💐 Finished tab on the home screen for EVERY visitor, on every domain. Nothing is deleted.</div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Tick a completed submission and press “Move selected to Finished” — it moves out of ✅ Completed into the 💐 Finished tab here AND appears on the home screen for EVERY visitor, on every domain. Nothing is deleted.</div>
         <div id="guestHistoryList">Loading…</div>
         <button type="button" class="repeat-add" id="refreshGuestHistory" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+      <div class="panel-section" id="guestFinishedSection" style="display:none;">
+        <div class="panel-section-title">💐 Finished People (shown on the home screen)</div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Everyone moved here from ✅ Completed (or auto-wiped after review) shows up in the 💐 Finished tab on the home screen for all visitors, stamped with the exact date &amp; time their data was wiped. Requester details stay private for 🔔 Reminders. Use 🗑️ Undo to bring someone back into ✅ Completed.</div>
+        <div id="adminFinishedList">Loading…</div>
+        <button type="button" class="repeat-add" id="refreshAdminFinished" style="margin-top:.6rem;">🔄 Refresh</button>
       </div>
       <div class="panel-section" id="guestRejectedSection" style="display:none;">
         <div class="panel-section-title">🗑️ Rejected Submissions</div>

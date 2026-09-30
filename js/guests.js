@@ -726,6 +726,8 @@ window.loadGuestApprovals = async function(){
         }
         loadGuestApprovals();
         loadGuestHistory();
+        if(window.loadAdminFinished) window.loadAdminFinished();
+        if(window.updateFinishedBadge) window.updateFinishedBadge();
       }catch(e){
         __showToast('❌ ' + e.message, false);
         b.disabled = false;
@@ -941,6 +943,14 @@ window.moveCompletedGuestsToFinished = async function(ids){
       if(person){
         try{ await window.wipeOnePersonQuiet(person.id); }catch(e){}
       }
+
+      /* HD0.5 — move the submission row OUT of ✅ Completed and into the
+         💐 Finished tab of the admin panel (status='finished'). It no longer
+         appears in the Completed list; it lives in Finished here and on the
+         home screen for every visitor. */
+      try{ await sb.updGuest(r.id, {status: 'finished'}); }catch(e){
+        console.warn('moveCompletedGuestsToFinished status update', id, e.message);
+      }
       moved++;
     }catch(e){
       failed++;
@@ -953,6 +963,8 @@ window.moveCompletedGuestsToFinished = async function(ids){
   if(window.buildHome) window.buildHome();
   if(window.renderFinishedSection) window.renderFinishedSection();
   window.loadGuestHistory();
+  if(window.loadAdminFinished) window.loadAdminFinished();
+  if(window.updateFinishedBadge) window.updateFinishedBadge();
 
   __showToast('💐 ' + moved + ' moved to Finished' + (failed ? (' · ' + failed + ' failed') : ''));
 };
@@ -1038,6 +1050,8 @@ window.loadGuestRejected = async function(){
         window.loadGuestRejected();
         window.loadGuestApprovals();
         window.loadGuestHistory();
+        if(window.loadAdminFinished) window.loadAdminFinished();
+        if(window.updateFinishedBadge) window.updateFinishedBadge();
       }catch(e){
         __showToast('❌ ' + e.message, false);
         b.disabled = false;
@@ -1047,7 +1061,139 @@ window.loadGuestRejected = async function(){
 };
 
 /* ============================================================
-   GUEST APPROVAL STATUS TABS (Pending / Completed / Rejected)
+   💐 ADMIN "FINISHED" TAB (HD0.5)
+
+   Once a person is moved to Finished they LEAVE the ✅ Completed tab:
+   their submission row gets status='finished' and appears here instead,
+   merged with everyone from the cloud finished-ledger (auto-wipes,
+   scheduled wipes, admin deletes — everything that shows in the 💐
+   Finished section of the home screen). Undo brings a manual entry back
+   into ✅ Completed.
+   ============================================================ */
+window.loadAdminFinished = async function(){
+  const list = $('adminFinishedList');
+  if(!list) return;
+  list.textContent = 'Loading…';
+
+  /* freshest ledger first (cloud storage + settings mirror), then merge
+     with the local copy so entries made on this device show instantly */
+  try{ if(window.pullFinishedLedger) await pullFinishedLedger(); }catch(e){}
+  const localList = window.getFinishedPeople ? getFinishedPeople() : [];
+  let rows = [];
+  try{ rows = await sb.guests() || []; }catch(e){ rows = []; }
+  const finishedRows = rows.filter(r => r.status === 'finished');
+
+  /* index of submissions by slug/login-id */
+  const bySlug = {};
+  [].concat(finishedRows, rows.filter(r => r.status === 'approved')).forEach(r => {
+    const pl = r.payload || {};
+    const prop = pl.person_proposal || {};
+    [r.approved_login_id, prop.slug, r.target_person_slug].forEach(s => {
+      if(s && !bySlug[String(s).toLowerCase()]) bySlug[String(s).toLowerCase()] = r;
+    });
+  });
+
+  /* merge ledger ∪ finished submission rows (dedupe by slug) */
+  let ledger = [];
+  try{
+    if(window.mergeTwoListsRaw){
+      ledger = window.mergeTwoListsRaw(localList, finishedRows.map(r => {
+        const pl = r.payload || {};
+        const prop = pl.person_proposal || {};
+        const gi = pl.guest_info || {};
+        return {
+          slug: r.approved_login_id || prop.slug || r.target_person_slug || '',
+          display_name: prop.display_name || r.target_person_slug || '',
+          birthday: prop.birthday || null,
+          requester_name: gi.name || r.guest_name || '',
+          requester_relation: gi.relation || r.guest_relation || '',
+          requester_whatsapp: (gi.whatsapp || r.guest_whatsapp || '').trim(),
+          finished_manually: true,
+          wiped_at: r.finished_at || r.updated_at || r.created_at || new Date().toISOString()
+        };
+      }).filter(x => x.slug));
+    } else {
+      ledger = localList;
+    }
+  }catch(e){ ledger = localList; }
+
+  if(window.updateFinishedBadge) window.updateFinishedBadge();
+
+  if(!ledger.length){
+    list.innerHTML = '<div class="empty-state"><span class="es-emoji">💐</span>No finished people yet — move someone here from the ✅ Completed tab.</div>';
+    return;
+  }
+  list.innerHTML = '';
+
+  ledger.forEach(p => {
+    const sub = bySlug[String(p.slug || '').toLowerCase()];
+    const pl = (sub && sub.payload) || {};
+    const gi = pl.guest_info || {};
+    const wa = String((p.requester_whatsapp || (gi.whatsapp || '') )).replace(/[^0-9+]/g, '');
+    const waLink = wa ? ('https://wa.me/' + wa.replace(/[^0-9]/g, '')) : '';
+    const wipedTxt = p.wiped_at ? new Date(p.wiped_at).toLocaleString() : '';
+
+    const el = document.createElement('div');
+    el.className = 'repeat-row guest-row collapsed';
+    el.dataset.expanded = '0';
+    el.style.background = 'linear-gradient(135deg,#faf4fd,#f3e8fa)';
+    el.innerHTML = `<div class="guest-row-head">
+      <span class="guest-caret">▸</span>
+      <span class="guest-row-summary"><strong style="color:#8e44ad;">💐 ${esc(p.display_name || p.slug)}</strong>${p.finished_manually ? '' : ' <span class="person-id-pill">🕊️ auto-wiped</span>'}</span>
+    </div>
+    <div class="guest-row-body" style="font-size:.85rem;line-height:1.6;">
+      <div>🔑 Login ID: <code style="background:#fff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;">${esc(String(p.slug || ''))}</code></div>
+      ${p.birthday ? '<div>🎂 Birthday: ' + esc(String(p.birthday).slice(0,10)) + '</div>' : ''}
+      ${wipedTxt ? '<div>🗓️ Wiped out / finished: <strong>' + esc(wipedTxt) + '</strong></div>' : ''}
+      <hr style="border:none;border-top:1px dashed rgba(142,68,173,.3);margin:.4rem 0;">
+      <strong>👤 Requester:</strong> ${esc(p.requester_name || gi.name || '—')}${p.requester_relation ? ' (' + esc(p.requester_relation) + ')' : ''}<br>
+      ${wa ? '📱 ' + esc(wa) + ' ' + (waLink ? '<a href="' + waLink + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#25D366;color:#fff;padding:.15rem .55rem;border-radius:40px;font-size:.75rem;text-decoration:none;font-weight:800;">💬 Chat</a>' : '') + '<br>' : ''}
+      <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
+        ${(sub && sub.status === 'finished') ? '<button type="button" class="repeat-add fin-undo-btn" data-id="' + sub.id + '" style="background:#0a7a3d;">↩️ Undo — move back to Completed</button>' : ''}
+      </div>
+    </div>`;
+    list.appendChild(el);
+  });
+
+  list.querySelectorAll('.guest-row').forEach(row => {
+    row.querySelector('.guest-row-head').onclick = () => {
+      const open = row.dataset.expanded === '1';
+      row.dataset.expanded = open ? '0' : '1';
+      row.classList.toggle('collapsed', open);
+      row.classList.toggle('expanded', !open);
+    };
+  });
+
+  list.querySelectorAll('.fin-undo-btn').forEach(b => {
+    b.onclick = async () => {
+      b.disabled = true;
+      try{
+        await sb.updGuest(parseInt(b.dataset.id, 10), {status: 'approved'});
+        __showToast('↩️ Moved back to ✅ Completed');
+        window.loadAdminFinished();
+        window.loadGuestHistory();
+        if(window.updateFinishedBadge) window.updateFinishedBadge();
+      }catch(e){
+        __showToast('❌ ' + e.message, false);
+        b.disabled = false;
+      }
+    };
+  });
+};
+
+/* Count badge on the 💐 Finished tab = everyone on the home-screen Finished list */
+window.updateFinishedBadge = function(){
+  const badge = $('finishedBadge');
+  if(!badge) return;
+  try{
+    const n = (window.getFinishedPeople ? getFinishedPeople().length : 0);
+    badge.textContent = n;
+    badge.style.display = n ? 'inline-block' : 'none';
+  }catch(e){ badge.style.display = 'none'; }
+};
+
+/* ============================================================
+   GUEST APPROVAL STATUS TABS (Pending / Completed / Finished / Rejected)
    Switch between lists AND expand/collapse each submission
    when the admin clicks on a client's row.
    ============================================================ */
@@ -1057,12 +1203,14 @@ window.bindGuestStatusTabs = function(){
   const sections = {
     pending:   $('guestPendingSection'),
     approved:  $('guestCompletedSection'),
+    finished:  $('guestFinishedSection'),
     rejected:  $('guestRejectedSection'),
     reminders: $('guestRemindersSection')
   };
   const loaders = {
     pending:  () => window.loadGuestApprovals && window.loadGuestApprovals(),
     approved: () => window.loadGuestHistory && window.loadGuestHistory(),
+    finished: () => window.loadAdminFinished && window.loadAdminFinished(),
     rejected: () => window.loadGuestRejected && window.loadGuestRejected(),
     reminders:() => window.loadGuestReminders && window.loadGuestReminders()
   };
@@ -1703,6 +1851,8 @@ document.addEventListener('DOMContentLoaded', () => {
         __showToast('✅ Approved & person #' + result.personId + ' created');
         loadGuestApprovals();
         loadGuestHistory();
+        if(window.loadAdminFinished) window.loadAdminFinished();
+        if(window.updateFinishedBadge) window.updateFinishedBadge();
       } else {
         st.textContent = '❌ ' + result.err;
         st.className = 'panel-status err';

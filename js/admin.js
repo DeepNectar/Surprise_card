@@ -1927,8 +1927,14 @@ function bindAdminGuestActions(){
     r5.dataset._bound = '1';
     r5.onclick = () => window.loadGuestReminders && window.loadGuestReminders();
   }
+  const r6 = $('refreshAdminFinished');
+  if(r6 && r6.dataset._bound !== '1'){
+    r6.dataset._bound = '1';
+    r6.onclick = () => window.loadAdminFinished && window.loadAdminFinished();
+  }
   if(window.bindGuestStatusTabs) window.bindGuestStatusTabs();
   if(window.updateReminderBadge) window.updateReminderBadge();
+  if(window.updateFinishedBadge) window.updateFinishedBadge();
   const r3 = $('adminRefreshReviews');
   if(r3 && r3.dataset._bound !== '1'){
     r3.dataset._bound = '1';
@@ -1945,6 +1951,8 @@ document.addEventListener('DOMContentLoaded', () => {
     guestsTab.addEventListener('click', () => {
       if(window.loadGuestApprovals) window.loadGuestApprovals();
       if(window.loadGuestHistory) window.loadGuestHistory();
+      if(window.loadAdminFinished) window.loadAdminFinished();
+      if(window.updateFinishedBadge) window.updateFinishedBadge();
     });
   }
 });
