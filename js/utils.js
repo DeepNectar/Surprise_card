@@ -340,6 +340,7 @@ window.getFinishedPeople = function(){
 /* Merge two finished-person lists (cloud + local), de-duplicating by slug.
    The EARLIEST known wipe stamp wins (that's the scheduled "said" time),
    and any record present in only one of the lists is kept. */
+window.mergeTwoListsRaw = function(a, b){ return mergeTwoLists(a, b); };
 function mergeTwoLists(a, b){
   const out = [];
   const idx = {};
