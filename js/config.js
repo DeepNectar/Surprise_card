@@ -171,6 +171,8 @@ S.REQUESTER_MODE      = S.REQUESTER_MODE      || false;
 S.REACTIONS           = S.REACTIONS           || {heart:0, love:0, cry:0, party:0};
 S.DARK_MODE           = S.DARK_MODE           || false;
 S.REVIEWS_COLLAPSED   = true;
+/* Ticked rows in the admin Completed tab → moved to 💐 Finished */
+S.GUEST_COMPLETED_SEL = S.GUEST_COMPLETED_SEL || new Set();
 
 /* ---------- Guest editor state ---------- */
 window.GE = {

@@ -355,6 +355,7 @@
     <div class="panel-field"><label class="panel-label">Card Password (viewer)</label><input type="text" class="panel-input" id="ap_password" placeholder="Click 🎲 below to generate"></div>
     <div class="panel-field"><label class="panel-label">Birthday</label><input type="date" class="panel-input" id="ap_birthday"></div>
     <div class="panel-field"><label class="panel-label">Requester name (shown on reviews)</label><input type="text" class="panel-input" id="ap_requester" placeholder="e.g. Deep Patel"></div>
+    <div class="panel-field"><label class="panel-label">Requester relation (to the person — saved privately)</label><input type="text" class="panel-input" id="ap_requester_relation" placeholder="e.g. Husband, Best friend, Sister"></div>
     <div class="panel-field"><label class="panel-label">Requester WhatsApp (used for edit password)</label><input type="tel" class="panel-input" id="ap_requester_wa" placeholder="e.g. +971 55 348 8512"></div>
 
     <div class="panel-field" style="padding:.55rem;background:#eef3ff;border:1px dashed #1a3d8f;border-radius:.6rem;">
@@ -936,6 +937,7 @@
         <button type="button" class="panel-tab active" data-guest-status="pending">⏳ Pending</button>
         <button type="button" class="panel-tab" data-guest-status="approved">✅ Completed</button>
         <button type="button" class="panel-tab" data-guest-status="rejected">🗑️ Rejected</button>
+        <button type="button" class="panel-tab" data-guest-status="reminders">🔔 Reminders <span class="reminder-badge" id="reminderBadge" style="display:none;">0</span></button>
       </div>
       <div class="panel-section" id="guestPendingSection">
         <div class="panel-section-title">✍️ Pending Guest Submissions</div>
@@ -944,6 +946,12 @@
       </div>
       <div class="panel-section" id="guestCompletedSection" style="display:none;">
         <div class="panel-section-title">📜 Guest Submissions History (Approved / Completed)</div>
+        <div class="guest-select-bar" id="completedSelectBar">
+          <label class="guest-select-all"><input type="checkbox" id="selectAllCompleted"> Select all</label>
+          <span class="guest-sel-count" id="completedSelCount">0 selected</span>
+          <button type="button" class="repeat-add" id="moveSelectedToFinished" style="background:#8e44ad;min-width:0;padding:.45rem .9rem;">💐 Move selected to Finished</button>
+        </div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Tick a completed submission and press “Move selected to Finished” — it appears in the 💐 Finished tab on the home screen for EVERY visitor, on every domain. Nothing is deleted.</div>
         <div id="guestHistoryList">Loading…</div>
         <button type="button" class="repeat-add" id="refreshGuestHistory" style="margin-top:.6rem;">🔄 Refresh</button>
       </div>
@@ -951,6 +959,12 @@
         <div class="panel-section-title">🗑️ Rejected Submissions</div>
         <div id="guestRejectedList">Loading…</div>
         <button type="button" class="repeat-add" id="refreshGuestRejected" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+      <div class="panel-section" id="guestRemindersSection" style="display:none;">
+        <div class="panel-section-title">🔔 Birthday Reminders — next 30 days</div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Upcoming birthdays of everyone you have surprised. Message the requester 10–15 days before the date to plan the next card. Requester WhatsApp numbers are kept privately here.</div>
+        <div id="guestRemindersList">Loading…</div>
+        <button type="button" class="repeat-add" id="refreshGuestReminders" style="margin-top:.6rem;">🔄 Refresh</button>
       </div>
     </div>
 
