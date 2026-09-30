@@ -382,7 +382,13 @@ window.getFinishedPeople = function(){
 
 /* Merge two finished-person lists (cloud + local), de-duplicating by slug.
    The EARLIEST known wipe stamp wins (that's the scheduled "said" time),
-   and any record present in only one of the lists is kept. */
+   and any record present in only one of the lists is kept.
+
+   HD0.5 — DELETED people stay as tiny "tombstones" ({deleted:true}).
+   A person the admin deletes from the 💐 Finished tab must NEVER come back
+   to the home screen through the ledger mirror, the settings-table copy or
+   a stale localStorage cache — so the deletion itself is what syncs.
+   deleted === true always wins over an ordinary record for the same slug. */
 window.mergeTwoListsRaw = function(a, b){ return mergeTwoLists(a, b); };
 function mergeTwoLists(a, b){
   const out = [];
@@ -392,6 +398,11 @@ function mergeTwoLists(a, b){
     const k = String(p.slug);
     if(idx[k] !== undefined){
       const old = out[idx[k]];
+      /* a DELETE marker always beats a live record (and vice-versa: never
+         let an older tombstone be resurrected by a plain entry… unless the
+         plain entry was stamped AFTER the delete, i.e. genuinely re-added) */
+      if(old.deleted && !p.deleted) return;
+      if(p.deleted && old.deleted) return;
       const keepWiped = [old.wiped_at, p.wiped_at].filter(Boolean).sort()[0];
       out[idx[k]] = Object.assign({}, old, p, { wiped_at: keepWiped || old.wiped_at });
     }else{
@@ -400,8 +411,21 @@ function mergeTwoLists(a, b){
     }
   });
   out.sort((x, y) => String(y.wiped_at || '').localeCompare(String(x.wiped_at || '')));
-  return out.slice(0, 200);
+  return out.slice(0, 400);
 }
+
+/* Public helper: strip the private requester fields off a tombstone so the
+   cloud ledger only carries {slug, deleted, wiped_at}. */
+window.purgedLedgerEntry = function(slug, wiped_at){
+  return {
+    slug: String(slug || ''),
+    display_name: '', birthday: null, requester_name: '',
+    requester_relation: '', requester_whatsapp: '',
+    id: null, finished_manually: false,
+    deleted: true,
+    wiped_at: wiped_at || new Date().toISOString()
+  };
+};
 
 /* Push the merged (cloud ∪ local) list up to BOTH cloud stores (debounced):
      1. Supabase Storage bucket 'site-ledger' — the permanent master copy
@@ -435,27 +459,119 @@ window.pushFinishedLedger = function(){
         }catch(e){}
       }
       const merged = mergeTwoLists(cloudList, getFinishedPeople());
+      /* HD0.5 — carry the DELETE tombstones along so deletions propagate to
+         every browser/domain instead of being resurrected by the cloud copy */
+      const payload = mergeTwoLists(merged, window.getPurgedSlugs ? getPurgedSlugs() : []);
       /* persist the merged view locally too, so this browser sees others' entries */
-      localStorage.setItem(FINISHED_KEY, JSON.stringify(merged));
+      localStorage.setItem(FINISHED_KEY, JSON.stringify(payload.filter(x => !x.deleted)));
       let wroteStorage = false;
       if(window.sbPutFinishedJson){
-        try{ wroteStorage = await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: merged }); }catch(e){}
+        try{ wroteStorage = await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: payload }); }catch(e){}
       }
       /* ALWAYS keep the DB mirror in sync as well (cheap, reliable under
          existing anon policies) — never let it go stale. */
       if(window.sbPutFinishedToSettings){
-        try{ await window.sbPutFinishedToSettings({ updated_at: new Date().toISOString(), people: merged }); }catch(e){}
+        try{ await window.sbPutFinishedToSettings({ updated_at: new Date().toISOString(), people: payload }); }catch(e){}
       }else if(wroteStorage === false && window.__sbUpSetShared){
         /* legacy path: only write DB mirror if storage failed */
-        try{ await window.__sbUpSetShared(FINISHED_LEDGER_SETTING, JSON.stringify({ updated_at: new Date().toISOString(), people: merged })); }catch(e){}
+        try{ await window.__sbUpSetShared(FINISHED_LEDGER_SETTING, JSON.stringify({ updated_at: new Date().toISOString(), people: payload })); }catch(e){}
       }
     }catch(e){}
   }, 800);
 };
 
-/* Merge one finished-person record into the local mirror. Returns true if new. */
+/* ============================================================
+   DELETE MARKERS ("tombstones") FOR THE FINISHED LEDGER  (HD0.5)
+
+   When the admin deletes a finished person, that deletion must reach every
+   browser / domain and must NEVER be undone by an older cloud copy. So the
+   ledger carries tiny markers — {slug, deleted:true} with ALL personal data
+   stripped (no name, birthday, relation or WhatsApp) — instead of simply
+   dropping the row. The markers live in their own localStorage key so they
+   are never rendered anywhere; the wiped-out archive keeps the full private
+   record so the admin can still restore someone later.
+   ============================================================ */
+const FINISHED_PURGED_KEY = 'surprise_finished_purged_v1';
+
+window.getPurgedSlugs = function(){
+  try{
+    const raw = localStorage.getItem(FINISHED_PURGED_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return []; }
+};
+
+/* Private wipe-ledger archive: EVERY finished entry ever seen on this
+   device is mirrored here and NEVER cleared — including deleted ones.
+   ⚠️ Device-local only: it survives table wipes but not a different
+   browser/device. Deleting from the 💐 Finished tab therefore also files a
+   delete marker in the CLOUD ledger (see removeFinishedPerson). */
+const WIPED_ARCHIVE_KEY = 'surprise_wiped_archive_v1';
+
+window.getWipedArchive = function(){
+  try{
+    /* merged view: archive ∪ current finished list ∪ delete markers
+       (the archive always wins for a slug, and a deleted person stays
+        visible to the ADMIN inside 🗑️ Wiped Out, never on the home screen) */
+    const raw = localStorage.getItem(WIPED_ARCHIVE_KEY);
+    const arch = raw ? (JSON.parse(raw) || []) : [];
+    const list = Array.isArray(arch) ? arch : [];
+    const cur = window.getFinishedPeople ? getFinishedPeople() : [];
+    const purged = window.getPurgedSlugs ? getPurgedSlugs() : [];
+    let out = window.mergeTwoListsRaw
+      ? window.mergeTwoListsRaw(list, cur)
+      : list.concat(cur.filter(c => !list.some(l => String(l.slug) === String(c.slug))));
+    purged.forEach(t => {
+      if(!t || !t.slug) return;
+      const i = out.findIndex(x => x && String(x.slug) === String(t.slug));
+      if(i >= 0) out[i] = Object.assign({}, out[i], { deleted: true, deleted_at: t.wiped_at || null });
+      else out.push(Object.assign({}, t, { deleted: true, deleted_at: t.wiped_at || null }));
+    });
+    return out;
+  }catch(e){ return window.getFinishedPeople ? getFinishedPeople() : []; }
+};
+
+function isPurged(slug){
+  if(!slug) return false;
+  const low = String(slug).toLowerCase();
+  return window.getPurgedSlugs().some(x => x && String(x.slug).toLowerCase() === low);
+}
+
+function rememberPurged(entry){
+  try{
+    const list = window.getPurgedSlugs();
+    const i = list.findIndex(x => x && String(x.slug) === String(entry.slug));
+    if(i >= 0) list[i] = Object.assign({}, list[i], entry);
+    else list.unshift(entry);
+    localStorage.setItem(FINISHED_PURGED_KEY, JSON.stringify(list.slice(0, 400)));
+  }catch(e){}
+}
+
+function forgetPurged(slug){
+  try{
+    const low = String(slug || '').toLowerCase();
+    const list = window.getPurgedSlugs().filter(x => x && String(x.slug).toLowerCase() !== low);
+    localStorage.setItem(FINISHED_PURGED_KEY, JSON.stringify(list));
+  }catch(e){}
+}
+
+/* Merge one finished-person record into the local mirror. Returns true if new.
+   A delete marker ({deleted:true}) goes to the purged key + the private
+   archive instead of the visible finished list. */
 function mergeFinishedEntry(p){
   if(!p || !p.slug) return false;
+  /* DELETION marker → file it in the purged list, drop any live copy */
+  if(p.deleted){
+    const tomb = window.purgedLedgerEntry(p.slug, p.wiped_at);
+    rememberPurged(tomb);
+    try{
+      const list = getFinishedPeople().filter(x => String(x.slug) !== String(p.slug));
+      localStorage.setItem(FINISHED_KEY, JSON.stringify(list));
+    }catch(e){}
+    return false;
+  }
+  /* a previously deleted slug must not be resurrected by cloud sync */
+  if(isPurged(p.slug)) return false;
   const list = getFinishedPeople();
   const i = list.findIndex(x => String(x.slug) === String(p.slug));
   if(i >= 0){
@@ -472,25 +588,10 @@ function mergeFinishedEntry(p){
 }
 
 /* ---------- Wiped-out archive (private admin section) ----------
-   EVERY finished entry — auto-wipes, scheduled wipes, admin deletes and
-   manual "Move to Finished" actions — is mirrored into a separate,
-   NEVER-cleared localStorage key. The 💐 Finished list itself can be
-   tidied up by the admin, but this archive always keeps the full history
-   so wiped people can be re-selected and restored back into Finished. */
-const WIPED_ARCHIVE_KEY = 'surprise_wiped_archive_v1';
-
-window.getWipedArchive = function(){
-  try{
-    /* merged view: archive ∪ current finished list (archive wins on dupes) */
-    const raw = localStorage.getItem(WIPED_ARCHIVE_KEY);
-    const arch = raw ? (JSON.parse(raw) || []) : [];
-    const list = Array.isArray(arch) ? arch : [];
-    const cur = window.getFinishedPeople ? getFinishedPeople() : [];
-    if(window.mergeTwoListsRaw) return window.mergeTwoListsRaw(list, cur);
-    return list.concat(cur.filter(c => !list.some(l => String(l.slug) === String(c.slug))));
-  }catch(e){ return window.getFinishedPeople ? getFinishedPeople() : []; }
-};
-
+   The reader (window.getWipedArchive, defined above together with the
+   delete markers) merges this NEVER-cleared key with the current finished
+   list, so every finished / auto-wiped / deleted person stays re-selectable
+   by the admin and can be restored back into 💐 Finished. */
 function archiveWipedEntry(entry){
   try{
     const raw = localStorage.getItem(WIPED_ARCHIVE_KEY);
@@ -506,12 +607,15 @@ function archiveWipedEntry(entry){
   }catch(e){}
 }
 
-/* Restore an archived person INTO the 💐 Finished tab (cloud-synced). */
+/* Restore an archived person INTO the 💐 Finished tab (cloud-synced).
+   HD0.5 — restoring also lifts the DELETE marker for that slug, so the
+   person legitimately comes back everywhere instead of being filtered out. */
 window.restoreFromWipedArchive = async function(slug){
   if(!slug) return false;
   const arch = (window.getWipedArchive ? getWipedArchive() : [])
     .find(x => x && String(x.slug).toLowerCase() === String(slug).toLowerCase());
   if(!arch) return false;
+  forgetPurged(arch.slug);
   mergeFinishedEntry(Object.assign({}, arch));
   pushFinishedLedger();
   return true;
@@ -544,27 +648,67 @@ window.addFinishedPerson = function(person){
   }catch(e){}
 };
 
+/* ============================================================
+   DELETE A FINISHED PERSON  (admin action — 💐 Finished tab & home screen)
+
+   HD0.5 — the deletion is written as a private "tombstone" into BOTH cloud
+   copies of the ledger (Storage bucket + settings-table mirror), so the
+   person disappears from the 💐 Finished list on the home screen for EVERY
+   visitor, on every domain and device — and never comes back through sync.
+   The requester's WhatsApp / relation are stripped from the tombstone, so
+   no personal data stays in the public ledger; the full record remains in
+   the private admin archive (🗑️ Wiped Out) for a later restore.
+   ============================================================ */
 window.removeFinishedPerson = async function(slug){
+  if(!slug) return;
+  const key = String(slug);
   try{
-    const list = getFinishedPeople().filter(x => x.slug !== slug);
-    localStorage.setItem(FINISHED_KEY, JSON.stringify(list));
-    /* also remove from the CLOUD ledger so it doesn't come back on reload.
-       Fetch-merge-write: only drop this slug, keep every other browser's rows. */
-    if(window.sbPutFinishedJson){
+    /* find the entry first (we need its wipe stamp for the marker) */
+    const cur = getFinishedPeople().find(x => String(x.slug) === key);
+    const tomb = window.purgedLedgerEntry(key, cur && cur.wiped_at);
+
+    /* 1. local: drop from the visible list, remember the deletion */
+    localStorage.setItem(FINISHED_KEY, JSON.stringify(getFinishedPeople()
+      .filter(x => String(x.slug) !== key)));
+    rememberPurged(tomb);
+
+    /* 2. cloud: fetch-merge-write the ledger WITHOUT this slug, then append
+          the delete marker so other browsers stay deleted too */
+    let cloudList = [];
+    if(window.sbGetFinishedJson){
       try{
-        let cloudList = [];
-        if(window.sbGetFinishedJson){
-          try{
-            const cloud = await sbGetFinishedJson();
-            if(cloud && Array.isArray(cloud.people)) cloudList = cloud.people;
-          }catch(e){}
-        }
-        const merged = mergeTwoLists(cloudList, list).filter(x => String(x.slug) !== String(slug));
-        localStorage.setItem(FINISHED_KEY, JSON.stringify(merged));
-        await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: merged });
+        const cloud = await sbGetFinishedJson();
+        if(cloud && Array.isArray(cloud.people)) cloudList = cloudList.concat(cloud.people);
       }catch(e){}
     }
+    if(window.sbGetFinishedFromSettings){
+      try{
+        const mirror = await window.sbGetFinishedFromSettings();
+        if(mirror && Array.isArray(mirror.people)) cloudList = cloudList.concat(mirror.people);
+      }catch(e){}
+    }
+    const kept = mergeTwoLists(cloudList, getFinishedPeople())
+      .filter(x => String(x.slug) !== key);
+    const payload = mergeTwoLists(kept, [tomb]);
+
+    localStorage.setItem(FINISHED_KEY, JSON.stringify(payload.filter(x => !x.deleted)));
+
+    if(window.sbPutFinishedJson){
+      try{ await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: payload }); }catch(e){}
+    }
+    if(window.sbPutFinishedToSettings){
+      try{ await window.sbPutFinishedToSettings({ updated_at: new Date().toISOString(), people: payload }); }catch(e){}
+    }else if(window.__sbUpSetShared){
+      try{ await window.__sbUpSetShared(FINISHED_LEDGER_SETTING, JSON.stringify({ updated_at: new Date().toISOString(), people: payload })); }catch(e){}
+    }
   }catch(e){}
+};
+
+/* Same thing for MANY slugs at once (admin multi-select delete). */
+window.removeFinishedPeople = async function(slugs){
+  const list = (slugs || []).filter(Boolean);
+  for(const s of list){ await window.removeFinishedPerson(s); }
+  return list.length;
 };
 
 window.clearFinishedPeople = function(){
