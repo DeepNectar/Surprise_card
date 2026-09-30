@@ -195,11 +195,47 @@ window.buildHome = function(){
 };
 
 /* ---------- Finished section (auto-wiped people) ---------- */
+/* Grace period: for a short while after the scheduled wipe time, still show
+   a person in the 💐 Finished tab even if neither the local mirror nor the
+   cloud ledger has caught up yet (e.g. brand-new visitor on a fresh domain
+   whose first sync hasn't completed). This guarantees the Finished tab never
+   "vanishes" when someone opens the site via a different domain. */
+const FINISHED_GRACE_MS = 3 * 24 * 60 * 60 * 1000; /* 3 days */
+function finishedFromPeopleTable(){
+  /* People whose scheduled wipe date/time has passed (or is imminent within
+     the grace window) count as finished, straight from the live table. */
+  const now = Date.now();
+  return (S.PEOPLE || []).filter(p => {
+    if(!p || !p.wipe_iso) return false;
+    const t = Date.parse(p.wipe_iso);
+    if(isNaN(t)) return false;
+    return t <= now + FINISHED_GRACE_MS;
+  }).map(p => ({
+    id: p.id, slug: p.slug, display_name: p.display_name,
+    birthday: p.birthday, requester_name: p.requester_name || '',
+    wiped_at: p.wipe_iso
+  }));
+}
 function renderFinishedSection(){
   const wrap = $('homeFinished');
   if(!wrap) return;
 
-  const finished = window.getFinishedPeople ? getFinishedPeople() : [];
+  let finished = window.getFinishedPeople ? getFinishedPeople() : [];
+  /* Merge in any due/overdue people from the live table so the Finished
+     tab shows for EVERY visitor on every domain — even before their very
+     first cloud-ledger sync finishes. */
+  try{
+    const fromTable = finishedFromPeopleTable();
+    if(fromTable.length){
+      const seen = {};
+      finished.forEach(f => { seen[String(f.slug)] = 1; });
+      const extra = fromTable.filter(p => p.slug && !seen[String(p.slug)]);
+      if(extra.length){
+        if(window.mergeTwoListsRaw) finished = window.mergeTwoListsRaw(finished, extra);
+        else finished = finished.concat(extra);
+      }
+    }
+  }catch(e){}
   if(!finished.length){
     wrap.style.display = 'none';
     wrap.classList.add('collapsed');

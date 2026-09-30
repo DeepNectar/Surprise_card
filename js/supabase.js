@@ -87,6 +87,58 @@ window.sbGetFinishedJson = async function(){
   }catch(e){ return null; }
 };
 
+/* ---------- Settings-table mirror of the finished ledger ----------
+   The 'site-ledger' Storage bucket requires one-time SQL setup (bucket +
+   anon RLS policies). If that was never run — or a new custom domain hits
+   the site before any browser has seeded the bucket — the 💐 Finished tab
+   would be empty for those visitors. These two helpers keep a second copy
+   of the SAME JSON in the settings table (key: shared__finished_ledger),
+   which already works under the existing anon policies, so finished people
+   sync across EVERY domain & device no matter what. */
+const FINISHED_LEDGER_KEY = 'shared__finished_ledger';
+
+window.sbPutFinishedToSettings = async function(data){
+  try{
+    const payload = JSON.stringify(data);
+    const filt = "?key=eq." + encodeURIComponent(FINISHED_LEDGER_KEY) + '&person_id=is.null';
+    /* Preferred: atomic upsert via sb.upSet (delete+insert — anon can do both) */
+    try{ await sb.upSet({ [FINISHED_LEDGER_KEY]: payload }, null); }catch(e){}
+    try{
+      const check = await req(T_SETTINGS + "?select=value&key=eq." + encodeURIComponent(FINISHED_LEDGER_KEY) + '&person_id=is.null&order=id.desc&limit=1');
+      if(check && check.length && check[0].value === payload) return true;
+      if(check && check.length){
+        /* row exists but holds an older value — force-overwrite it */
+        await req(T_SETTINGS + filt, {
+          method:'PATCH',
+          headers:{'Prefer':'return=minimal'},
+          body: JSON.stringify({ value: payload }),
+          label:'patch finished ledger'
+        });
+      }else{
+        /* no row yet — plain insert (anon INSERT works on settings) */
+        await req(T_SETTINGS, {
+          method:'POST',
+          headers:{'Prefer':'return=minimal'},
+          body: JSON.stringify([{ key: FINISHED_LEDGER_KEY, value: payload, person_id: null }]),
+          label:'insert finished ledger'
+        });
+      }
+      return true;
+    }catch(e){ return false; }
+  }catch(e){ return false; }
+};
+
+/* Read the LATEST mirror row (in case duplicates exist from plain inserts) */
+window.sbGetFinishedFromSettings = async function(){
+  try{
+    const rows = await req(T_SETTINGS + "?select=value&key=eq." + encodeURIComponent(FINISHED_LEDGER_KEY) + '&person_id=is.null&order=id.desc&limit=1');
+    const v = (rows && rows[0] && rows[0].value) || '';
+    if(!v) return null;
+    const j = JSON.parse(v);
+    return (j && Array.isArray(j.people)) ? j : null;
+  }catch(e){ return null; }
+};
+
 /* One-time setup helper: creates the public 'site-ledger' bucket and the
    anon write / public read policies.  Paste this into Supabase Dashboard →
    SQL Editor and run it once. */

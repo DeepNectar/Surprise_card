@@ -359,15 +359,20 @@ function mergeTwoLists(a, b){
   return out.slice(0, 200);
 }
 
-/* Push the merged (cloud ∪ local) list up to the cloud ledger (debounced).
+/* Push the merged (cloud ∪ local) list up to BOTH cloud stores (debounced):
+     1. Supabase Storage bucket 'site-ledger' — the permanent master copy
+        (survives every database wipe), and
+     2. the settings table key 'shared__finished_ledger' — a fallback mirror
+        that works even when the storage bucket / RLS policies are missing,
+        so the 💐 Finished tab syncs across EVERY domain & device.
    Merging with the cloud before writing prevents one browser from
    overwriting another browser's finished entries. */
+const FINISHED_LEDGER_SETTING = 'shared__finished_ledger';
 let _ledgerPushT = null;
 window.pushFinishedLedger = function(){
   clearTimeout(_ledgerPushT);
   _ledgerPushT = setTimeout(async () => {
     try{
-      if(!window.sbPutFinishedJson) return;
       let cloudList = [];
       if(window.sbGetFinishedJson){
         try{
@@ -375,10 +380,31 @@ window.pushFinishedLedger = function(){
           if(cloud && Array.isArray(cloud.people)) cloudList = cloud.people;
         }catch(e){}
       }
+      /* also fold in the settings-table mirror (covers browsers whose only
+         successful write path was the DB) */
+      if(window.sbGetFinishedFromSettings){
+        try{
+          const mirror = await window.sbGetFinishedFromSettings();
+          if(mirror && Array.isArray(mirror.people)){
+            cloudList = mergeTwoLists(cloudList, mirror.people);
+          }
+        }catch(e){}
+      }
       const merged = mergeTwoLists(cloudList, getFinishedPeople());
       /* persist the merged view locally too, so this browser sees others' entries */
       localStorage.setItem(FINISHED_KEY, JSON.stringify(merged));
-      await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: merged });
+      let wroteStorage = false;
+      if(window.sbPutFinishedJson){
+        try{ wroteStorage = await sbPutFinishedJson({ updated_at: new Date().toISOString(), people: merged }); }catch(e){}
+      }
+      /* ALWAYS keep the DB mirror in sync as well (cheap, reliable under
+         existing anon policies) — never let it go stale. */
+      if(window.sbPutFinishedToSettings){
+        try{ await window.sbPutFinishedToSettings({ updated_at: new Date().toISOString(), people: merged }); }catch(e){}
+      }else if(wroteStorage === false && window.__sbUpSetShared){
+        /* legacy path: only write DB mirror if storage failed */
+        try{ await window.__sbUpSetShared(FINISHED_LEDGER_SETTING, JSON.stringify({ updated_at: new Date().toISOString(), people: merged })); }catch(e){}
+      }
     }catch(e){}
   }, 800);
 };
@@ -445,28 +471,45 @@ window.clearFinishedPeople = function(){
   try{ localStorage.removeItem(FINISHED_KEY); }catch(e){}
 };
 
-/* Pull the cloud ledger and merge it into the local mirror.
+/* Pull the cloud ledger (Storage bucket + settings-table mirror) and merge
+   it into the local mirror.
    Returns true if anything new appeared (callers can repaint the home).
    If the cloud file does not exist yet but we have local entries,
    bootstrap them upward so other browsers/devices can see them too. */
 window.pullFinishedLedger = async function(){
   try{
-    if(!window.sbGetFinishedJson) return false;
-    const cloud = await sbGetFinishedJson();
-    if(!cloud || !Array.isArray(cloud.people)){
+    let gotCloud = false;
+    let changed = false;
+    let anyPeople = [];
+    if(window.sbGetFinishedJson){
+      const cloud = await sbGetFinishedJson();
+      if(cloud && Array.isArray(cloud.people)){
+        gotCloud = true;
+        anyPeople = anyPeople.concat(cloud.people);
+      }
+    }
+    if(window.sbGetFinishedFromSettings){
+      try{
+        const mirror = await window.sbGetFinishedFromSettings();
+        if(mirror && Array.isArray(mirror.people)){
+          gotCloud = true;
+          anyPeople = anyPeople.concat(mirror.people);
+        }
+      }catch(e){}
+    }
+    if(!gotCloud){
       /* first run: seed the cloud ledger from this browser's local list */
-      if(getFinishedPeople().length && window.sbPutFinishedJson){
+      if(getFinishedPeople().length && window.pushFinishedLedger){
         pushFinishedLedger();
       }
       return false;
     }
-    let changed = false;
     /* oldest first so newest ends up on top after unshift-merges */
-    cloud.people.slice().reverse().forEach(p => {
+    anyPeople.slice().reverse().forEach(p => {
       if(mergeFinishedEntry(p)) changed = true;
     });
     return changed;
-  }catch(e){ return false; }
+  }catch(e){ return false; };
 };
 
 })();
