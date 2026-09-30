@@ -774,11 +774,13 @@ window.loadGuestHistory = async function(){
     el.dataset.expanded = '0';
     el.style.background = 'linear-gradient(135deg,#f0fff4,#e8f5f0)';
     el.innerHTML = `<div class="guest-row-head">
+      <input type="checkbox" class="guest-check completed-check" data-id="${r.id}" title="Tick to move this person to the 💐 Finished tab" onclick="event.stopPropagation()">
       <span class="guest-caret">▸</span>
       <span class="guest-row-summary"><strong>✅ ${esc(prop.display_name || r.target_person_slug)}</strong>${r.approved_person_id ? ' <span class="person-id-pill">#' + r.approved_person_id + '</span>' : ''}${loginId ? ' · 🔑 ' + esc(loginId) : ''}</span>
     </div>
     <div class="guest-row-body" style="font-size:.85rem;line-height:1.6;">
       <em style="color:var(--c-text-muted);"> (login id: ${esc(loginId)})</em>
+      ${prop.birthday ? '<div>🎂 Birthday: ' + esc(String(prop.birthday).slice(0,10)) + '</div>' : ''}
       ${created ? '<div style="font-size:.75rem;color:var(--c-text-muted);font-style:italic;">Submitted: ' + esc(created) + '</div>' : ''}
       ${sentAt ? '<div style="font-size:.75rem;color:var(--c-text-muted);font-style:italic;">Shared at: ' + esc(sentAt) + '</div>' : ''}
       <hr style="border:none;border-top:1px dashed rgba(196,30,58,.25);margin:.4rem 0;">
@@ -792,6 +794,7 @@ window.loadGuestHistory = async function(){
       ${editPw ? '<div><strong>✏️ EDIT password:</strong> <code style="background:#eef3ff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;color:#1a3d8f;">' + esc(editPw) + '</code></div>' : ''}
       <div><strong>🌐 Link:</strong> <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="color:#0a4f8f;word-break:break-all;">${esc(link)}</a></div>
       <div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap;">
+        <button type="button" class="repeat-add finished-move-btn" data-id="${r.id}" style="background:#8e44ad;">💐 Move to Finished</button>
         <button type="button" class="repeat-add reedit-btn" data-id="${r.id}" style="background:#2a5fd1;">✏️ Re-edit submission</button>
         <button type="button" class="repeat-add resend-btn" data-id="${r.id}" style="background:linear-gradient(135deg,#25D366,#128C7E);">📲 Re-send credentials</button>
       </div>
@@ -807,6 +810,42 @@ window.loadGuestHistory = async function(){
       row.classList.toggle('collapsed', open);
       row.classList.toggle('expanded', !open);
     };
+  });
+
+  /* ---- Tick / select rows → move them into the 💐 Finished tab ---- */
+  const checks = Array.from(list.querySelectorAll('.completed-check'));
+  const countEl = $('completedSelCount');
+  const selAll  = $('selectAllCompleted');
+  const updateCount = () => {
+    const n = checks.filter(c => c.checked).length;
+    if(countEl) countEl.textContent = n + ' selected';
+    if(selAll){
+      selAll.checked = n > 0 && n === checks.length;
+      selAll.indeterminate = n > 0 && n < checks.length;
+    }
+  };
+  checks.forEach(c => { c.onchange = updateCount; c.onclick = e => e.stopPropagation(); });
+  if(selAll && selAll.dataset._bound !== '1'){
+    selAll.dataset._bound = '1';
+    selAll.onchange = () => {
+      checks.forEach(c => { c.checked = selAll.checked; });
+      updateCount();
+    };
+  }
+  updateCount();
+
+  const moveBtn = $('moveSelectedToFinished');
+  if(moveBtn && moveBtn.dataset._bound !== '1'){
+    moveBtn.dataset._bound = '1';
+    moveBtn.onclick = () => {
+      const ids = checks.filter(c => c.checked)
+                        .map(c => parseInt(c.dataset.id, 10));
+      window.moveCompletedGuestsToFinished(ids);
+    };
+  }
+
+  list.querySelectorAll('.finished-move-btn').forEach(b => {
+    b.onclick = () => window.moveCompletedGuestsToFinished([parseInt(b.dataset.id, 10)]);
   });
 
   list.querySelectorAll('.resend-btn').forEach(b => {
@@ -835,6 +874,107 @@ window.loadGuestHistory = async function(){
       openGuestEditor(r);
     };
   });
+};
+
+/* ============================================================
+   MOVE SELECTED COMPLETED SUBMISSIONS → 💐 FINISHED TAB
+
+   Ticked rows in the Completed tab are filed into the Finished list
+   (cloud ledger + local mirror) so they appear on the home screen for
+   EVERY visitor, on every domain. The person's live data is wiped out
+   ONLY if it still exists and has passed its review; nothing is ever
+   lost — every entry stays in the private "🗑️ Wiped Out" archive and
+   can be restored back into Finished from there.
+   ============================================================ */
+window.moveCompletedGuestsToFinished = async function(ids){
+  ids = (ids || []).filter(Boolean);
+  if(!ids.length){ __showToast('⚠️ Tick at least one completed submission first.', false); return; }
+
+  const ok = await __confirm({
+    icon: '💐',
+    title: 'Move ' + ids.length + ' to Finished?',
+    message: 'They will appear in the 💐 Finished tab on the home screen for everyone, stamped with their birthday info.\n\nIf their card data still exists it will be wiped out — but they stay in the 🗑️ Wiped Out archive and can be restored anytime.',
+    okText: 'Move to Finished'
+  });
+  if(!ok) return;
+
+  __showToast('⏳ Moving to Finished…');
+  let moved = 0, failed = 0;
+  const rows = await sb.guests();
+
+  for(const id of ids){
+    try{
+      const r = (rows || []).find(x => String(x.id) === String(id));
+      if(!r){ failed++; continue; }
+      const pl = r.payload || {};
+      const prop = pl.person_proposal || {};
+      const gi = pl.guest_info || {};
+      const slug = r.approved_login_id || prop.slug || r.target_person_slug || '';
+      if(!slug){ failed++; continue; }
+
+      /* find the live person (by approved id first, then by slug) */
+      let person = null;
+      try{
+        if(r.approved_person_id){
+          person = (S.PEOPLE || []).find(p => String(p.id) === String(r.approved_person_id)) || null;
+        }
+        if(!person && slug){
+          person = (S.PEOPLE || []).find(p => p.slug && String(p.slug).toLowerCase() === String(slug).toLowerCase()) || null;
+        }
+      }catch(e){}
+
+      window.addFinishedPerson({
+        id: person ? person.id : (r.approved_person_id || null),
+        slug: person ? person.slug : slug,
+        display_name: (person && person.display_name) || prop.display_name || slug,
+        birthday: (person && person.birthday) || prop.birthday || null,
+        requester_name: (person && person.requester_name) || gi.name || r.guest_name || '',
+        /* relation + WhatsApp saved privately for the birthday reminders */
+        requester_relation: gi.relation || r.guest_relation || '',
+        requester_whatsapp: (gi.whatsapp || r.guest_whatsapp || '').trim(),
+        finished_manually: true,
+        /* stamp with the scheduled wipe date when known, else right now */
+        wiped_at: (person && person.wipe_iso) || new Date().toISOString()
+      });
+
+      /* wipe the live card data too (person goes to Finished, not Active) */
+      if(person){
+        try{ await window.wipeOnePersonQuiet(person.id); }catch(e){}
+      }
+      moved++;
+    }catch(e){
+      failed++;
+      console.warn('moveCompletedGuestsToFinished', id, e.message);
+    }
+  }
+
+  try{ S.PEOPLE = await sb.people() || []; }catch(e){}
+  if(window.clearHomeSnapshot) window.clearHomeSnapshot();
+  if(window.buildHome) window.buildHome();
+  if(window.renderFinishedSection) window.renderFinishedSection();
+  window.loadGuestHistory();
+
+  __showToast('💐 ' + moved + ' moved to Finished' + (failed ? (' · ' + failed + ' failed') : ''));
+};
+
+/* Wipe a person's data WITHOUT re-adding them to the finished list twice
+   (the caller above already filed them with the correct manual stamp). */
+window.wipeOnePersonQuiet = async function(pid){
+  if(!pid) return;
+  try{
+    await Promise.all([
+      sb.wipe(T_MEDIA,   pid),
+      sb.wipe(T_GIFTS,   pid),
+      sb.wipe(T_STORY,   pid),
+      sb.wipe(T_EVENTS,  pid),
+      sb.wipe(T_VOICE,   pid),
+      sb.wipe(T_VIDEO,   pid),
+      sb.wipe(T_PINS,    pid),
+      sb.wipe(T_UPLOADS, pid),
+      sb.wipe(T_SETTINGS,pid)
+    ]);
+    await sb.delPerson(pid);
+  }catch(e){ console.warn('[quiet wipe] failed for ' + pid, e.message); }
 };
 
 /* ============================================================
@@ -917,12 +1057,14 @@ window.bindGuestStatusTabs = function(){
   const sections = {
     pending:   $('guestPendingSection'),
     approved:  $('guestCompletedSection'),
-    rejected:  $('guestRejectedSection')
+    rejected:  $('guestRejectedSection'),
+    reminders: $('guestRemindersSection')
   };
   const loaders = {
     pending:  () => window.loadGuestApprovals && window.loadGuestApprovals(),
     approved: () => window.loadGuestHistory && window.loadGuestHistory(),
-    rejected: () => window.loadGuestRejected && window.loadGuestRejected()
+    rejected: () => window.loadGuestRejected && window.loadGuestRejected(),
+    reminders:() => window.loadGuestReminders && window.loadGuestReminders()
   };
   tabs.forEach(tab => {
     if(tab.dataset._bound === '1') return;
@@ -936,6 +1078,127 @@ window.bindGuestStatusTabs = function(){
       });
       if(loaders[st]) loaders[st]();
     };
+  });
+};
+
+/* ============================================================
+   BIRTHDAY REMINDERS — next 30 days (admin notification tab)
+
+   Covers ACTIVE people AND every FINISHED person in the cloud
+   ledger. Requester name / relation / WhatsApp are kept privately
+   here so the admin can message the requester ~10–15 days before
+   the birthday to plan the next surprise.
+   ============================================================ */
+const REMINDER_WINDOW_DAYS = 30;
+
+function reminderSourceList(){
+  const out = [];
+  const seen = {};
+  /* active people from the live table */
+  ((window.__PAGE_STATE__ && S.PEOPLE) || []).forEach(p => {
+    if(!p || !p.birthday) return;
+    const k = String(p.slug || '').toLowerCase();
+    if(!k || seen[k]) return;
+    seen[k] = 1;
+    out.push({
+      slug: p.slug,
+      display_name: p.display_name || p.slug,
+      birthday: p.birthday,
+      requester_name: p.requester_name || '',
+      requester_relation: p.requester_relation || '',
+      requester_whatsapp: p.requester_whatsapp || '',
+      status: 'active'
+    });
+  });
+  /* finished people from the ledger (private fields kept there) */
+  try{
+    (window.getFinishedPeople ? getFinishedPeople() : []).forEach(f => {
+      if(!f || !f.birthday) return;
+      const k = String(f.slug || '').toLowerCase();
+      if(!k || seen[k]) return;
+      seen[k] = 1;
+      out.push({
+        slug: f.slug,
+        display_name: f.display_name || f.slug,
+        birthday: f.birthday,
+        requester_name: f.requester_name || '',
+        requester_relation: f.requester_relation || '',
+        requester_whatsapp: f.requester_whatsapp || '',
+        status: 'finished'
+      });
+    });
+  }catch(e){}
+  return out;
+}
+
+window.updateReminderBadge = async function(){
+  const badge = $('reminderBadge');
+  if(!badge) return;
+  try{
+    let soon = 0;
+    reminderSourceList().forEach(p => {
+      const d = window.daysUntilBirthday ? daysUntilBirthday(p.birthday) : null;
+      if(d !== null && d !== undefined && d <= REMINDER_WINDOW_DAYS) soon++;
+    });
+    badge.textContent = soon;
+    badge.style.display = soon ? 'inline-block' : 'none';
+  }catch(e){ badge.style.display = 'none'; }
+};
+
+window.loadGuestReminders = async function(){
+  const list = $('guestRemindersList');
+  if(!list) return;
+  list.textContent = 'Loading…';
+
+  /* make sure we have the freshest finished ledger + people list */
+  try{ if(window.pullFinishedLedger) await pullFinishedLedger(); }catch(e){}
+  try{ if(window.syncFinishedFromCloud) await syncFinishedFromCloud(); }catch(e){}
+  try{ S.PEOPLE = await sb.people() || S.PEOPLE || []; }catch(e){}
+
+  const items = reminderSourceList()
+    .map(p => ({ p, d: window.daysUntilBirthday ? daysUntilBirthday(p.birthday) : null }))
+    .filter(x => x.d !== null && x.d !== undefined && x.d <= REMINDER_WINDOW_DAYS)
+    .sort((a, b) => a.d - b.d);
+
+  window.updateReminderBadge();
+
+  if(!items.length){
+    list.innerHTML = '<div class="empty-state"><span class="es-emoji">🔔</span>No birthdays in the next ' + REMINDER_WINDOW_DAYS + ' days.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  items.forEach(({p, d}) => {
+    const wa = String(p.requester_whatsapp || '').replace(/[^0-9]/g, '');
+    const msg = 'Hi ' + (p.requester_name || 'there') + '! 🎂 ' + (p.display_name || '') +
+      "'s birthday is coming up " + (window.formatBirthdayDate ? formatBirthdayDate(p.birthday) : '') +
+      ' (' + (d === 0 ? 'today!' : 'in ' + d + ' day' + (d === 1 ? '' : 's')) + '). ' +
+      'Shall we plan another surprise card this year? 💕';
+    const waLink = wa ? ('https://wa.me/' + wa + '?text=' + encodeURIComponent(msg)) : '';
+    const cls = d <= 3 ? 'soon' : '';
+    const el = document.createElement('div');
+    el.className = 'repeat-row reminder-row ' + cls;
+    el.style.cssText = 'display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.6rem .7rem;';
+    el.innerHTML =
+      '<span style="font-size:1.4rem;">🎂</span>' +
+      '<div style="flex:1;min-width:180px;font-size:.85rem;line-height:1.55;">' +
+        '<strong>' + esc(p.display_name || p.slug) + '</strong> ' +
+        '<span class="person-id-pill" style="margin-left:.3rem;">#' + esc(String(p.slug || '')) + '</span> ' +
+        (p.status === 'finished' ? '<span style="color:#8e44ad;font-size:.72rem;font-weight:800;">💐 FINISHED</span>' : '<span style="color:#0a7a3d;font-size:.72rem;font-weight:800;">🟢 ACTIVE</span>') +
+        '<div><span class="reminder-days">' +
+          (d === 0 ? 'TODAY 🎉' : (d === 1 ? 'Tomorrow' : 'in ' + d + ' days')) +
+        '</span> · ' + esc(window.formatBirthdayDate ? formatBirthdayDate(p.birthday) : String(p.birthday).slice(0,10)) + '</div>' +
+        '<div style="font-size:.75rem;color:var(--c-text-muted);">' +
+          '👤 Requester: ' + esc(p.requester_name || '—') +
+          (p.requester_relation ? (' (' + esc(p.requester_relation) + ')') : '') +
+          (p.requester_whatsapp ? (' · 📱 ' + esc(p.requester_whatsapp)) : '') +
+        '</div>' +
+        (d >= 10 && d <= 15 ? '<div style="font-size:.72rem;color:#b26a00;font-weight:800;margin-top:.15rem;">⏰ Perfect window to message them now (10–15 days ahead)</div>' : '') +
+      '</div>' +
+      (waLink
+        ? ('<a href="' + escAttr(waLink) + '" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#fff;padding:.4rem .8rem;border-radius:40px;font-size:.78rem;text-decoration:none;font-weight:800;white-space:nowrap;">💬 Message requester</a>')
+        : '<span style="font-size:.72rem;color:var(--c-text-muted);font-style:italic;">no WhatsApp saved</span>');
+    list.appendChild(el);
   });
 };
 

@@ -471,24 +471,75 @@ function mergeFinishedEntry(p){
   return true;
 }
 
+/* ---------- Wiped-out archive (private admin section) ----------
+   EVERY finished entry — auto-wipes, scheduled wipes, admin deletes and
+   manual "Move to Finished" actions — is mirrored into a separate,
+   NEVER-cleared localStorage key. The 💐 Finished list itself can be
+   tidied up by the admin, but this archive always keeps the full history
+   so wiped people can be re-selected and restored back into Finished. */
+const WIPED_ARCHIVE_KEY = 'surprise_wiped_archive_v1';
+
+window.getWipedArchive = function(){
+  try{
+    /* merged view: archive ∪ current finished list (archive wins on dupes) */
+    const raw = localStorage.getItem(WIPED_ARCHIVE_KEY);
+    const arch = raw ? (JSON.parse(raw) || []) : [];
+    const list = Array.isArray(arch) ? arch : [];
+    const cur = window.getFinishedPeople ? getFinishedPeople() : [];
+    if(window.mergeTwoListsRaw) return window.mergeTwoListsRaw(list, cur);
+    return list.concat(cur.filter(c => !list.some(l => String(l.slug) === String(c.slug))));
+  }catch(e){ return window.getFinishedPeople ? getFinishedPeople() : []; }
+};
+
+function archiveWipedEntry(entry){
+  try{
+    const raw = localStorage.getItem(WIPED_ARCHIVE_KEY);
+    const list = raw ? (JSON.parse(raw) || []) : [];
+    const arr = Array.isArray(list) ? list : [];
+    const i = arr.findIndex(x => x && String(x.slug) === String(entry.slug));
+    if(i >= 0){
+      arr[i] = Object.assign({}, arr[i], entry);
+    }else{
+      arr.unshift(entry);
+    }
+    localStorage.setItem(WIPED_ARCHIVE_KEY, JSON.stringify(arr.slice(0, 500)));
+  }catch(e){}
+}
+
+/* Restore an archived person INTO the 💐 Finished tab (cloud-synced). */
+window.restoreFromWipedArchive = async function(slug){
+  if(!slug) return false;
+  const arch = (window.getWipedArchive ? getWipedArchive() : [])
+    .find(x => x && String(x.slug).toLowerCase() === String(slug).toLowerCase());
+  if(!arch) return false;
+  mergeFinishedEntry(Object.assign({}, arch));
+  pushFinishedLedger();
+  return true;
+};
+
 window.addFinishedPerson = function(person){
   if(!person || !person.slug) return;
   try{
-    const added = mergeFinishedEntry({
+    const entry = {
       id: person.id,
       slug: person.slug,
       display_name: person.display_name,
       birthday: person.birthday,
       requester_name: person.requester_name || '',
-      /* relation is kept in the background (private ledger copy) so the
-         admin can message the requester ~10–15 days before the birthday */
+      /* relation + WhatsApp are kept in the background (private ledger copy)
+         so the admin can message the requester ~10–15 days before the
+         birthday — they are never shown publicly on the review cards */
       requester_relation: person.requester_relation || '',
       requester_whatsapp: person.requester_whatsapp || '',
       finished_manually: !!person.finished_manually,
       /* honour an explicit wipe date/time when given (the scheduled "said
          date and time" the data is wiped out at); otherwise stamp now */
       wiped_at: person.wiped_at || new Date().toISOString()
-    });
+    };
+    const added = mergeFinishedEntry(entry);
+    /* ALWAYS mirror into the permanent wiped-out archive too, so the admin
+       "🗑️ Wiped Out" section can restore anyone back into 💐 Finished. */
+    archiveWipedEntry(entry);
     if(added){ pushFinishedLedger(); }  /* keep the cloud ledger in sync */
   }catch(e){}
 };
