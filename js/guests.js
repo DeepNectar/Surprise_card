@@ -776,7 +776,7 @@ window.loadGuestHistory = async function(){
     el.dataset.expanded = '0';
     el.style.background = 'linear-gradient(135deg,#f0fff4,#e8f5f0)';
     el.innerHTML = `<div class="guest-row-head">
-      <input type="checkbox" class="guest-check completed-check" data-id="${r.id}" title="Tick to move this person to the 💐 Finished tab" onclick="event.stopPropagation()">
+      <input type="checkbox" class="guest-check completed-check" data-id="${r.id}" title="Tick to move this person to the 💐 Finished tab — or to delete from the database with 🗑️ Delete selected" onclick="event.stopPropagation()">
       <span class="guest-caret">▸</span>
       <span class="guest-row-summary"><strong>✅ ${esc(prop.display_name || r.target_person_slug)}</strong>${r.approved_person_id ? ' <span class="person-id-pill">#' + r.approved_person_id + '</span>' : ''}${loginId ? ' · 🔑 ' + esc(loginId) : ''}</span>
     </div>
@@ -799,6 +799,7 @@ window.loadGuestHistory = async function(){
         <button type="button" class="repeat-add finished-move-btn" data-id="${r.id}" style="background:#8e44ad;">💐 Move to Finished</button>
         <button type="button" class="repeat-add reedit-btn" data-id="${r.id}" style="background:#2a5fd1;">✏️ Re-edit submission</button>
         <button type="button" class="repeat-add resend-btn" data-id="${r.id}" style="background:linear-gradient(135deg,#25D366,#128C7E);">📲 Re-send credentials</button>
+        <button type="button" class="repeat-add comp-del-btn" data-id="${r.id}" style="background:#c0392b;">🗑️ Delete from database</button>
       </div>
     </div>`;
     list.appendChild(el);
@@ -846,8 +847,25 @@ window.loadGuestHistory = async function(){
     };
   }
 
+  /* HD0.5 — 🗑️ Delete selected FROM THE DATABASE (admin action): removes the
+     ticked ✅ Completed submission rows permanently from Supabase. */
+  const delSelBtn = $('deleteSelectedFromDb');
+  if(delSelBtn && delSelBtn.dataset._bound !== '1'){
+    delSelBtn.dataset._bound = '1';
+    delSelBtn.onclick = () => {
+      const ids = checks.filter(c => c.checked)
+                        .map(c => parseInt(c.dataset.id, 10));
+      window.deleteCompletedGuestsFromDb(ids);
+    };
+  }
+
   list.querySelectorAll('.finished-move-btn').forEach(b => {
     b.onclick = () => window.moveCompletedGuestsToFinished([parseInt(b.dataset.id, 10)]);
+  });
+
+  /* per-row "Delete from database" button */
+  list.querySelectorAll('.comp-del-btn').forEach(b => {
+    b.onclick = () => window.deleteCompletedGuestsFromDb([parseInt(b.dataset.id, 10)]);
   });
 
   list.querySelectorAll('.resend-btn').forEach(b => {
@@ -971,8 +989,7 @@ window.moveCompletedGuestsToFinished = async function(ids){
 
 /* Wipe a person's data WITHOUT re-adding them to the finished list twice
    (the caller above already filed them with the correct manual stamp). */
-window.wipeOnePersonQuiet = async function(pid){
-  if(!pid) return;
+window.wipeOnePersonQuiet = async function(pid){  if(!pid) return;
   try{
     await Promise.all([
       sb.wipe(T_MEDIA,   pid),
