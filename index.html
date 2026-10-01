@@ -44,6 +44,14 @@
 <!-- Polish layer: professional refinements only. Uses system fonts (Georgia stack),
      CSS custom properties from variables.css, and never overrides storage or logic. -->
 <link rel="stylesheet" href="css/polish.css">
+
+<!-- ============ PWA: installable on phone AND laptop ============ -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Surprise 💕">
 </head>
 <body data-theme="romantic">
 
@@ -1329,6 +1337,9 @@
 
 <!-- 🚀 Deployment update checker (popup + "latest deployed" badges) -->
 <script defer src="js/update.js"></script>
+
+<!-- 📲 PWA: service-worker registration + install chip -->
+<script defer src="js/pwa.js"></script>
 
 <!-- Boot (must be last; runs after DOM parse + all deferred scripts) -->
 <script defer src="js/boot.js"></script>
