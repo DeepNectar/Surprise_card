@@ -458,6 +458,16 @@ window.pushFinishedLedger = function(){
           }
         }catch(e){}
       }
+      /* HD0.6 — fold in the dedicated finished_ledger TABLE copy too (the
+         permanent cloud home that no wipe routine ever touches) */
+      if(window.sbGetFinishedFromTable){
+        try{
+          const tbl = await window.sbGetFinishedFromTable();
+          if(tbl && Array.isArray(tbl.people)){
+            cloudList = mergeTwoLists(cloudList, tbl.people);
+          }
+        }catch(e){}
+      }
       const merged = mergeTwoLists(cloudList, getFinishedPeople());
       /* HD0.5 — carry the DELETE tombstones along so deletions propagate to
          every browser/domain instead of being resurrected by the cloud copy */
@@ -475,6 +485,13 @@ window.pushFinishedLedger = function(){
       }else if(wroteStorage === false && window.__sbUpSetShared){
         /* legacy path: only write DB mirror if storage failed */
         try{ await window.__sbUpSetShared(FINISHED_LEDGER_SETTING, JSON.stringify({ updated_at: new Date().toISOString(), people: payload })); }catch(e){}
+      }
+      /* HD0.6 — ALSO write the permanent finished_ledger TABLE copy (no wipe
+         routine ever touches it). Self-healing: on a fresh Supabase project
+         this triggers the one-time ensure RPC; if setup/ledger.sql was never
+         run the call fails silently and the mirrors above still work. */
+      if(window.sbPutFinishedToTable){
+        try{ await window.sbPutFinishedToTable({ updated_at: new Date().toISOString(), people: payload }); }catch(e){}
       }
     }catch(e){}
   }, 800);
@@ -687,6 +704,14 @@ window.removeFinishedPerson = async function(slug){
         if(mirror && Array.isArray(mirror.people)) cloudList = cloudList.concat(mirror.people);
       }catch(e){}
     }
+    /* HD0.6 — read the permanent finished_ledger TABLE copy too, so a
+       deletion written while storage/settings were unreachable still lands */
+    if(window.sbGetFinishedFromTable){
+      try{
+        const tbl = await window.sbGetFinishedFromTable();
+        if(tbl && Array.isArray(tbl.people)) cloudList = cloudList.concat(tbl.people);
+      }catch(e){}
+    }
     /* NOTE: mergeTwoLists lets a DELETE marker beat a live record, but an
        older plain entry can never overwrite the fresh tombstone we append
        last — and if BOTH cloud fetches failed (offline / RLS error) the
@@ -705,6 +730,10 @@ window.removeFinishedPerson = async function(slug){
       try{ await window.sbPutFinishedToSettings({ updated_at: new Date().toISOString(), people: payload }); }catch(e){}
     }else if(window.__sbUpSetShared){
       try{ await window.__sbUpSetShared(FINISHED_LEDGER_SETTING, JSON.stringify({ updated_at: new Date().toISOString(), people: payload })); }catch(e){}
+    }
+    /* HD0.6 — propagate the tombstone to the permanent ledger TABLE too */
+    if(window.sbPutFinishedToTable){
+      try{ await window.sbPutFinishedToTable({ updated_at: new Date().toISOString(), people: payload }); }catch(e){}
     }
   }catch(e){}
 };
@@ -743,6 +772,19 @@ window.pullFinishedLedger = async function(){
         if(mirror && Array.isArray(mirror.people)){
           gotCloud = true;
           anyPeople = anyPeople.concat(mirror.people);
+        }
+      }catch(e){}
+    }
+    /* HD0.6 — the permanent finished_ledger TABLE is now a first-class cloud
+       source too: brand-new devices / domains pull the Finished list from it
+       on first boot, even if the Storage bucket was never set up and even
+       after every database wipe (this table is never wiped by any routine). */
+    if(window.sbGetFinishedFromTable){
+      try{
+        const tbl = await window.sbGetFinishedFromTable();
+        if(tbl && Array.isArray(tbl.people)){
+          gotCloud = true;
+          anyPeople = anyPeople.concat(tbl.people);
         }
       }catch(e){}
     }

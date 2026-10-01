@@ -29,12 +29,12 @@ window.T_REVIEWS  = 'reviews';
    Open tabs compare themselves against /version.json and pop up an
    "upgrade" modal pointing at the latest deployed version; the home
    screen ("✨ What's new") and admin panel always show what is LIVE. */
-window.APP_VERSION   = '0.5';
-window.RELEASE_DATE  = '2026-09-30';
+window.APP_VERSION   = '0.6';
+window.RELEASE_DATE  = '2026-10-01';
 window.CHANGELOG_LIVE = [
-  '💐 NEW 💐 Finished tab in the admin Guests panel — moving a person to Finished now takes them OUT of ✅ Completed into 💐 Finished (with a live count badge), exactly where they show up on the home screen.',
-  '↩️ One-tap "Undo — move back to Completed" on every finished person; requester details stay private for 🔔 Reminders and nothing is ever deleted.',
-  '🏷️ Deployed today as "HD 0.5" — the upgrade popup and ✨ What\'s new badge now read "HD0.5 Version upgraded".'
+  '☁️ NEW HD0.6 — 💐 Finished is now stored in a PERMANENT cloud table (finished_ledger): people moved from ✅ Completed to Finished appear on the home screen for EVERY visitor on EVERY device — even a phone opening the site for the very first time — and they survive every data wipe.',
+  '🩹 Self-healing sync: the app bootstraps the ledger table + storage bucket automatically after a one-time SQL run (setup/ledger.sql), with three cloud copies kept in sync at all times.',
+  '🛡️ The finished ledger is write-protected — no wipe routine can ever clear it.'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;

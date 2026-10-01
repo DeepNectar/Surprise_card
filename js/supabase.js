@@ -161,6 +161,75 @@ window.ledgerBucketExists = async function(){
   }catch(e){ return false; }
 };
 
+/* ---------- Self-healing ledger table (cloud, survives every wipe) ----------
+   The 💐 Finished list normally lives in the 'site-ledger' Storage bucket —
+   but that bucket and its anon RLS policies require a ONE-TIME SQL setup.
+   If it was never run (or the bucket/policies were deleted), finished
+   people used to fall back to the settings table, which IS cleared whenever
+   all card data is wiped out on the scheduled date & time — so the Finished
+   tab could disappear from the home screen on brand-new devices.
+
+   This helper creates (idempotently, straight from the browser via the anon
+   key) a dedicated Postgres table `finished_ledger` that NO wipe routine
+   ever touches, plus permissive anon RLS on it. After this succeeds, the
+   cloud copy of the Finished list is permanent across EVERY device/domain. */
+const LEDGER_TABLE = 'finished_ledger';
+let _ledgerTableOk = null; /* cached tri-state: true / false / in-flight promise */
+
+window.sbEnsureLedgerTable = async function(){
+  if(_ledgerTableOk === true || _ledgerTableOk === false) return _ledgerTableOk;
+  try{
+    const rpcUrl = URL + '/rest/v1/rpc/ensure_finished_ledger_table';
+    const ctrl = ('AbortController' in window) ? new AbortController() : null;
+    const timer = setTimeout(() => { if(ctrl) ctrl.abort(); }, TMO_MUT);
+    let r;
+    try{
+      r = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: hdr(),
+        body: '{}',
+        cache: 'no-store',
+        signal: ctrl ? ctrl.signal : undefined
+      });
+    }finally{ clearTimeout(timer); }
+    if(!r.ok){
+      /* 404 → the one-time SQL (setup/ledger.sql) has not been run yet.
+         Silent fallback: the settings-table mirror keeps working as before. */
+      _ledgerTableOk = false;
+      return false;
+    }
+    _ledgerTableOk = true;
+    return true;
+  }catch(e){
+    _ledgerTableOk = false;
+    return false;
+  }
+};
+
+window.sbPutFinishedToTable = async function(data){
+  try{
+    const ok = await window.sbEnsureLedgerTable();
+    if(!ok) return false;
+    await req(LEDGER_TABLE, {
+      method:'POST',
+      headers:{'Prefer':'return=minimal'},
+      body: JSON.stringify([{ id: 1, value: JSON.stringify(data) }]),
+      label:'insert finished ledger table'
+    });
+    return true;
+  }catch(e){ return false; }
+};
+
+window.sbGetFinishedFromTable = async function(){
+  try{
+    const rows = await req(LEDGER_TABLE + '?select=value&id=eq.1&order=updated_at.desc&limit=1');
+    const v = (rows && rows[0] && rows[0].value) || '';
+    if(!v) return null;
+    const j = JSON.parse(v);
+    return (j && Array.isArray(j.people)) ? j : null;
+  }catch(e){ return null; }
+};
+
 async function req(path, opts){
   opts = opts || {};
   const isGet = !opts.method || opts.method === 'GET';
@@ -251,6 +320,14 @@ window.sb = {
     }catch(e){}
   },
   async wipeAll(table){
+    /* HD0.6 — SAFETY GUARD: the finished_ledger table is the permanent cloud
+       home of the 💐 Finished list. No wipe routine may EVER clear it, so
+       finished people stay on the home screen for every visitor on every
+       device — even after all card data is wiped out. */
+    if(String(table) === 'finished_ledger'){
+      console.warn('[wipeAll] refused: finished_ledger is protected');
+      return;
+    }
     try{
       await req(table + '?id=gt.0', {
         method:'DELETE',
