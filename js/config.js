@@ -4,8 +4,13 @@
 (function(){
 'use strict';
 
-window.SUPABASE_URL = 'https://ueuxnkrvvnvldfwgiyqy.supabase.co';
-window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVldXhua3J2dm52bGRmd2dpeXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3MjM0ODUsImV4cCI6MjEwNTI5OTQ4NX0.DwDSWdnVK1-eWLvSuXpsf22PLtMVq_ZJ-1Kq39AoOSI';
+/* v1.0 SECURITY: credentials come from js/env.js (window.__LC_ENV__)
+   so they can be rotated per-deployment without touching app code. */
+const __ENV__ = window.__LC_ENV__ || {};
+window.SUPABASE_URL = __ENV__.SUPABASE_URL || 'https://ueuxnkrvvnvldfwgiyqy.supabase.co';
+window.SUPABASE_ANON_KEY = __ENV__.SUPABASE_ANON_KEY || '';
+/* Optional Web-Push VAPID public key (set in env.js / deployment) */
+window.__LC_VAPID_PUBLIC__ = __ENV__.VAPID_PUBLIC_KEY || '';
 
 /* ---------- Table names ---------- */
 window.T_PEOPLE   = 'people';
@@ -29,18 +34,21 @@ window.T_REVIEWS  = 'reviews';
    Open tabs compare themselves against /version.json and pop up an
    "upgrade" modal pointing at the latest deployed version; the home
    screen ("✨ What's new") and admin panel always show what is LIVE. */
-window.APP_VERSION   = '0.6';
-window.RELEASE_DATE  = '2026-10-01';
+window.APP_VERSION   = '1.0';
+window.RELEASE_DATE  = '2026-10-02';
 window.CHANGELOG_LIVE = [
-  '☁️ NEW HD0.6 — 💐 Finished is now stored in a PERMANENT cloud table (finished_ledger): people moved from ✅ Completed to Finished appear on the home screen for EVERY visitor on EVERY device — even a phone opening the site for the very first time — and they survive every data wipe.',
-  '🩹 Self-healing sync: the app bootstraps the ledger table + storage bucket automatically after a one-time SQL run (setup/ledger.sql), with three cloud copies kept in sync at all times.',
-  '🛡️ The finished ledger is write-protected — no wipe routine can ever clear it.'
+  '🛡️ v1.0 SECURITY HARDENING — credentials moved to js/env.js, salted SHA-256 admin passphrase (hash-only mode supported), brute-force lockout (5 tries → timed cooldown) on every login, and a one-time RLS lockdown script (setup/rls.sql).',
+  '🔢 NEW Per-card PIN lock — requesters/admins can set an optional 4–8 digit PIN on any card; PINs are stored hashed, never in plaintext.',
+  '👁 NEW View-tracking analytics — every card open is counted in the cloud (views + unique viewers + time-on-card); badges on home tiles and a new 📊 Analytics panel in admin.',
+  '✨ NEW AI Message Writer — sparkle button ✨ next to every message field drafts romantic copy in 4 tones (works fully offline too; optional OpenAI-compatible key stays local).',
+  '🔔 NEW Push notifications — subscribe to unlock/birthday reminders straight from the browser (Web Push, service-worker based).'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;
 
 /* ---------- App-wide constants ---------- */
-window.FALLBACK_ADMIN_PW = 'Deepnectar@@1617@@';
+/* v1.0: fallback admin passphrase comes from env injection only */
+window.FALLBACK_ADMIN_PW = (window.__LC_ENV__ && window.__LC_ENV__.ADMIN_PW) || '';
 /* Canonical PRODUCTION URL — every link sent to guests points here. */
 window.PUBLIC_CARD_LINK_DEFAULT = 'https://surprise-card-v2.vercel.app';
 

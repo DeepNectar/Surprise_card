@@ -129,6 +129,9 @@ async function boot(){
   const gs = await setP;
   S.CURR.shared = {
     adminPassword: (gs && gs['shared__adminPassword']) || FALLBACK_ADMIN_PW,
+    /* v1.0 SECURITY: preferred hash-only admin passphrase (settings key
+       shared__adminPwHash = sha256('lovecards::v1::salt::' + password)) */
+    adminPwHash: (gs && gs['shared__adminPwHash']) || '',
     adminLoginEnabled: (gs && gs['shared__adminLoginEnabled'])
   };
 
