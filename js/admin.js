@@ -828,6 +828,16 @@ function renderPeopleRepeater(){
     const bday = p.birthday ? new Date(p.birthday).toLocaleDateString() : '—';
     const editPw = getEditPasswordForPerson(p);
     const wipe = p.wipe_iso ? `<span class="wipe-badge">Wipe ${new Date(p.wipe_iso).toLocaleDateString()}</span>` : '';
+    /* v1.0 NEW: optional per-card PIN (stored hashed as people.pin_hash) */
+    const pinCtl = `
+        <div class="panel-field" style="padding:.5rem;background:#fffbea;border:1px dashed #b8860b;border-radius:.6rem;">
+          <label class="panel-label" style="color:#7a5a00;">🔢 Extra PIN lock (optional, 4–8 digits — leave empty for none)</label>
+          <div style="display:flex;gap:.4rem;align-items:center;">
+            <input type="password" inputmode="numeric" maxlength="8" class="panel-input" data-pin-for="${p.id}" placeholder="${p.pin_hash ? '•••• (PIN is set)' : 'No PIN'}" style="flex:1;">
+            <button type="button" class="panel-btn" data-pin-set="${p.id}" style="min-width:0;flex:0 0 auto;padding:.4rem .8rem;font-size:.8rem;">💾 Set PIN</button>
+            <button type="button" class="panel-btn danger" data-pin-clear="${p.id}" style="min-width:0;flex:0 0 auto;padding:.4rem .8rem;font-size:.8rem;">✖️ Remove</button>
+          </div>
+        </div>`;
 
     card.innerHTML = `
       <div class="person-summary" data-pid="${p.id}">
@@ -860,6 +870,7 @@ function renderPeopleRepeater(){
         </div>
         <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem;">
           <button type="button" class="view-details-btn" data-act="view" data-pid="${p.id}">👁️ View / Preview</button>
+          ${pinCtl}
           <button type="button" class="panel-btn edit" data-act="save" data-pid="${p.id}" style="min-width:0;flex:0 0 auto;padding:.4rem .9rem;font-size:.8rem;">💾 Save changes</button>
           <button type="button" class="panel-btn danger" data-act="delete" data-pid="${p.id}" style="min-width:0;flex:0 0 auto;padding:.4rem .9rem;font-size:.8rem;">🗑️ Delete</button>
         </div>
@@ -886,6 +897,29 @@ function renderPeopleRepeater(){
       const key = el.dataset.pp;
       const person = ADM.people.find(x => x.id === pid);
       if(person) person[key] = el.value;
+    };
+  });
+
+  w.querySelectorAll('button[data-pin-set], button[data-pin-clear]').forEach(btn => {
+    btn.onclick = async () => {
+      const pid = parseInt(btn.dataset.pinSet || btn.dataset.pinClear, 10);
+      const person = ADM.people.find(x => x.id === pid);
+      if(!person) return;
+      const inp = w.querySelector('[data-pin-for="' + pid + '"]');
+      if(btn.dataset.pinClear !== undefined){
+        await window.lcSetPinHash(person, '');
+        if(inp){ inp.value = ''; inp.placeholder = 'No PIN'; }
+        __showToast('🔓 PIN removed for ' + (person.display_name || person.slug));
+        return;
+      }
+      const pin = String((inp && inp.value) || '').trim();
+      if(!/^\d{4,8}$/.test(pin)){
+        __showToast('🔢 PIN must be 4–8 digits', false);
+        return;
+      }
+      await window.lcSetPinHash(person, pin);
+      if(inp){ inp.value = ''; inp.placeholder = '•••• (PIN is set)'; }
+      __showToast('🔒 PIN set for ' + (person.display_name || person.slug));
     };
   });
 

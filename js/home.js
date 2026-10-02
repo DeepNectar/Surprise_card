@@ -153,6 +153,10 @@ window.buildHome = function(){
       '<span class="home-btn-name">' + esc(p.display_name || p.slug || 'Person') + '</span>' +
       (bdayLabel
         ? '<span class="home-btn-bday' + (bdayToday ? ' today' : '') + '">' + bdayLabel + '</span>'
+        : '') +
+      /* v1.0 analytics: 👁 views · 🔥 unique viewers (cloud, cached) */
+      ((window.viewBadge && window.viewBadge(p.slug))
+        ? '<span class="home-btn-views">📈 ' + window.viewBadge(p.slug) + '</span>'
         : '');
     b.onclick = (e) => {
       if(e && e.preventDefault) e.preventDefault();
@@ -450,11 +454,13 @@ window.openAdminLoginFull = function(){
 window.tryAdminLogin = async function(){
   const pw = ($('adminPwInput') || {}).value || '';
   const err = $('adminPwError');
-  const stored = (S.CURR.shared && S.CURR.shared.adminPassword) || FALLBACK_ADMIN_PW;
-  const ok = (pw === stored) || (pw === FALLBACK_ADMIN_PW);
-  if(!ok){
+  /* v1.0 SECURITY: hash-aware verification + brute-force throttle */
+  const res = await window.lcCheckAdminPw(pw);
+  if(!res || !res.ok){
     if(err){
-      err.textContent = '❌ Incorrect password.';
+      err.textContent = (res && res.blocked)
+        ? ('🕒 Too many attempts — try again in ' + Math.ceil(res.secs / 60) + ' min.')
+        : '❌ Incorrect password.';
       err.classList.add('show');
     }
     return;
@@ -563,8 +569,17 @@ window.tryPersonPw = async function(){
   const p = S.LOGIN_TARGET;
   if(!p) return;
 
-  const adminPw = (S.CURR.shared && S.CURR.shared.adminPassword) || FALLBACK_ADMIN_PW;
-  if(pw === adminPw || pw === FALLBACK_ADMIN_PW){
+  /* v1.0 SECURITY: brute-force throttle per card */
+  const pinId = window.lcPersonPinId(p);
+  const th = window.lcThrottleCheck(pinId);
+  if(th.blocked){
+    $('personPwError').textContent = '🕒 Too many attempts — try again in ' + Math.ceil(th.secs / 60) + ' min.';
+    $('personPwError').classList.add('show');
+    return;
+  }
+
+  const adminRes = await window.lcCheckAdminPw(pw);
+  if(adminRes && adminRes.ok){
     hide($('personLoginModal'));
     S.ADMIN_MODE = true;
     await window.startAdmin();
@@ -576,11 +591,24 @@ window.tryPersonPw = async function(){
   const expected = p.password || '';
   const isViewer = expected && pw === expected;
 
-  if(!isRequester && !isViewer){
-    $('personPwError').textContent = getText('pwError', '❌ Incorrect password.');
+  /* v1.0 NEW: optional per-card PIN (hashed, people.pin_hash). Viewers
+     need password AND PIN when a PIN is set; requester/admin bypass it. */
+  let pinOk = !p.pin_hash;
+  if((isViewer || isRequester) && p.pin_hash){
+    const pin = prompt('🔢 This card has a secret PIN. Enter it:');
+    if(pin !== null) pinOk = await window.lcVerifyPin(p, pin);
+  }
+
+  if((!isRequester && !isViewer) || (!pinOk && isViewer)){
+    const secs = window.lcThrottleFail(pinId);
+    $('personPwError').textContent = secs
+      ? ('🕒 Too many attempts — try again in ' + Math.ceil(secs / 60) + ' min.')
+      : getText('pwError', '❌ Incorrect password.');
     $('personPwError').classList.add('show');
     return;
   }
+  window.lcThrottleReset(pinId);
+  try{ if(window.trackCardView) window.trackCardView(p, isRequester ? 'preview' : 'password'); }catch(e){}
 
   hide($('personLoginModal'));
   S.REQUESTER_MODE = isRequester;
