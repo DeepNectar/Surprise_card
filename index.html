@@ -1304,7 +1304,7 @@
 
 <!-- ============ GLOBAL TOAST & CONTROLS ============ -->
 <div class="toast" id="globalToast" role="status" aria-live="polite"></div>
-<audio id="audioPlayer" preload="auto" crossorigin="anonymous"></audio>
+<audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>
 <button type="button" class="music-toggle" id="musicToggle" aria-label="Toggle music">🔊</button>
 <button type="button" class="lang-toggle" id="langToggle" aria-label="Change language" data-state="en">EN</button>
 <button type="button" class="darkmode-toggle" id="darkmodeToggle" aria-label="Toggle dark mode">🌙</button>
@@ -1317,20 +1317,24 @@
 <script src="js/utils.js"></script>
 <script src="js/supabase.js"></script>
 
-<!-- Effects (non-critical: fetched in background, still ready well before use) -->
+<!-- ⚡ Perf fix: everything below was render-blocking parser-inserted
+     scripts. They are now ALL deferred: the browser downloads them in
+     parallel while parsing the HTML and executes them in this exact
+     order right before DOMContentLoaded — boot.js (also deferred, last)
+     still sees every global it needs. Faster first paint on every visit. -->
 <script defer src="js/fireworks.js"></script>
 
-<!-- Home & reviews (reviews must load before home) -->
-<script src="js/reviews.js"></script>
-<script src="js/home.js"></script>
+<!-- Home & reviews (reviews must execute before home; defer keeps order) -->
+<script defer src="js/reviews.js"></script>
+<script defer src="js/home.js"></script>
 
 <!-- Access flow -->
-<script src="js/lock.js"></script>
-<script src="js/opening.js"></script>
+<script defer src="js/lock.js"></script>
+<script defer src="js/opening.js"></script>
 
-<!-- Card content (typewriter must load before viewer, which calls it at parse time) -->
-<script src="js/typewriter.js"></script>
-<script src="js/viewer.js"></script>
+<!-- Card content (typewriter executes before viewer, which uses it) -->
+<script defer src="js/typewriter.js"></script>
+<script defer src="js/viewer.js"></script>
 
 <!-- Everything below is deferred: downloaded in parallel while the page
      parses (faster first paint / faster response to taps) and executed in

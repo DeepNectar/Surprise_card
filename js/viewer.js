@@ -95,7 +95,84 @@ window.openWhatsAppShare = function(){
 };
 
 /* ---------- Load person into state ---------- */
-window.loadPersonIntoState = async function(p){
+
+/* ⚡ Perf: prefetch cache — onPersonClick fires loadPersonIntoState for the
+   tapped person immediately, so by the time the correct password is entered
+   every table has already been fetched and the card paints instantly. */
+const PREFETCH_TTL_MS = 90 * 1000;
+const PREFETCH_MAX    = 3;
+window.__prefetchCache__ = window.__prefetchCache__ || {};
+
+window.preloadPersonData = function(pid){
+  if(pid == null) return;
+  const key = String(pid);
+  const cache = window.__prefetchCache__;
+  const c = cache[key];
+  if(c && (Date.now() - c.at) < PREFETCH_TTL_MS) return; /* still fresh */
+  if(c && c.pending) return;                             /* already in flight */
+  const entry = {at: Date.now(), pending: true, data: null};
+  cache[key] = entry;
+  /* The in-flight promise other callers can JOIN (no duplicate requests). */
+  entry.waitP = loadPersonIntoState({id: pid}).then(() => {
+    /* loadPersonIntoState stored the finished snapshot under this key —
+       keep its timestamp/pending flags, just mark it ready. */
+    const e = cache[key];
+    if(e === entry || (e && e.data)){
+      if(e){ e.pending = false; e.at = Date.now(); }
+    }
+    /* keep only the freshest few entries */
+    const keys = Object.keys(cache);
+    if(keys.length > PREFETCH_MAX){
+      keys.sort((a, b) => cache[a].at - cache[b].at)
+          .slice(0, keys.length - PREFETCH_MAX)
+          .forEach(k => delete cache[k]);
+    }
+  }).catch(() => { delete cache[key]; });
+};
+
+/* Paint the EN/ગુ/हि toggle from S.CURR_LANG (shared by normal + cached loads). */
+function paintLangToggle(){
+  const lt = $('langToggle');
+  if(lt){
+    lt.textContent = S.CURR_LANG === 'en' ? 'EN' : (S.CURR_LANG === 'gu' ? 'ગુ' : 'हि');
+    lt.dataset.state = S.CURR_LANG;
+  }
+}
+
+window.loadPersonIntoState = async function(p, opts){
+  const pid = p ? p.id : null;
+  /* ⚠️ Callers that EDIT card data (admin/requester/save flows) pass
+     {fresh:true} to bypass the prefetch cache and always hit the cloud. */
+  const fresh = !!(opts && opts.fresh);
+  if(!fresh){
+    /* Reuse a recent background prefetch for this person (tile tap → login). */
+    const hit = pid != null ? window.__prefetchCache__[String(pid)] : null;
+    if(hit && !hit.pending && hit.data && (Date.now() - hit.at) < PREFETCH_TTL_MS){
+      S.CURRENT_PERSON = p;
+      S.CURR = hit.data.CURR;
+      S.CURRENT_SETTINGS = hit.data.set;
+      S.CURR_LANG = hit.data.lang;
+      paintLangToggle();
+      return;
+    }
+    /* If a prefetch is still in flight, join it instead of firing duplicate
+       requests — the card opens as soon as that one round trip lands. */
+    if(hit && hit.pending){
+      try{ await hit.waitP; }catch(e){}
+      const h2 = window.__prefetchCache__[String(pid)];
+      if(h2 && !h2.pending && h2.data){
+        S.CURRENT_PERSON = p;
+        S.CURR = h2.data.CURR;
+        S.CURRENT_SETTINGS = h2.data.set;
+        S.CURR_LANG = h2.data.lang;
+        paintLangToggle();
+        return;
+      }
+    }
+  } else if(pid != null){
+    delete window.__prefetchCache__[String(pid)]; /* stale after edits */
+  }
+
   S.CURRENT_PERSON = p;
   S.CURR = {
     texts: {}, textsByLang: {en:{}, gu:{}, hi:{}}, shared: {},
@@ -103,7 +180,21 @@ window.loadPersonIntoState = async function(p){
   };
   if(!p) return;
 
-  const set = await sb.getSet(p.id);
+  /* ✅ Perf fix: previously these 8 tables were awaited ONE BY ONE — up to
+     8 sequential round trips (~2s+) before the card appeared. The settings
+     blob is needed to parse the rest, but all seven row tables are
+     independent, so they now fetch in parallel (≈ one round trip total). */
+  const setP = sb.getSet(p.id);
+  const [set, gifts, story, events, voice, video, pins, media] = await Promise.all([
+    setP,
+    sb.rows(T_GIFTS,  p.id),
+    sb.rows(T_STORY,  p.id),
+    sb.rows(T_EVENTS, p.id),
+    sb.rows(T_VOICE,  p.id),
+    sb.rows(T_VIDEO,  p.id),
+    sb.rows(T_PINS,   p.id),
+    sb.rows(T_MEDIA,  p.id)
+  ]);
   S.CURRENT_SETTINGS = set;
 
   const shared = {};
@@ -135,19 +226,25 @@ window.loadPersonIntoState = async function(p){
   S.CURR_LANG = (['en','gu','hi'].indexOf(def) >= 0) ? def : 'en';
   S.CURR.texts = S.CURR.textsByLang[S.CURR_LANG] || {};
 
-  const lt = $('langToggle');
-  if(lt){
-    lt.textContent = S.CURR_LANG === 'en' ? 'EN' : (S.CURR_LANG === 'gu' ? 'ગુ' : 'हि');
-    lt.dataset.state = S.CURR_LANG;
-  }
+  paintLangToggle();
 
-  S.CURR.gifts  = await sb.rows(T_GIFTS,  p.id) || [];
-  S.CURR.story  = await sb.rows(T_STORY,  p.id) || [];
-  S.CURR.events = await sb.rows(T_EVENTS, p.id) || [];
-  S.CURR.voice  = await sb.rows(T_VOICE,  p.id) || [];
-  S.CURR.video  = await sb.rows(T_VIDEO,  p.id) || [];
-  S.CURR.pins   = await sb.rows(T_PINS,   p.id) || [];
-  S.CURR.media  = await sb.rows(T_MEDIA,  p.id) || [];
+  S.CURR.gifts  = gifts  || [];
+  S.CURR.story  = story  || [];
+  S.CURR.events = events || [];
+  S.CURR.voice  = voice  || [];
+  S.CURR.video  = video  || [];
+  S.CURR.pins   = pins   || [];
+  S.CURR.media  = media  || [];
+
+  /* Hand a copy to the prefetch cache so re-opening this card is instant. */
+  if(pid != null){
+    try{
+      window.__prefetchCache__[String(pid)] = {
+        at: Date.now(),
+        data: {CURR: S.CURR, set: S.CURRENT_SETTINGS, lang: S.CURR_LANG}
+      };
+    }catch(e){}
+  }
 };
 window.__loadPersonIntoState__ = window.loadPersonIntoState;
 

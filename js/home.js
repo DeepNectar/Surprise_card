@@ -417,6 +417,15 @@ function renderHomeStats(){
 
 /* ---------- Person click ---------- */
 window.onPersonClick = function(p){
+  /* ⚡ Perf fix: prefetch this person's card data the moment their tile is
+     tapped. Previously every table (media/gifts/story/events/voice/video/
+     pins/settings) was fetched one-by-one only AFTER the password check —
+     a chain of round trips before anything appeared. Now they are already
+     in flight while the login modal is being typed into, so the card opens
+     almost instantly after a correct password. */
+  try{
+    if(window.preloadPersonData) window.preloadPersonData(p.id);
+  }catch(e){}
   S.LOGIN_TARGET = p;
   txt($('personLoginTitle'), 'Hi ' + (p.display_name || p.slug || '') + ' 💕');
   txt($('personLoginSub'), 'Enter your card password, or requester edit password.');
