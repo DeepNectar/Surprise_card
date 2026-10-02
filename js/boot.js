@@ -16,11 +16,16 @@ const S = window.__PAGE_STATE__;
 
 /* ---------- Home floaters ---------- */
 function initHomeFloaters(){
+  /* ⚡ Perf + a11y fix: these 18 emoji run a GPU animation FOREVER (the CSS
+     has no reduced-motion rule for .hf). On low-end phones they cost frames
+     on every screen; users who ask for reduced motion now get none at all,
+     and everyone else gets half as many. */
+  if(REDUCED_MOTION) return;
   const fl = $('homeFloaters');
   if(!fl) return;
   fl.innerHTML = '';
   const pool = ['❤️','💕','✨','🌹','💖','⭐','💛','🎀','🦋','💫','🌸','🎈','💝','🕊️'];
-  for(let i = 0; i < 18; i++){
+  for(let i = 0; i < 9; i++){
     const s = document.createElement('span');
     s.className = 'hf';
     s.textContent = pool[Math.floor(Math.random() * pool.length)];
@@ -49,6 +54,8 @@ function initBodyFloaters(){
 }
 
 /* ---------- Boot ---------- */
+
+const REDUCED_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 /* Show the real home instantly from a local snapshot while fresh data loads. */
 const HOME_SNAP_KEY = 'homeSnapshotV1';
@@ -103,33 +110,18 @@ async function boot(){
     if(window.renderHomeSkeleton) window.renderHomeSkeleton();
   }
 
-  /* Kick off ALL independent reads in parallel — total wait ≈ one round trip. */
-  const wipeP   = sb.wipeExpiredAndReturn().catch(() => []);
-  const ledgerP = (window.pullFinishedLedger ? pullFinishedLedger() : Promise.resolve(false)).catch(() => false);
+  /* ⚡ Perf fix: previously boot AWAITED the expired-wipe scan and the cloud
+     ledger pulls before painting anything — on slow connections that added
+     several seconds of dead time to first paint. Now only the three reads the
+     home screen truly needs run first (≈ one round trip, in parallel); the
+     wipe scan + ledger sync run fully in the BACKGROUND and repaint the home
+     when they land. The page feels instant, nothing is lost. */
   const peopleP = sb.people().catch(() => null);
   const setP    = sb.getSet(null).catch(() => null);
   /* Reviews are fetched directly (same query as loadReviews) so boot does not
      depend on the deferred reviews.js finishing first; we render them with
      buildHome exactly like before. */
   const revP    = sb.reviews().then(r => { S.REVIEWS = r || []; }).catch(() => { S.REVIEWS = []; });
-
-  const wiped = await wipeP;
-  if(wiped && wiped.length) S.__justWiped = wiped;
-
-  /* Merge finished people wiped by OTHER tabs/browsers into the local list,
-     so the home "Finished" section shows ALL auto-wiped people on load. */
-  try{
-    /* 1) CLOUD LEDGER (Supabase Storage): the permanent master copy of all
-          finished people — it survives every database wipe, so the 💐 Finished
-          tab is ALWAYS there on the home screen. */
-    const fromLedger = await ledgerP;
-    /* 2) Also merge anything due/overdue still sitting in the people table */
-    let synced = false;
-    if(window.syncFinishedFromCloud){
-      synced = await window.syncFinishedFromCloud();
-    }
-    if((fromLedger || synced) && window.clearHomeSnapshot) window.clearHomeSnapshot();
-  }catch(e){}
 
   const freshPeople = await peopleP;
   if(freshPeople !== null) S.PEOPLE = freshPeople || [];
@@ -152,9 +144,36 @@ async function boot(){
   if(window.updateFinishedBadge) window.updateFinishedBadge();
   saveHomeSnapshot();
 
+  /* ---------- Background maintenance (never blocks the UI) ---------- */
+  (async () => {
+    try{
+      const wiped = await sb.wipeExpiredAndReturn().catch(() => []);
+      if(wiped && wiped.length) S.__justWiped = wiped;
+
+      /* Merge finished people wiped by OTHER tabs/browsers into the local list,
+         so the home "Finished" section shows ALL auto-wiped people. */
+      try{
+        /* 1) CLOUD LEDGER (Storage + settings mirror + permanent table): the
+              master copy of all finished people — survives every DB wipe. */
+        const fromLedger = (window.pullFinishedLedger
+          ? await pullFinishedLedger().catch(() => false) : false);
+        /* 2) Also merge anything due/overdue still sitting in the people table */
+        let synced = false;
+        if(window.syncFinishedFromCloud){
+          try{ synced = await window.syncFinishedFromCloud(); }catch(e){}
+        }
+        if(fromLedger || synced){
+          if(window.clearHomeSnapshot) window.clearHomeSnapshot();
+          /* Finished list changed → quietly repaint the 💐 section. */
+          if(window.renderFinishedSection) window.renderFinishedSection();
+        }
+      }catch(e){}
+    }catch(e){}
+  })();
+
   if(window.SS_restoreSession && window.SS_restoreSession()) return;
 
-  setInterval(window.checkWipe, 60000);
+  startWipeWatchdog();
 
   const urlP = new URLSearchParams(location.search).get('person');
   if(urlP){
@@ -168,6 +187,23 @@ async function boot(){
       }, paintedFromCache ? 80 : 250);
     }
   }
+}
+
+/* ---------- Wipe watchdog (⚡ perf: pauses while the tab is hidden) ----------
+   A hidden tab used to hammer Supabase every 60s forever — battery drain on
+   phones and wasted requests. Now: paused while hidden; on return we do ONE
+   immediate catch-up check and resume the gentle 60s cadence. */
+let WIPE_INT = null;
+function startWipeWatchdog(){
+  if(WIPE_INT == null && !document.hidden) WIPE_INT = setInterval(window.checkWipe, 60000);
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      if(WIPE_INT != null){ clearInterval(WIPE_INT); WIPE_INT = null; }
+    } else if(WIPE_INT == null){
+      try{ window.checkWipe(); }catch(e){}                    /* catch up now */
+      WIPE_INT = setInterval(window.checkWipe, 60000);
+    }
+  });
 }
 
 window.__closeAllModals__ = function(){
