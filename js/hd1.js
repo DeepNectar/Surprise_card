@@ -1,7 +1,7 @@
 /* ============================================================
    hd1.js — HD 1.0 SHARING, QR, OTP, TIMELINE & EXPORT SUITE
    ------------------------------------------------------------
-   • Short links (/#s/<slug>) + tiny redirect resolver          */
+   • Short links (/#s/<slug>) + tiny redirect resolver
      (works on static hosts; a Supabase Edge Function can swap
       in real /go/<code> redirects later — same code format)
    • QR codes for physical gifting (self-contained generator,
@@ -391,12 +391,6 @@ function showQrOverlay(url, p){
 }
 
 /* Hook into existing share modal opening */
-const _mo = new MutationObserver(() => {
-  const m = $id('shareModal');
-  if(m && m.classList.contains('active') && !$id('lc-share-extras')){
-    buildShareExtras(S.CURRENT_PERSON);
-  }
-});
 document.addEventListener('DOMContentLoaded', () => {
   const m = $id('shareModal');
   if(m) _mo.observe(m, { attributes: true, attributeFilter: ['class'] });

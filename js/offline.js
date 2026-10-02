@@ -125,6 +125,11 @@ async function sendNow(item){
   return true;
 }
 
+async function count(){
+  const rows = await allQueued();
+  return rows.length;
+}
+
 window.lcFlushOffline = async function(){
   if(flushing) return;
   flushing = true;
@@ -144,17 +149,13 @@ window.lcFlushOffline = async function(){
       }
     }
     if(sent){
-      listeners.forEach(fn => { try{ fn({ sent, remaining: (await count()) }); }catch(e){} });
+      const rem = await count();
+      listeners.forEach(fn => { try{ fn({ sent, remaining: rem }); }catch(e){} });
     }
     paint();
     return { sent, failed, remaining: await count() };
   } finally { flushing = false; }
 };
-
-async function count(){
-  const rows = await allQueued();
-  return rows.length;
-}
 
 /* ---------- Public API: optimistic write ----------
    lcOfflineQueue(table, body, opts) → resolves true if the write
