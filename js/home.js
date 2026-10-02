@@ -49,9 +49,23 @@ window.renderHomeSkeleton = function(){
 
 /* ---------- Admin login trigger ---------- */
 window.triggerAdminPrompt = async function(){
-  const gs = await sb.getSet(null);
+  /* 🩹 BUGFIX (HD 1.0): this awaited a raw cloud read with NO error handling.
+     If Supabase was unreachable/slow the promise rejected here, killing the
+     admin-login modal open entirely ("admin panel not able to open").
+     Now: never throw, and fall back to the locally cached settings snapshot
+     (and the env fallback passphrase) when the cloud read fails. */
+  let gs = null;
+  try{
+    gs = await sb.getSet(null);
+  }catch(e){
+    console.warn('triggerAdminPrompt: cloud settings read failed, using cache', e && e.message);
+    try{
+      const snap = JSON.parse(localStorage.getItem('lc_settings_shared_v1') || 'null');
+      if(snap && typeof snap === 'object') gs = snap;
+    }catch(e2){}
+  }
   const flag = (gs && gs['shared__adminLoginEnabled']);
-  const enabled = (flag === undefined) ? true : (String(flag) === 'true');
+  const enabled = (flag === undefined) ? true : (String(flag) !== 'false');
   if(!enabled) return;
   window.openAdminLoginFull();
 };
