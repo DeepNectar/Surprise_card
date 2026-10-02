@@ -32,6 +32,22 @@ window.openAdminPanel = async function(){
   }
   ADM.people = JSON.parse(JSON.stringify(S.PEOPLE));
 
+  /* 🩹 BUGFIX: always refresh the GLOBAL shared settings (admin password /
+     hash / login gate) when opening the panel. Previously these came only
+     from boot; if that read had failed the Security tab showed empty values
+     and saving could silently overwrite live settings. */
+  try{
+    const gset = await sb.getSet(null);
+    if(gset && Object.keys(gset).length){
+      if(window.lcSaveSharedSnapshot) window.lcSaveSharedSnapshot(gset);
+      S.CURR.shared = {
+        adminPassword: gset['shared__adminPassword'] || FALLBACK_ADMIN_PW,
+        adminPwHash:   gset['shared__adminPwHash']   || '',
+        adminLoginEnabled: gset['shared__adminLoginEnabled']
+      };
+    }
+  }catch(e){ /* keep whatever boot loaded */ }
+
   buildPersonDropdown();
   renderPeopleRepeater();
   renderAdminReviews();
@@ -1160,7 +1176,15 @@ function bindAdminActions(){
   const saveBtn = $('adminSave');
   if(saveBtn && saveBtn.dataset._bound !== '1'){
     saveBtn.dataset._bound = '1';
-    saveBtn.onclick = () => saveAdminFull(false);
+    saveBtn.onclick = async () => {
+      /* 🩹 v1.0 BUGFIX: when the Security tab is active, 💾 Save must persist
+         the admin password / login gate even before a person is fully loaded;
+         previously these fields were only saved inside the per-person payload. */
+      const secActive = document.querySelector('#adminPanel .panel-tab.active[data-pane="pane-security"]');
+      await saveAdminGlobalSettings();
+      if(secActive) return;
+      saveAdminFull(false);
+    };
   }
 
   // ✅ FAST UNSAVED PREVIEW — uses in-memory state only
@@ -1405,6 +1429,12 @@ async function saveAdminFull(preview, doReload){
       shared.paletteA = palOn.checked?palA.value:''; shared.paletteB = palOn.checked?palB.value:''; } }
 
   shared.adminPassword = ($('f_adminPassword') || {}).value || FALLBACK_ADMIN_PW;
+  /* 🩹 v1.0 BUGFIX: carry the secure hash through saves. Previously saveAdminFull
+     never wrote shared__adminPwHash back, so a FULL SAVE deleted the live hash
+     from Supabase — after that only the old plaintext/env password worked and
+     the hashed passphrase was rejected ("admin portal won't open with the
+     password"). The Hash & Save button below stores it; this line keeps it. */
+  shared.adminPwHash = (S.CURR && S.CURR.shared && S.CURR.shared.adminPwHash) || '';
   const adminLogin = $('f_adminLoginEnabled');
   shared.adminLoginEnabled = adminLogin && adminLogin.checked ? 'true' : 'false';
 
@@ -1490,6 +1520,20 @@ async function saveAdminFull(preview, doReload){
     ]);
 
     await Promise.all([saveSettingsP, tablesP]);
+
+    /* 🩹 Keep the in-memory + offline-snapshot admin credentials in sync with
+       what we just saved, so the NEXT login check uses the new password/hash
+       immediately (previously a stale snapshot could reject the new pw). */
+    try{
+      S.CURR.shared = {
+        adminPassword: shared.adminPassword || '',
+        adminPwHash:   shared.adminPwHash   || '',
+        adminLoginEnabled: shared.adminLoginEnabled
+      };
+      const snap = window.lcLoadSharedSnapshot() || {};
+      Object.keys(settings).forEach(k => { if(k.startsWith('shared__')) snap[k] = settings[k]; });
+      if(window.lcSaveSharedSnapshot) window.lcSaveSharedSnapshot(snap);
+    }catch(e){}
 
     // Invalidate cache so next load gets fresh
     invalidateCache(pid);
@@ -1930,12 +1974,132 @@ async function importAllBackup(e){
 /* ============================================================
    SECURITY
    ============================================================ */
+/* ---------- Global admin settings (shared__* keys, person_id = null) ----------
+   The Security tab fields are bound to the GLOBAL settings row, not the
+   per-person one — previously they were loaded/saved against the selected
+   person, which never matched what lcCheckAdminPw reads at login. */
+let ADMIN_GSET = {};
+
+async function refreshAdminGlobalSettings(force){
+  if(!force && Object.keys(ADMIN_GSET).length) return ADMIN_GSET;
+  try{
+    const gset = await sb.getSet(null);
+    if(gset && Object.keys(gset).length){
+      ADMIN_GSET = gset;
+      if(window.lcSaveSharedSnapshot) window.lcSaveSharedSnapshot(gset);
+    }
+  }catch(e){ /* offline: keep last known copy */ }
+  return ADMIN_GSET;
+}
+
+function applyAdminGlobalFields(){
+  const g = ADMIN_GSET || {};
+  const pwEl = $('f_adminPassword');
+  if(pwEl) pwEl.value = g['shared__adminPassword'] || FALLBACK_ADMIN_PW || '';
+  const gate = $('f_adminLoginEnabled');
+  if(gate) gate.checked = String(g['shared__adminLoginEnabled']) !== 'false';
+  const st = $('f_adminPwHashState');
+  if(st) st.textContent = g['shared__adminPwHash']
+    ? '✅ A secure hash is active. Login accepts BOTH this hashed passphrase and the plaintext above.'
+    : 'ℹ️ No secure hash yet — login uses the plaintext password / env fallback.';
+}
+
+async function saveAdminGlobalSettings(){
+  const pid = ADM.editingPersonId;
+  if(!pid){ __showToast('❌ Open a person first — then click 💾 Save', false); return; }
+
+  const st = $('adminStatus');
+  if(st){ st.textContent = '⏳ Saving admin settings…'; st.className = 'panel-status'; }
+
+  /* 1) global security settings (password / hash / login gate) */
+  const g = {};
+  const pwEl = $('f_adminPassword');
+  const gate = $('f_adminLoginEnabled');
+  g['shared__adminPassword'] = pwEl ? String(pwEl.value || '') : (ADMIN_GSET['shared__adminPassword'] || '');
+  g['shared__adminLoginEnabled'] = gate && gate.checked ? 'true' : 'false';
+  /* preserve the existing secure hash unless "Hash & Save" changed it */
+  if(ADMIN_GSET['shared__adminPwHash']) g['shared__adminPwHash'] = ADMIN_GSET['shared__adminPwHash'];
+
+  /* 2) per-person shared mirror so the Security tab stays in sync with Save */
+  const s = {};
+  s.adminPassword = g['shared__adminPassword'];
+  s.adminPwHash = g['shared__adminPwHash'] || '';
+  s.adminLoginEnabled = g['shared__adminLoginEnabled'];
+
+  try{
+    await Promise.all([ sb.upSet(g, null), sb.upSet(s, pid) ]);
+    ADMIN_GSET = Object.assign({}, ADMIN_GSET, g);
+    if(window.lcSaveSharedSnapshot) window.lcSaveSharedSnapshot(ADMIN_GSET);
+    S.CURR.shared = {
+      adminPassword: s.adminPassword || FALLBACK_ADMIN_PW,
+      adminPwHash:   s.adminPwHash,
+      adminLoginEnabled: s.adminLoginEnabled
+    };
+    if(st){ st.textContent = '✅ Admin settings saved!'; st.className = 'panel-status ok'; }
+    __showToast('🔐 Admin settings saved');
+  }catch(e){
+    if(st){ st.textContent = '❌ ' + e.message; st.className = 'panel-status err'; }
+    __showToast('❌ Admin settings save failed', false);
+  }
+}
+
 function bindAdminSecurity(){
   const el = $('f_adminLoginEnabled');
   if(el && el.dataset._bound !== '1'){
     el.dataset._bound = '1';
     el.onchange = () => {
+      ADMIN_GSET['shared__adminLoginEnabled'] = el.checked ? 'true' : 'false';
       ADM.shared.adminLoginEnabled = el.checked ? 'true' : 'false';
+    };
+  }
+
+  /* Load current GLOBAL values into the Security tab (async, non-blocking) */
+  refreshAdminGlobalSettings(true).then(applyAdminGlobalFields).catch(() => {});
+
+  /* 🩹 v1.0 BUGFIX: the "Hash & Save" button existed in index.html but had NO
+     JavaScript wired to it — clicking it did nothing, so no hash was ever
+     stored and users were left relying on stale/missing passwords. Now it
+     hashes the passphrase client-side (salted SHA-256 via js/security.js)
+     and stores it as shared__adminPwHash globally + on the open person. */
+  const hashBtn = $('f_adminPwHashBtn');
+  if(hashBtn && hashBtn.dataset._bound !== '1'){
+    hashBtn.dataset._bound = '1';
+    hashBtn.onclick = async (e) => {
+      if(e && e.preventDefault) e.preventDefault();
+      const inp = $('f_adminPwHashInput');
+      const state = $('f_adminPwHashState');
+      const pw = inp ? String(inp.value || '') : '';
+      if(pw.length < 4){
+        if(state) state.textContent = '⚠️ Passphrase too short (min 4 characters).';
+        return;
+      }
+      hashBtn.disabled = true;
+      try{
+        const hash = await window.lcHashPw(pw);
+        ADMIN_GSET['shared__adminPwHash'] = hash;
+        const pid = ADM.editingPersonId;
+        const jobs = [ sb.upSet({
+          'shared__adminPwHash': hash,
+          'shared__adminPassword': (($('f_adminPassword') || {}).value || ''),
+          'shared__adminLoginEnabled': (($('f_adminLoginEnabled') || {}).checked !== false) ? 'true' : 'false'
+        }, null) ];
+        if(pid) jobs.push(sb.upSet({ adminPwHash: hash }, pid));
+        await Promise.all(jobs);
+        if(window.lcSaveSharedSnapshot) window.lcSaveSharedSnapshot(ADMIN_GSET);
+        S.CURR.shared = {
+          adminPassword: (($('f_adminPassword') || {}).value || '') || FALLBACK_ADMIN_PW,
+          adminPwHash: hash,
+          adminLoginEnabled: (($('f_adminLoginEnabled') || {}).checked !== false) ? 'true' : 'false'
+        };
+        if(inp) inp.value = '';
+        if(state) state.textContent = '✅ Secure hash saved. Login now accepts this passphrase (and the plaintext above).';
+        __showToast('🔐 Admin passphrase hashed & saved');
+      }catch(err){
+        if(state) state.textContent = '❌ Save failed: ' + (err && err.message ? err.message : err);
+        __showToast('❌ Hash save failed', false);
+      }finally{
+        hashBtn.disabled = false;
+      }
     };
   }
 }

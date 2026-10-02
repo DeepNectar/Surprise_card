@@ -7,7 +7,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION    = 'v2';                       // bump on any precache-list change
+const VERSION    = 'v3';                       // bump on any precache-list change
 const CACHE_SHELL = 'sc-shell-'  + VERSION;    // index.html, css, js, icons, manifest
 const CACHE_RUNTIME = 'sc-runtime-' + VERSION; // same-origin GETs (images etc.)
 
@@ -61,7 +61,19 @@ const PRECACHE = [
   '/js/tour.js',
   '/js/v3extras.js',
   '/js/v3admin.js',
-  '/js/update.js'
+  '/js/update.js',
+  /* 🩹 v1.0.1: these were missing from the offline shell — env.js carries the
+     runtime config, so an offline cold-start without them broke logins. */
+  '/js/env.js',
+  '/js/security.js',
+  '/js/aiwriter.js',
+  '/js/analytics.js',
+  '/js/notify.js',
+  '/js/guests.js',
+  '/js/media.js',
+  '/js/offline.js',
+  '/js/hd1.js',
+  '/js/pwa.js'
 ];
 
 /* Requests that must ALWAYS hit the network (never cached):

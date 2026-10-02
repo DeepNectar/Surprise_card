@@ -134,6 +134,11 @@ async function boot(){
     adminPwHash: (gs && gs['shared__adminPwHash']) || '',
     adminLoginEnabled: (gs && gs['shared__adminLoginEnabled'])
   };
+  /* 🩹 Mirror the global settings into localStorage so the admin/card login
+     verifiers still work when a later cloud read fails (offline resilience). */
+  if(gs && Object.keys(gs).length && window.lcSaveSharedSnapshot){
+    try{ window.lcSaveSharedSnapshot(gs); }catch(e){}
+  }
 
   /* ✅ Load reviews BEFORE building home screen so they appear on first paint */
   try{ await revP; }

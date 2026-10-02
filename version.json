@@ -1,9 +1,9 @@
 {
-  "version": "0.6",
-  "date": "2026-10-01",
+  "version": "1.0.1",
+  "date": "2026-10-02",
   "changes": [
-    "☁️ NEW HD0.6 — 💐 Finished is now stored in a PERMANENT cloud table (finished_ledger): people moved from ✅ Completed to Finished appear on the home screen for EVERY visitor on EVERY device — even a phone opening the site for the very first time — and they survive every data wipe.",
-    "🩹 Self-healing sync: the app bootstraps the ledger table + storage bucket automatically after a one-time SQL run (setup/ledger.sql), with three cloud copies kept in sync at all times.",
-    "🛡️ The finished ledger is write-protected — no wipe routine can ever clear it."
+    "🩹 ADMIN LOGIN FIXED — the admin portal now opens reliably with your password: verification re-checks live cloud settings + an offline-safe local snapshot instead of trusting only the boot-time cache, the \"Hash & Save\" button is fully wired (it previously did nothing), and saving a card no longer deletes the stored secure hash.",
+    "🔐 Security tab reads/writes the GLOBAL admin settings (where logins actually check), keeps the plaintext fallback and hash in sync, and 💾 Save on the Security tab persists them even before a person is loaded.",
+    "📴 Offline resilience: env.js/security.js and all remaining app scripts added to the service-worker shell; brute-force lockout shows exact minutes and resets instantly on a correct password."
   ]
 }
