@@ -1334,10 +1334,21 @@
 <!-- ============ SCRIPTS (order matters!) ============ -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
 
-<!-- Core -->
+<!-- Core (env.js MUST load before config.js — it injects window.__LC_ENV__
+     with the Supabase URL/anon key; without it every cloud call 401s.) -->
+<script src="js/env.js"></script>
 <script src="js/config.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/supabase.js"></script>
+
+<!-- v1.0 feature modules (were shipped but never linked into the page):
+     security.js = hash-aware admin login + brute-force throttle,
+     analytics.js = view tracking, aiwriter.js = ✨ AI drafts,
+     notify.js = web push reminders. -->
+<script defer src="js/security.js"></script>
+<script defer src="js/analytics.js"></script>
+<script defer src="js/aiwriter.js"></script>
+<script defer src="js/notify.js"></script>
 
 <!-- ⚡ Perf fix: everything below was render-blocking parser-inserted
      scripts. They are now ALL deferred: the browser downloads them in
