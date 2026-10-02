@@ -60,10 +60,12 @@ window.triggerAdminPrompt = async function(){
   }catch(e){
     console.warn('triggerAdminPrompt: cloud settings read failed, using cache', e && e.message);
     try{
-      const snap = JSON.parse(localStorage.getItem('lc_settings_shared_v1') || 'null');
+      const snap = window.lcLoadSharedSnapshot ? window.lcLoadSharedSnapshot() : null;
       if(snap && typeof snap === 'object') gs = snap;
     }catch(e2){}
   }
+  /* Keep the offline-capable snapshot fresh for the login verifier. */
+  try{ if(gs && window.lcSaveSharedSnapshot) window.lcSaveSharedSnapshot(gs); }catch(e3){}
   const flag = (gs && gs['shared__adminLoginEnabled']);
   const enabled = (flag === undefined) ? true : (String(flag) !== 'false');
   if(!enabled) return;

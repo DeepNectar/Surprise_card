@@ -128,26 +128,86 @@ window.lcThrottleReset = function(id){
   saveT(all);
 };
 
+/* ---------- Local shared-settings snapshot ----------
+   Every successful cloud read of the global settings is mirrored into
+   localStorage under this key, so logins keep working when Supabase is
+   unreachable (offline / DNS / timeout). Written by boot.js and admin.js. */
+window.LC_SHARED_SNAP_KEY = 'lc_settings_shared_v1';
+
+window.lcSaveSharedSnapshot = function(gs){
+  try{
+    if(gs && typeof gs === 'object') localStorage.setItem(window.LC_SHARED_SNAP_KEY, JSON.stringify(gs));
+  }catch(e){}
+};
+
+window.lcLoadSharedSnapshot = function(){
+  try{
+    const o = JSON.parse(localStorage.getItem(window.LC_SHARED_SNAP_KEY) || 'null');
+    return (o && typeof o === 'object') ? o : null;
+  }catch(e){ return null; }
+};
+
+/* Verify a candidate password against one settings bundle
+   ({adminPwHash / adminPassword}). Returns true/false. */
+async function matchAdminBundle(pw, s){
+  if(!s) return false;
+  if(s.adminPwHash && await window.lcVerifyPw(pw, s.adminPwHash)) return true;
+  if(s.adminPassword && pw === s.adminPassword) return true;
+  return false;
+}
+
 /* ---------- Admin passphrase verification ----------
    Priority: settings shared__adminPwHash (preferred, hash-only) →
-   settings shared__adminPassword (legacy plaintext) → env fallback. */
+   settings shared__adminPassword (legacy plaintext) → env fallback.
+   🩹 BUGFIX: previously this ONLY trusted the in-memory boot snapshot
+   (S.CURR.shared). If boot's settings read failed or was still in flight,
+   the live password could not match anything and the admin panel refused
+   to open ("correct password rejected"). Now we also do a fresh direct
+   cloud read and fall back to the last-known-good local snapshot, so the
+   gate works online AND offline with the same credentials.            */
 window.lcCheckAdminPw = async function(pw){
-  if(!pw) return false;
+  if(!pw) return { ok: false };
   const id = 'admin';
   const th = window.lcThrottleCheck(id);
   if(th.blocked) return { ok: false, blocked: true, secs: th.secs };
 
-  const s = (window.__PAGE_STATE__ && S.CURR.shared) || {};
+  const PS = window.__PAGE_STATE__;
+  const bundles = [];
+  /* 1) in-memory state loaded at boot / admin-open */
+  bundles.push((PS && PS.CURR && PS.CURR.shared) || {});
+  /* 2) last-known-good local snapshot (works fully offline) */
+  bundles.push(window.lcLoadSharedSnapshot());
+  /* 3) fresh authoritative cloud read (best-effort, short timeout inside sb) */
+  let fresh = null;
+  try{
+    if(typeof sb !== 'undefined' && sb && sb.getSet){
+      fresh = await sb.getSet(null);
+      if(fresh && Object.keys(fresh).length){
+        window.lcSaveSharedSnapshot(fresh);
+        if(PS && PS.CURR){
+          PS.CURR.shared = {
+            adminPassword: fresh['shared__adminPassword'] || window.FALLBACK_ADMIN_PW || '',
+            adminPwHash:   fresh['shared__adminPwHash']   || '',
+            adminLoginEnabled: fresh['shared__adminLoginEnabled']
+          };
+        }
+      } else { fresh = null; }
+    }
+  }catch(e){ fresh = null; }
+  if(fresh){
+    bundles.push({
+      adminPassword: fresh['shared__adminPassword'] || '',
+      adminPwHash:   fresh['shared__adminPwHash']   || ''
+    });
+  }
+
   let ok = false;
-  if(s.adminPwHash){
-    ok = await window.lcVerifyPw(pw, s.adminPwHash);
+  for(const b of bundles){
+    if(await matchAdminBundle(pw, b)){ ok = true; break; }
   }
-  if(!ok && s.adminPassword){
-    ok = (pw === s.adminPassword);
-  }
-  if(!ok && window.FALLBACK_ADMIN_PW){
-    ok = (pw === window.FALLBACK_ADMIN_PW);
-  }
+  /* 4) env fallback passphrase (js/env.js ADMIN_PW) */
+  if(!ok && window.FALLBACK_ADMIN_PW && pw === window.FALLBACK_ADMIN_PW) ok = true;
+
   if(ok){ window.lcThrottleReset(id); return { ok: true }; }
   const secs = window.lcThrottleFail(id);
   return { ok: false, blocked: !!secs, secs: secs };
