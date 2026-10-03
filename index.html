@@ -1343,7 +1343,9 @@
 <button type="button" class="darkmode-toggle" id="darkmodeToggle" aria-label="Toggle dark mode">🌙</button>
 
 <!-- ============ SCRIPTS (order matters!) ============ -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+        integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
+        crossorigin="anonymous" defer></script>
 
 <!-- Core (env.js MUST load before config.js — it injects window.__LC_ENV__
      with the Supabase URL/anon key; without it every cloud call 401s.) -->
@@ -1423,6 +1425,20 @@
 <script defer src="js/media.js"></script>
 <script defer src="js/offline.js"></script>
 <script defer src="js/hd1.js"></script>
+
+<!-- 🔐 v1.0 SECURITY & TRUST (MUST load before boot.js, after home.js —
+     securitywire.js re-wraps window.tryPersonPw once it exists):
+     e2ee.js       = client-side AES-256-GCM for messages/photos,
+                     PBKDF2 key derived from the viewer's PIN/password,
+     passkeys.js   = WebAuthn biometric unlock (Face ID / fingerprint),
+     sharelinks.js = HMAC-signed expiring share links with view limits,
+     e2eeadmin.js  = admin one-tap encrypt/decrypt panel,
+     securitywire.js = glues all of the above into the real login flow. -->
+<script defer src="js/e2ee.js"></script>
+<script defer src="js/passkeys.js"></script>
+<script defer src="js/sharelinks.js"></script>
+<script defer src="js/e2eeadmin.js"></script>
+<script defer src="js/securitywire.js"></script>
 
 <!-- Boot (must be last; runs after DOM parse + all deferred scripts) -->
 <script defer src="js/boot.js"></script>
