@@ -26,8 +26,8 @@
 /* ---------- 1. Columns on people (PIN + OTP cloud storage) ---------- */
 do $$
 begin
-  if to_regclass(public.people) is null then
-    raise exception public.people table not found - you are running this in the WRONG Supabase project. Check the project your app URL points to.;
+  if to_regclass('public.people') is null then
+    raise exception 'public.people table not found - you are running this in the WRONG Supabase project';
   end if;
 
   alter table public.people add column if not exists pin_hash  text;
@@ -35,7 +35,7 @@ begin
   alter table public.people add column if not exists pin_plain text;
   alter table public.people add column if not exists otp_list  text;
 
-  raise notice pin-otp-safe columns ensured on public.people;
+  raise notice 'pin-otp-safe: columns ensured on public.people';
 end $$;
 
 /* ---------- 2. Enable RLS ---------- */
@@ -50,9 +50,9 @@ begin
     for select
     to anon, authenticated
     using (true);
-  raise notice pin-otp-safe read policy ok;
+  raise notice 'pin-otp-safe: read policy ok';
 exception when others then
-  raise notice pin-otp-safe read policy skipped: % , sqlerrm;
+  raise notice 'pin-otp-safe: read policy skipped: %', sqlerrm;
 end $$;
 
 /* ---------- 4. Update policy (lets the offline queue PATCH flush) ---- */
@@ -65,9 +65,9 @@ begin
     to anon, authenticated
     using (true)
     with check (true);
-  raise notice pin-otp-safe update policy ok;
+  raise notice 'pin-otp-safe: update policy ok';
 exception when others then
-  raise notice pin-otp-safe update policy skipped: % , sqlerrm;
+  raise notice 'pin-otp-safe: update policy skipped: %', sqlerrm;
 end $$;
 
 /* ---------- 5. Insert policy (guest submissions / new cards) ---------- */
@@ -79,9 +79,9 @@ begin
     for insert
     to anon, authenticated
     with check (true);
-  raise notice pin-otp-safe insert policy ok;
+  raise notice 'pin-otp-safe: insert policy ok';
 exception when others then
-  raise notice pin-otp-safe insert policy skipped: % , sqlerrm;
+  raise notice 'pin-otp-safe: insert policy skipped: %', sqlerrm;
 end $$;
 
 /* ---------- 6. Delete policy (wipe-out clears cloud data) ------------ */
@@ -93,9 +93,9 @@ begin
     for delete
     to anon, authenticated
     using (true);
-  raise notice pin-otp-safe delete policy ok;
+  raise notice 'pin-otp-safe: delete policy ok';
 exception when others then
-  raise notice pin-otp-safe delete policy skipped: % , sqlerrm;
+  raise notice 'pin-otp-safe: delete policy skipped: %', sqlerrm;
 end $$;
 
 /* ---------- 7. Verify ---------- */
