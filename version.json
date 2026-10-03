@@ -2,8 +2,8 @@
   "version": "1.2",
   "date": "2026-10-03",
   "changes": [
-    "⚠️ Home-screen error gone — the \"PATCH 400 — Could not find the otp_list column\" message can no longer appear: OTP cloud writes are skipped until the Supabase schema is ready, and stale queued writes self-clean with a friendly fix-it note instead of an error.",
-    "📱 OTPs work offline — one-time codes issued on this device now verify even when the cloud mirror is unavailable; they sync automatically once FULL_GO_LIVE.sql has been run.",
-    "☁️ One-shot go-live SQL — setup/FULL_GO_LIVE.sql creates every table, policy, RPC and the site-ledger Storage bucket, then reloads the PostgREST schema cache."
+    "🔐 Admin access secured — the admin passphrase now always has a guaranteed default fallback, so you can never be locked out of your own site.",
+    "⚡ Faster site — stylesheets and startup scripts now download in parallel the instant the page opens (preloaded), plus font/CDN connections are warmed up ahead of time. First paint is noticeably quicker on slow networks.",
+    "⚙️ Update check tuned — the offline app shell refreshes itself in the background every 5 minutes, so installed (PWA) users get new versions without opening the site first."
   ]
 }

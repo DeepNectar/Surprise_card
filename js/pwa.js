@@ -19,7 +19,14 @@
 
   /* ---------- register the service worker ---------- */
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/sw.js').catch(function (err) {
+    navigator.serviceWorker.register('/sw.js').then(function (reg) {
+      /* v1.2 PERF/UX: periodically ask SW for updates even when the app is
+         only backgrounded (installed PWA). New deploys land within ~5 min
+         without the user having to open the site first. */
+      setInterval(function () {
+        try { reg.update(); } catch (e) {}
+      }, 5 * 60 * 1000);
+    }).catch(function (err) {
       console.warn('[PWA] SW registration failed:', err);
     });
   });
