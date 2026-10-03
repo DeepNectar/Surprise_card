@@ -128,6 +128,14 @@ window.sbPutFinishedToSettings = async function(data){
   }catch(e){ return false; }
 };
 
+/* Legacy alias used by js/utils.js fallback branches: upsert one
+   shared setting key directly into the settings table. Implemented
+   via sb.upSet so it works under the anon RLS policies in setup/rls.sql. */
+window.__sbUpSetShared = async function(key, value){
+  if(!window.sb) return;
+  await window.sb.upSet({ [key]: String(value) }, null);
+};
+
 /* Read the LATEST mirror row (in case duplicates exist from plain inserts) */
 window.sbGetFinishedFromSettings = async function(){
   try{

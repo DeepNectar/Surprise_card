@@ -294,6 +294,9 @@ window.musicTrackEnded = function(){
 
 /* ---------- public: helpers ---------- */
 window.getAudioPlayer = function(){ return $('audioPlayer'); };
+/* v1.0.1 FIX: expose the live <audio> element so js/hd1.js beat-sync
+   (window.MUSIC_AUDIO fallback) can find it when DOM queries miss. */
+try{ const __a = $('audioPlayer'); if(__a) window.MUSIC_AUDIO = __a; }catch(e){}
 window.getCurrCtx = function(){ return CURR_CTX; };
 window.isMusicPlaying = function(){
   const a = $('audioPlayer');

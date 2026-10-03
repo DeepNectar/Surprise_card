@@ -45,21 +45,26 @@ vercel            # preview deploy
 vercel --prod     # production deploy
 ```
 
-The `vercel.json` included here sets cache headers (version.json = no-store, js/css = short cache) and basic security headers. No env vars are required — Supabase config lives in `js/config.js`.
+The `vercel.json` included here sets cache headers (version.json = no-store, js/css = short cache) and basic security headers. No env vars are required — Supabase config lives in `js/env.js`.
 
 ---
 
 ## 🔧 Configuration
 
-Edit `js/config.js`:
+Edit `js/env.js` (injected as `window.__LC_ENV__` before `js/config.js` loads):
 
 | Variable | Description |
 |----------|-------------|
 | `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_ANON_KEY` | Your Supabase anon key |
-| `PUBLIC_CARD_LINK` | Public card link used in shares |
-| `FALLBACK_ADMIN_PW` | Fallback admin password |
+| `SUPABASE_ANON_KEY` | Your Supabase anon key (public by design — RLS protects data) |
+| `PUBLIC_CARD_LINK_DEFAULT` | Public card link used in shares (set in `js/config.js`) |
+| `ADMIN_PW` | Optional plaintext fallback — leave EMPTY; use hashed mode below |
+| `VAPID_PUBLIC_KEY` | Optional Web-Push VAPID public key for real push notifications |
 | `DEFAULT_TZ` | Default timezone (e.g. `Asia/Dubai`) |
+
+**One-time database setup (required for full functionality):** run both SQL files in Supabase → SQL Editor:
+- `setup/ledger.sql` — permanent 💐 Finished ledger (HD0.6)
+- `setup/rls.sql` — analytics (`card_views`), push subscriptions (`push_subs`) & settings policies (v1.0)
 
 ---
 
@@ -67,7 +72,7 @@ Edit `js/config.js`:
 
 **Triple-click** the 🎂💕 emoji on the home screen.
 
-The fallback admin password is set in `js/config.js` (`FALLBACK_ADMIN_PW`). It is intentionally not documented here — keep your repo **private** or move that value to an environment-based config before making the repo public.
+Recommended: set a passphrase via **Admin → 🔐 Hash & Save** — only a salted SHA-256 hash is stored (in Supabase settings), never the plaintext. The old committed plaintext fallback has been removed from `js/env.js`; if you used it anywhere, rotate the passphrase now. A temporary dev fallback can be injected via the `LC_ADMIN_PW` deployment env var — keep your repo **private** and never commit secrets.
 
 From the admin panel you can:
 - Edit any person's text, theme, counters, gifts, story, events, voice, video, pins, and media
