@@ -43,16 +43,48 @@ window.lcShortLink = function(slug){
 })();
 
 /* boot.js already auto-opens ?person=…; mirror that for #s/… links.
-   Retry a few times because the home grid paints asynchronously. */
+   Retry a few times because the home grid paints asynchronously.
+   🔐 v1.0 SECURITY: when the link carries a share signature
+   (#s/slug?e=…&v=…&sig=…) it is verified (expiry / HMAC / view
+   limit) via js/sharelinks.js BEFORE the card opens — tampered,
+   expired or exhausted signed links are blocked with a message.
+   Plain unsigned #s/ links keep working exactly as before. */
 (function(){
+  function blockedMsg(reason){
+    try{
+      let n = document.getElementById('lcs-blocked');
+      if(n) return;
+      n = document.createElement('div');
+      n.id = 'lcs-blocked';
+      n.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2147483600;' +
+        'background:#7a1220;color:#fff;font-size:.8rem;padding:.6rem 1rem;border-radius:12px;' +
+        'font-family:Georgia,serif;box-shadow:0 6px 18px rgba(0,0,0,.4);max-width:90vw;text-align:center;';
+      n.textContent = reason;
+      document.body.appendChild(n);
+    }catch(e){ alert(reason); }
+  }
   function tryOpen(){
     try{
       const h = location.hash || '';
       if(h.indexOf('#s/') !== 0) return false;
-      const slug = decodeURIComponent(h.slice(3));
+      const qi = h.indexOf('?');
+      const slug = decodeURIComponent((qi >= 0 ? h.slice(3, qi) : h.slice(3)));
       const btn = Array.from(document.querySelectorAll('#homeGrid .home-btn'))
         .find(b => b.getAttribute('data-slug') === slug);
-      if(btn){ btn.click(); return true; }
+      if(!btn) return false;
+      /* signed-link gate (sharelinks.js + securitywire.js) */
+      if(qi >= 0 && window.lcShareLinkGate){
+        const person = (window.__PAGE_STATE__ && window.__PAGE_STATE__.PEOPLE || [])
+          .find(p => p.slug === slug);
+        if(person){
+          Promise.resolve(window.lcShareLinkGate(person)).then(g => {
+            if(g && g.block) blockedMsg(g.reason);
+            else btn.click();
+          });
+          return true; /* handled (async) — stop retrying */
+        }
+      }
+      btn.click(); return true;
     }catch(e){}
     return false;
   }
