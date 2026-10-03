@@ -421,6 +421,8 @@ let _otpColOk = null;              /* true / false / unknown(null) */
 let _otpColChecking = null;        /* in-flight promise            */
 async function otpColumnAvailable(){
   if(_otpColOk === true) return true;
+  /* Once offline.js' heal path proves the column works, trust that too. */
+  if(window.lcPeopleMirrorColsOk === true){ _otpColOk = true; return true; }
   if(_otpColChecking) return _otpColChecking;
   _otpColChecking = (async () => {
     try{
@@ -428,6 +430,7 @@ async function otpColumnAvailable(){
       const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=otp_list&limit=1',
         { headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY }, cache: 'no-store' });
       _otpColOk = !!r.ok;          /* 400 PGRST204 → column missing in schema cache */
+      window.lcPeopleMirrorColsOk = _otpColOk; /* share verdict with offline.js */
       if(!_otpColOk) console.warn('[hd1] people.otp_list not in cloud schema yet — OTP stays device-local. Run setup/FULL_GO_LIVE.sql in the Supabase SQL editor.');
       return _otpColOk;
     }catch(e){ return false; }

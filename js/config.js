@@ -12,6 +12,18 @@ window.SUPABASE_ANON_KEY = __ENV__.SUPABASE_ANON_KEY || '';
 /* Optional Web-Push VAPID public key (set in env.js / deployment) */
 window.__LC_VAPID_PUBLIC__ = __ENV__.VAPID_PUBLIC_KEY || '';
 
+/* ---------- Cloud schema-cache guard (shared flag) ----------
+   null  = unknown yet (first people.otp_list probe pending)
+   true  = PostgREST's schema cache serves the optional PIN/OTP mirror
+           columns (pin_hash/pin_salt/pin_plain/otp_list) on `people`
+   false = the columns are NOT visible → app code must never send a
+           PATCH mentioning them (that is what produced the recurring
+           "⚠️ PATCH 400 — Could not find the 'otp_list' column of
+            'people' in the schema cache" home-screen error).
+   js/offline.js + js/hd1.js own the probe/heal logic; this is just the
+   initial declaration so every module sees the same variable.          */
+window.lcPeopleMirrorColsOk = null;
+
 /* ---------- Table names ---------- */
 window.T_PEOPLE   = 'people';
 window.T_SETTINGS = 'settings';
