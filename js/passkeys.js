@@ -148,7 +148,10 @@ function extractCoseKey(bytes){
 
 /* ---------- VERIFY client-side assertion ---------- */
 async function verifyAssertion(person, resp, expectedChallengeB64u){
-  const st = readStore()[String(person.id)];
+  let st = readStore()[String(person.id)];
+  if((!st || !st.pubkey) && person.passkey_id && person.passkey_pubkey){
+    st = { id: person.passkey_id, pubkey: person.passkey_pubkey };   /* cloud mirror */
+  }
   if(!st || !st.pubkey) return false;
   try{
     const jwk = coseToJwk(b64uToBuf(st.pubkey));
@@ -171,6 +174,9 @@ async function verifyAssertion(person, resp, expectedChallengeB64u){
 /* ---------- UNLOCK (called by the login screen's 🔑 button) ---------- */
 window.lcPasskeyUnlock = async function(person){
   if(!ok() || !person || !person.id) return { unavailable: true };
+  const rec = readStore()[String(person.id)] ||
+              (person.passkey_id ? { id: person.passkey_id, pubkey: person.passkey_pubkey || '' } : null);
+  if(!rec || !rec.id) return { none: true };
   const chal = randBuf(32);
   const chalB64u = bufToB64u(chal);
   let asrt;
@@ -180,7 +186,7 @@ window.lcPasskeyUnlock = async function(person){
         challenge: chal,
         timeout: 60000,
         userVerification: 'required',
-        allowCredentials: [{ type: 'public-key', id: b64uToBuf(readStore()[String(person.id)].id) }]
+        allowCredentials: [{ type: 'public-key', id: b64uToBuf(rec.id) }]
       }
     });
   }catch(e){ return { error: (e && e.name) || 'failed' }; }
@@ -191,7 +197,7 @@ window.lcPasskeyUnlock = async function(person){
 };
 
 window.lcPasskeyExists = function(person){
-  return !!(person && person.id && readStore()[String(person.id)]);
+  return !!(person && person.id && (readStore()[String(person.id)] || person.passkey_id));
 };
 window.lcPasskeyRemove = function(person){
   if(!person || !person.id) return;
