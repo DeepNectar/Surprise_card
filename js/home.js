@@ -446,12 +446,13 @@ window.onPersonClick = function(p){
   }catch(e){}
   S.LOGIN_TARGET = p;
   txt($('personLoginTitle'), 'Hi ' + (p.display_name || p.slug || '') + ' 💕');
-  /* HD: when a PIN is set on the card, ONLY the PIN unlocks it — the
-     login prompt must ask for the PIN, not a password. */
+  /* HD: when a PIN is set on the card the guest may open it with EITHER
+     the secret PIN or the card password — so the prompt asks for both and
+     never rejects a correct password just because a PIN exists. */
   if(p.pin_hash){
-    txt($('personLoginSub'), 'This card is PIN-locked 🔢 — enter your secret PIN to open it.');
+    txt($('personLoginSub'), 'This card is PIN-locked 🔢 — enter your secret PIN (or your card password) to open it.');
     const inp = $('personPwInput');
-    if(inp){ inp.placeholder = '🔢 Secret PIN'; inp.setAttribute('inputmode', 'numeric'); inp.maxLength = 8; }
+    if(inp){ inp.placeholder = '🔢 Secret PIN or password'; inp.removeAttribute('inputmode'); inp.removeAttribute('maxLength'); }
   } else {
     txt($('personLoginSub'), 'Enter your card password, or requester edit password.');
     const inp = $('personPwInput');
@@ -614,25 +615,17 @@ window.tryPersonPw = async function(){
   const isRequester = editPw && pw === editPw;
   const expected = p.password || '';
   const isViewer = expected && pw === expected;
-
-  /* HD PIN lock: when a PIN is set on the card, the PIN ALONE unlocks it —
-     no password needed (password never works instead of/without the PIN for
-     viewers). Requesters keep their edit-password bypass; admins bypass. */
+  /* PIN unlock is decided below — declared here so the OTP hook (hd1.js)
+     and this flow share one variable. */
   let pinUnlocked = false;
-  if(p.pin_hash && !isRequester){
+
+  /* HD PIN lock: when a PIN is set on the card it can be opened with
+     EITHER secret — the PIN *or* the card password (both are viewer
+     secrets, so both keep working). Requesters keep their edit-password
+     bypass; admins bypass. Only a wrong PIN AND wrong password is rejected. */
+  if(p.pin_hash && !isRequester && !pinUnlocked && !isViewer){
     const ok = await window.lcVerifyPin(p, pw);
-    if(ok){
-      pinUnlocked = true;
-    } else if(isViewer){
-      /* Correct password but wrong PIN → reject: with a PIN set, only the
-         PIN opens the card. */
-      const secs = window.lcThrottleFail(pinId);
-      $('personPwError').textContent = secs
-        ? ('🕒 Too many attempts — try again in ' + Math.ceil(secs / 60) + ' min.')
-        : '🔢 This card is PIN-locked — enter your secret PIN (not the password).';
-      $('personPwError').classList.add('show');
-      return;
-    }
+    if(ok) pinUnlocked = true;
   }
 
   if(!pinUnlocked && !isRequester && !isViewer){
@@ -640,7 +633,7 @@ window.tryPersonPw = async function(){
     $('personPwError').textContent = secs
       ? ('🕒 Too many attempts — try again in ' + Math.ceil(secs / 60) + ' min.')
       : (p.pin_hash
-          ? '🔢 Incorrect PIN. This card is PIN-locked — enter your secret PIN.'
+          ? '🔢 Incorrect PIN or password. This card is PIN-locked — enter your secret PIN (your card password also works).'
           : getText('pwError', '❌ Incorrect password.'));
     $('personPwError').classList.add('show');
     return;

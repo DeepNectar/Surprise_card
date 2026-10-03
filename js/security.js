@@ -155,29 +155,114 @@ window.lcCheckAdminPw = async function(pw){
 };
 
 /* ---------- Per-card PIN helpers ----------
-   people.pin_hash stores sha256(salt + pin). Empty/null = no PIN.  */
+   people.pin_hash stores sha256('PIN:' + salt + ':' + pin). Empty/null =
+   no PIN.  Each card gets its own random salt (people.pin_salt) so two
+   cards that share a PIN never share a hash (rainbow-table protection).
+
+   CLOUD-FIRST RULE: the PIN (hash + salt + shareable plain copy) lives in
+   the cloud on the people row and survives until the card is wiped out —
+   every save goes through lcSavePersonPatch(), which writes straight to
+   Supabase when online and otherwise queues the SAME patch in the offline
+   store (js/offline.js) so nothing is ever lost on refresh.            */
 window.lcPersonPinId = function(p){ return 'person:' + ((p && p.id) || (p && p.slug) || '?'); };
 
+const PIN_SALT_PREFIX = 'lovecards::pin-salt::';
+
+function readLocalPinFor(pid){
+  try{
+    const all = JSON.parse(localStorage.getItem(PIN_SALT_PREFIX + 'local') || '{}');
+    return all[pid] || null;
+  }catch(e){ return null; }
+}
+function writeLocalPinFor(pid, obj){
+  try{
+    const all = JSON.parse(localStorage.getItem(PIN_SALT_PREFIX + 'local') || '{}');
+    all[pid] = obj;
+    localStorage.setItem(PIN_SALT_PREFIX + 'local', JSON.stringify(all));
+  }catch(e){}
+}
+
+function randomSalt(){
+  try{
+    const b = new Uint8Array(8);
+    (window.crypto || {}).getRandomValues ? crypto.getRandomValues(b)
+      : b.forEach((_, i) => b[i] = Math.floor(Math.random() * 256));
+    return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('');
+  }catch(e){ return String(Date.now()) + Math.random().toString(16).slice(2); }
+}
+
+/* Persist one person-row patch to the cloud — immediately when online,
+   otherwise queued in IndexedDB and flushed as soon as the device returns.
+   `cols` lists optional columns that may not exist yet in an older schema:
+   we retry without them so a missing migration never blocks the PIN.   */
+window.lcSavePersonPatch = async function(person, patch, opts){
+  opts = opts || {};
+  const id = person && person.id;
+  if(!id) return false;
+  const names = window.T_PEOPLE || 'people';
+  const attempts = [];
+  attempts.push(Object.assign({}, patch));
+  (opts.optionalCols || []).forEach(c => {
+    const p2 = Object.assign({}, patch);
+    delete p2[c];
+    attempts.push(p2);
+  });
+  for(const body of attempts){
+    /* 1) direct cloud write */
+    try{
+      if(window.sb && typeof sb.updPerson === 'function'){
+        await sb.updPerson(id, body);
+        return true;
+      }
+    }catch(e){ /* fall through to queue */ }
+    /* 2) offline queue (survives refresh, auto-flushes on reconnect) */
+    try{
+      if(typeof window.lcOfflineQueue === 'function'){
+        await window.lcOfflineQueue(names, body, { method: 'PATCH', filter: 'id=eq.' + encodeURIComponent(id) });
+        return true;
+      }
+    }catch(e){}
+  }
+  return false;
+};
+
 window.lcSetPinHash = async function(person, pin){
-  const hash = pin ? await window.lcHashPw('PIN:' + String(pin).trim()) : '';
-  if(person) person.pin_hash = hash;
-  /* HD: keep the plain PIN on the person row too (pin_plain) so share /
-     resend messages can include it — with a PIN set, only the PIN opens
-     the card. If the DB column doesn't exist yet, silently skip it. */
-  if(person) person.pin_plain = pin ? String(pin).trim() : '';
-  if(sb && person && person.id){
-    try{ await sb.updPerson(person.id, { pin_hash: hash, pin_plain: pin ? String(pin).trim() : '' }); }
-    catch(e){
-      try{ await sb.updPerson(person.id, { pin_hash: hash }); }catch(_e){}
-    }
+  const plain = pin ? String(pin).trim() : '';
+  const salt  = plain ? randomSalt() : '';
+  const hash  = plain ? await window.lcHashPw('PIN:' + salt + ':' + plain) : '';
+  if(person){
+    person.pin_hash  = hash;
+    person.pin_salt  = salt;
+    /* Keep the plain PIN on the person row too (pin_plain) so the share /
+       resend message can include it — with a PIN set, only the PIN opens
+       the card. */
+    person.pin_plain = plain;
+    writeLocalPinFor(person.id, { pin_hash: hash, pin_salt: salt, pin_plain: plain });
+  }
+  const saved = await window.lcSavePersonPatch(person,
+    { pin_hash: hash, pin_salt: salt, pin_plain: plain },
+    { optionalCols: ['pin_salt', 'pin_plain'] });
+  if(!saved && person){
+    const loc = readLocalPinFor(person.id);
+    if(loc) Object.assign(person, loc);
   }
   return hash;
 };
 
 window.lcVerifyPin = async function(person, pin){
   if(!person || !person.pin_hash) return true; /* no PIN set */
-  const h = await window.lcHashPw('PIN:' + String(pin || '').trim());
-  return h === String(person.pin_hash).toLowerCase();
+  const cand = [String(person.pin_salt || '')];
+  try{
+    const loc = readLocalPinFor(person.id);
+    if(loc && loc.pin_salt) cand.push(String(loc.pin_salt));
+  }catch(e){}
+  cand.push(''); /* legacy hashes were made without a salt */
+  const given = String(pin || '').trim();
+  for(const salt of cand){
+    const h = await window.lcHashPw('PIN:' + salt + ':' + given);
+    if(h === String(person.pin_hash).toLowerCase()) return true;
+  }
+  return false;
 };
 
 })();
