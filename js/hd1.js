@@ -416,9 +416,58 @@ function saveOtps(o){ try{ localStorage.setItem(OTP_KEY, JSON.stringify(o)); }ca
    "⚠️ PATCH 400 — Could not find the 'otp_list' column of 'people'
     in the schema cache" on the home screen.
    We probe the cheap `select=otp_list` GET instead: a 400 means the column
-   isn't visible yet → OTPs stay local-only until the next page load. */
+   isn't visible yet → OTPs stay local-only until the next page load.
+   v1.3: when the probe says the column is missing, we ALSO fire the
+   server-side self-heal RPC ensure_sync_schema() (it re-adds the columns
+   and NOTIFYs PostgREST to reload its schema cache), wait for the reload,
+   and re-probe — so fresh projects heal automatically without anyone
+   opening the SQL editor. */
 let _otpColOk = null;              /* true / false / unknown(null) */
 let _otpColChecking = null;        /* in-flight promise            */
+let _otpHealTried = false;         /* one live heal attempt per page load */
+
+async function otpProbe(){
+  try{
+    if(!window.SUPABASE_URL || !navigator.onLine) return null; /* offline: unknown */
+    const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=otp_list&limit=1',
+      { headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY }, cache: 'no-store' });
+    return !!r.ok;                 /* 400 PGRST204 → column missing in schema cache */
+  }catch(e){ return null; }
+}
+
+async function otpTryHeal(){
+  /* POST /rpc/ensure_sync_schema then poll the probe until the reloaded
+     schema cache actually serves otp_list (max ~10s). Shares offline.js'
+     heal routine when that module is loaded. */
+  try{
+    if(typeof window.lcFlushOffline === 'function'){
+      /* offline.js exposes the same recovery through the flush path; call
+         its RPC directly via fetch here too so hd1 never waits on a queue. */
+    }
+    const r = await fetch(window.SUPABASE_URL + '/rest/v1/rpc/ensure_sync_schema', {
+      method: 'POST',
+      headers: {
+        apikey: window.SUPABASE_ANON_KEY,
+        Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: '{}',
+      cache: 'no-store'
+    });
+    if(!r.ok) return false;
+    const deadline = Date.now() + 10000;
+    for(;;){
+      const ok = await otpProbe();
+      if(ok === true){
+        window.lcPeopleMirrorColsOk = true;
+        return true;
+      }
+      if(Date.now() >= deadline) return false;
+      await new Promise(res => setTimeout(res, 1500));
+    }
+  }catch(e){ return false; }
+}
+
 async function otpColumnAvailable(){
   if(_otpColOk === true) return true;
   /* Once offline.js' heal path proves the column works, trust that too. */
@@ -426,11 +475,15 @@ async function otpColumnAvailable(){
   if(_otpColChecking) return _otpColChecking;
   _otpColChecking = (async () => {
     try{
-      if(!window.SUPABASE_URL || !navigator.onLine) return false;
-      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=otp_list&limit=1',
-        { headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY }, cache: 'no-store' });
-      _otpColOk = !!r.ok;          /* 400 PGRST204 → column missing in schema cache */
-      window.lcPeopleMirrorColsOk = _otpColOk; /* share verdict with offline.js */
+      let ok = await otpProbe();
+      if(ok === false && !_otpHealTried && navigator.onLine){
+        _otpHealTried = true;      /* column missing → try to fix it live, once */
+        ok = await otpTryHeal();
+        if(ok !== true) ok = false;
+      }
+      if(ok === null) return false;             /* offline → stay device-local */
+      _otpColOk = ok;
+      window.lcPeopleMirrorColsOk = _otpColOk;  /* share verdict with offline.js */
       if(!_otpColOk) console.warn('[hd1] people.otp_list not in cloud schema yet — OTP stays device-local. Run setup/FULL_GO_LIVE.sql in the Supabase SQL editor.');
       return _otpColOk;
     }catch(e){ return false; }

@@ -173,11 +173,28 @@ function extractMissingColumn(detail){
    already sitting in old queues from previous versions).  When such a
    write finally succeeds after a heal we clear any stale notice too. */
 const LC_MIRROR_COLS = ['otp_list','pin_hash','pin_salt','pin_plain'];
+/* A mirror write is any people PATCH whose BODY mentions otp_list/pin_* —
+   regardless of which table-name string the caller passed (some call sites
+   use window.T_PEOPLE, others the literal 'people'). Checking the body is
+   what finally kills the recurring "PATCH 400 — Could not find the
+   'otp_list' column of 'people'" home-screen error. */
+function bodyHasMirrorCol(body){
+  return !!(body && typeof body === 'object' &&
+    LC_MIRROR_COLS.some(c => Object.prototype.hasOwnProperty.call(body, c)));
+}
+function isMirrorItem(item){
+  return !!item && String(item.table || '').toLowerCase() === 'people' &&
+         bodyHasMirrorCol(item.body);
+}
 function isMirrorSchemaMiss(item, detail){
   if(!isSchemaCacheMiss(detail)) return false;
   const col = extractMissingColumn(detail);
-  if(item.table !== 'people') return false;
-  return !col || LC_MIRROR_COLS.indexOf(col) >= 0;
+  if(String((item && item.table) || '').toLowerCase() !== 'people') return false;
+  /* If the error names a specific column, only treat it as an optional
+     mirror miss when that column IS one of ours; a missing required
+     column (or missing table) must still surface honestly. */
+  if(col) return LC_MIRROR_COLS.indexOf(col) >= 0;
+  return isMirrorItem(item);
 }
 function clearDroppedNotice(){
   try{ localStorage.removeItem('lc_sync_dropped'); }catch(e){}
@@ -274,8 +291,7 @@ window.lcFlushOffline = async function(manual){
       const pre = await allQueued();
       let purged = false;
       for(const it of pre){
-        if(it && it.table === 'people' && it.body &&
-           LC_MIRROR_COLS.some(c => Object.prototype.hasOwnProperty.call(it.body, c))){
+        if(isMirrorItem(it)){
           await remove(it.qid);
           purged = true;
         }
@@ -352,9 +368,15 @@ window.lcOfflineQueue = async function(table, body, opts){
      that is exactly what produced the "PATCH 400 — Could not find the
      'otp_list' column of 'people' in the schema cache" home-screen error.
      The data always lives on-device; the cloud mirror is best-effort. */
-  const isMirrorPatch = table === 'people' && body &&
-    LC_MIRROR_COLS.some(c => Object.prototype.hasOwnProperty.call(body, c));
-  if(isMirrorPatch && window.lcPeopleMirrorColsOk === false) return false;
+  const isMirrorPatch = isMirrorItem({ table: table, body: body });
+  if(isMirrorPatch){
+    /* NEVER queue an optional OTP/PIN mirror write while the API can't see
+       the column — a queued copy re-triggers the same 400 on every flush
+       tick, which is exactly how the ⚠️ pill kept coming back on the home
+       screen. The value is already persisted device-local by hd1.js /
+       security.js, so dropping the cloud mirror here loses nothing. */
+    if(window.lcPeopleMirrorColsOk === false) return false;
+  }
   const item = {
     table, body,
     method: opts.method || 'POST',
@@ -447,11 +469,32 @@ async function paint(){
       pill.classList.remove('ok');
       pill.classList.add('show');
     } else if(droppedInfo && Date.now() - (droppedInfo.at || 0) < 24 * 3600 * 1000){
-      /* queue is empty but some writes were rejected by the server — be honest */
-      pill.textContent = '⚠️ ' + droppedInfo.reason.slice(0, 90);
-      pill.title = 'Some changes could not reach the cloud: ' + droppedInfo.reason;
-      pill.classList.remove('ok');
-      pill.classList.add('show');
+      /* queue is empty but some writes were rejected by the server — be honest.
+         EXCEPT optional OTP/PIN cloud-mirror failures: that data lives safely
+         on this device, and surfacing "⚠️ PATCH 400 — Could not find the
+         'otp_list' column of 'people'" on the home screen scared users for
+         nothing. Purge such legacy notices instead of painting them. */
+      var dReason = String(droppedInfo.reason || '');
+      var dCol = dReason.match(/find the '([A-Za-z0-9_]+)' column/i);
+      var isMirrorNotice = /schema cache/i.test(dReason) &&
+        ((dCol && LC_MIRROR_COLS.indexOf(dCol[1]) >= 0) ||
+         (!dCol && String(droppedInfo.table || '').toLowerCase() === 'people'));
+      if(isMirrorNotice){
+        try{ localStorage.removeItem('lc_sync_dropped'); }catch(_e){}
+        if(lastFlushInfo && (lastFlushInfo.sent || lastFlushInfo.dropped)){
+          pill.textContent = '✅ All changes synced';
+          pill.classList.add('ok');
+          pill.classList.add('show');
+          setTimeout(() => { pill.classList.remove('show', 'ok'); }, 2500);
+        } else {
+          pill.classList.remove('show');
+        }
+      } else {
+        pill.textContent = '⚠️ ' + droppedInfo.reason.slice(0, 90);
+        pill.title = 'Some changes could not reach the cloud: ' + droppedInfo.reason;
+        pill.classList.remove('ok');
+        pill.classList.add('show');
+      }
     } else if(lastFlushInfo && (lastFlushInfo.sent || lastFlushInfo.dropped)){
       pill.textContent = '✅ All changes synced';
       pill.classList.add('ok');
@@ -482,6 +525,42 @@ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', e
 
 document.addEventListener('DOMContentLoaded', () => { paint(); setTimeout(() => window.lcFlushOffline(), 2500); });
 
+/* ---------- Boot-time schema probe (v1.3) ----------
+   Settle window.lcPeopleMirrorColsOk EARLY — before any PIN/OTP write can
+   happen — by probing `select=otp_list` once and, if it 400s, running the
+   ensure_sync_schema() heal + reload-wait right away.  This prevents the
+   "⚠️ PATCH 400 — Could not find the 'otp_list' column of 'people'" pill
+   from ever appearing on the home screen instead of only cleaning it up
+   after the fact. */
+window.lcProbeMirrorCols = async function(){
+  try{
+    if(!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) return;
+    if(window.lcPeopleMirrorColsOk === true) return;
+    let visible = false;
+    try{
+      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=otp_list&limit=1', {
+        headers: {
+          'apikey': window.SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
+        },
+        cache: 'no-store'
+      });
+      visible = !!r.ok;
+    }catch(e){ return; }            /* offline — leave flag unknown */
+    if(visible){
+      window.lcPeopleMirrorColsOk = true;
+      clearDroppedNotice();
+      return;
+    }
+    /* Column not in the cached schema → try the live heal once. */
+    _schemaHealAt = 0;              /* allow the very first heal now */
+    const healed = await healSchemaCache();
+    window.lcPeopleMirrorColsOk = healed ? true : false;
+    if(healed) clearDroppedNotice();
+  }catch(e){}
+};
+setTimeout(() => { window.lcProbeMirrorCols(); }, 800);
+
 /* ---------- Startup purge: legacy queue entries ----------
    Queues saved by older app versions may still hold people PATCHes that
    mention otp_list / pin_* — columns that might not exist in the cloud
@@ -494,8 +573,7 @@ window.lcPurgeMirrorQueue = async function(){
     const rows = await allQueued();
     let removed = false;
     for(const item of rows){
-      if(item && item.table === 'people' && item.body &&
-         LC_MIRROR_COLS.some(c => Object.prototype.hasOwnProperty.call(item.body, c))){
+      if(isMirrorItem(item)){
         await remove(item.qid);
         removed = true;
       }
