@@ -135,6 +135,21 @@ function ensureSearchBox(){
   return inp;
 }
 
+/* Shared HD1.1 filter — the tiles/stats a visitor actually sees on home:
+   enabled, not already moved to 💐 Finished, and whose auto-wipe date has
+   not passed yet (due people wait in the admin ✅ Completed tab instead). */
+window.homeVisiblePeople = function(){
+  return (S.PEOPLE || []).filter(p => {
+    if(!p || p.enabled === false) return false;
+    try{
+      if(window.isFinishedSlug && isFinishedSlug(p.slug)) return false;
+      const t = p.wipe_iso ? Date.parse(p.wipe_iso) : NaN;
+      if(!isNaN(t) && t <= Date.now()) return false;
+    }catch(e){}
+    return true;
+  });
+};
+
 window.buildHome = function(){
   const g = $('homeGrid');
   if(!g) return;
@@ -142,7 +157,7 @@ window.buildHome = function(){
   // Build a DocumentFragment for speed
   const frag = document.createDocumentFragment();
 
-  const ep = (S.PEOPLE || []).filter(p => p.enabled !== false);
+  const ep = window.homeVisiblePeople();
 
   /* Favourites float to the front; tiles are matched back by data-slug so
      order changes never break anything else. */
@@ -212,22 +227,27 @@ window.buildHome = function(){
   renderHomeStats();
 };
 
-/* ---------- Finished section (auto-wiped people) ---------- */
-/* Grace period: for a short while after the scheduled wipe time, still show
-   a person in the 💐 Finished tab even if neither the local mirror nor the
-   cloud ledger has caught up yet (e.g. brand-new visitor on a fresh domain
-   whose first sync hasn't completed). This guarantees the Finished tab never
-   "vanishes" when someone opens the site via a different domain. */
-const FINISHED_GRACE_MS = 3 * 24 * 60 * 60 * 1000; /* 3 days */
+/* ---------- Finished section (people the admin moved to 💐 Finished) ---------- */
+/* HD1.1 — THE FINISHED FLOW:
+   1. Auto-wipe date passes → the person leaves the home grid immediately and
+      waits in the ✅ Completed tab of the admin panel, marked in a DIFFERENT
+      colour ("🕊️ Awaiting finish"). They are NOT on the home screen yet.
+   2. The admin ticks them in Completed and presses 💐 Move to Finished →
+      they enter the 💐 Finished ledger (cloud-synced) and now appear on the
+      home screen's 💐 Finished section for every visitor.
+   So this section renders EXACTLY the people sitting in the Finished tab —
+   no grace-period auto-inclusion of due-but-unmoved people any more. */
 function finishedFromPeopleTable(){
-  /* People whose scheduled wipe date/time has passed (or is imminent within
-     the grace window) count as finished, straight from the live table. */
+  /* People still present in the live table whose wipe time has PASSED but
+     who are already on the Finished ledger — merged so their tile shows the
+     freshest name/birthday even if the local ledger copy is slightly stale. */
   const now = Date.now();
   return (S.PEOPLE || []).filter(p => {
     if(!p || !p.wipe_iso) return false;
     const t = Date.parse(p.wipe_iso);
     if(isNaN(t)) return false;
-    return t <= now + FINISHED_GRACE_MS;
+    if(t > now) return false;
+    return window.isFinishedSlug ? isFinishedSlug(p.slug) : true;
   }).map(p => ({
     id: p.id, slug: p.slug, display_name: p.display_name,
     birthday: p.birthday, requester_name: p.requester_name || '',
@@ -343,7 +363,8 @@ function closeBdaySoonPop(){
 function toggleBdaySoonPop(){
   if(document.getElementById('bdaySoonPop')){ closeBdaySoonPop(); return; }
 
-  const people = (S.PEOPLE || []).filter(p => p.enabled !== false);
+  const people = (window.homeVisiblePeople ? window.homeVisiblePeople()
+                 : (S.PEOPLE || []).filter(p => p.enabled !== false));
   const soon = people
     .map(p => ({ name: String(p.display_name || p.slug || '').trim(), days: daysUntilBirthday(p.birthday) }))
     .filter(p => p.name && p.days !== null && p.days >= 0 && p.days <= SOON_DAYS)
@@ -393,14 +414,14 @@ window.toggleBdaySoonPop = toggleBdaySoonPop;
 function renderHomeStats(){
   const bar = $('homeStatsBar');
   if(!bar) return;
-  const people = (S.PEOPLE || []).filter(p => p.enabled !== false).length;
+  const people = window.homeVisiblePeople ? window.homeVisiblePeople().length
+               : (S.PEOPLE || []).filter(p => p.enabled !== false).length;
   const reviews = (S.REVIEWS || []).length;
   const avg = reviews
     ? Math.round((S.REVIEWS.reduce((a, r) => a + (parseInt(r.stars) || 0), 0) / reviews) * 10) / 10
     : 0;
   // Everyone whose birthday falls within the next week, nearest first
-  const upcoming = (S.PEOPLE || [])
-    .filter(p => p.enabled !== false)
+  const upcoming = (window.homeVisiblePeople ? window.homeVisiblePeople() : (S.PEOPLE || []))
     .map(p => ({ name: String(p.display_name || p.slug || '').trim(), days: daysUntilBirthday(p.birthday) }))
     .filter(p => p.name && p.days !== null && p.days >= 0 && p.days <= SOON_DAYS)
     .sort((a, b) => a.days - b.days);

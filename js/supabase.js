@@ -441,23 +441,13 @@ window.sb = {
 
       if(!due.length) return [];
 
-      /* Remember in the local finished list BEFORE deleting, so a failure
-         halfway through can never lose a person from the home screen.
-         Stamp with the scheduled wipe date/time ("said" date & time). */
-      if(window.addFinishedPerson){
-        due.forEach(p => {
-          try{
-            window.addFinishedPerson({
-              id: p.id,
-              slug: p.slug,
-              display_name: p.display_name,
-              birthday: p.birthday,
-              requester_name: p.requester_name || '',
-              wiped_at: p.wipe_iso || null
-            });
-          }catch(e){}
-        });
-      }
+      /* HD1.1 — the auto-wipe flow changed: people whose wipe date has passed
+         do NOT go straight onto the home screen's 💐 Finished list any more.
+         They wait (marked in a different colour) in the ✅ Completed tab of
+         the admin panel until the admin presses 💐 Move to Finished — only
+         then they appear on the home screen. So we no longer auto-file due
+         people into the finished ledger here; addFinishedPerson is only used
+         for EXPLICIT wipes (admin pressed 🗑️ Wipe now). */
 
       // For each due person, wipe their tables + person row
       for(const p of due){
@@ -517,14 +507,16 @@ window.sb = {
 };
 
 /* ---------- Wipe one person completely ----------
-   Also files them in the FINISHED list so they show up on the home screen
-   (with the date/time their data was wiped out), just like auto-expired ones. */
+   EXPLICIT admin wipe (🗑️ "Wipe now" / delete): the person's data is erased
+   right away, so they ARE filed into the 💐 Finished list immediately —
+   this is an intentional finish, not a scheduled auto-wipe waiting for the
+   admin to move them from ✅ Completed. */
 window.wipeOnePerson = async function(pid){
   if(!pid) return;
   /* Grab the row BEFORE deleting so we know who to remember. */
   let person = null;
   try{
-    const rows = await req(T_PEOPLE + '?select=id,slug,display_name,birthday,requester_name,wipe_iso&person_id=eq.' + encodeURIComponent(pid));
+    const rows = await req(T_PEOPLE + '?select=id,slug,display_name,birthday,requester_name,requester_whatsapp,wipe_iso&person_id=eq.' + encodeURIComponent(pid));
     person = (rows && rows[0]) || null;
   }catch(e){}
   if(!person){
@@ -540,7 +532,8 @@ window.wipeOnePerson = async function(pid){
         display_name: person.display_name,
         birthday: person.birthday,
         requester_name: person.requester_name || '',
-        wiped_at: person.wipe_iso || null
+        requester_whatsapp: person.requester_whatsapp || '',
+        wiped_at: new Date().toISOString()
       });
     }catch(e){}
   }
