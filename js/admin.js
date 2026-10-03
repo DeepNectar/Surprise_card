@@ -828,13 +828,15 @@ function renderPeopleRepeater(){
     const bday = p.birthday ? new Date(p.birthday).toLocaleDateString() : '—';
     const editPw = getEditPasswordForPerson(p);
     const wipe = p.wipe_iso ? `<span class="wipe-badge">Wipe ${new Date(p.wipe_iso).toLocaleDateString()}</span>` : '';
-    /* v1.0 NEW: optional per-card PIN (stored hashed as people.pin_hash) */
+    /* v1.0 NEW: optional per-card PIN (stored hashed as people.pin_hash).
+       When set, the guest can open the card with the PIN *or* the card
+       password — both secrets keep working until the card is wiped out. */
     const pinCtl = `
         <div class="panel-field" style="padding:.5rem;background:#fffbea;border:1px dashed #b8860b;border-radius:.6rem;">
-          <label class="panel-label" style="color:#7a5a00;">🔢 Card PIN (4–8 digits — when set, the PIN alone opens the card; no password needed)</label>
+          <label class="panel-label" style="color:#7a5a00;">🔢 Card PIN (4–8 digits — when set, the card opens with the PIN **or** the card password; both are saved in the cloud until wipe)</label>
           <div style="display:flex;gap:.4rem;align-items:center;">
             <input type="password" inputmode="numeric" maxlength="8" class="panel-input" data-pin-for="${p.id}" placeholder="${p.pin_hash ? '•••• (PIN is set)' : 'No PIN'}" style="flex:1;">
-            <button type="button" class="panel-btn" data-pin-set="${p.id}" style="min-width:0;flex:0 0 auto;padding:.4rem .8rem;font-size:.8rem;">💾 Set PIN</button>
+            <button type="button" class="panel-btn" data-pin-set="${p.id}" style="min-width:0;flex:0 0 auto;padding:.4rem .8rem;font-size:.8rem;">💾 Save PIN to cloud</button>
             <button type="button" class="panel-btn danger" data-pin-clear="${p.id}" style="min-width:0;flex:0 0 auto;padding:.4rem .8rem;font-size:.8rem;">✖️ Remove</button>
           </div>
         </div>`;
@@ -917,9 +919,15 @@ function renderPeopleRepeater(){
         __showToast('🔢 PIN must be 4–8 digits', false);
         return;
       }
+      /* CLOUD SAVE: hash + salt + shareable copy go to the people row now;
+         offline → queued in IndexedDB and synced automatically later. */
       await window.lcSetPinHash(person, pin);
+      const queued = (typeof window.lcPendingCount === 'function')
+        ? (await window.lcPendingCount()) > 0 : false;
       if(inp){ inp.value = ''; inp.placeholder = '•••• (PIN is set)'; }
-      __showToast('🔒 PIN set for ' + (person.display_name || person.slug));
+      __showToast(queued
+        ? '📴 PIN saved for ' + (person.display_name || person.slug) + ' — queued, it syncs to the cloud automatically'
+        : '🔒 PIN saved in the cloud for ' + (person.display_name || person.slug));
     };
   });
 

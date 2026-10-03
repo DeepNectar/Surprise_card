@@ -65,6 +65,7 @@ Edit `js/env.js` (injected as `window.__LC_ENV__` before `js/config.js` loads):
 **One-time database setup (required for full functionality):** run both SQL files in Supabase → SQL Editor:
 - `setup/ledger.sql` — permanent 💐 Finished ledger (HD0.6)
 - `setup/rls.sql` — analytics (`card_views`), push subscriptions (`push_subs`) & settings policies (v1.0)
+- `setup/sync_queue.sql` — unblocks the "📴 N changes queued — tap to sync" offline queue: adds `people.pin_hash / pin_salt / pin_plain / otp_list` columns, reviews table + anon PATCH policies so queued PIN/OTP writes flush to the cloud (HD 1.0)
 
 ---
 
