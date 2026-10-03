@@ -1,14 +1,14 @@
 -- ============================================================
 -- setup/verify_and_create_all.sql
 -- ONE-SHOT: VERIFY every table/column/policy this site needs,
--- and CREATE anything that is missing. 100% idempotent — run it
+-- and CREATE anything that is missing. 100% idempotent ? run it
 -- as many times as you like; existing items are left untouched.
 --
 -- HOW TO USE
 --   Supabase Dashboard -> your project -> SQL Editor -> New query
 --   -> paste this ENTIRE file -> Run.
---   Read the final report table: ✅ = was already there,
---   🛠 = created/fixed now. If "people" shows MISSING at the top,
+--   Read the final report table: ? = was already there,
+--   ? = created/fixed now. If "people" shows MISSING at the top,
 --   you are in the WRONG Supabase project.
 --
 -- WHAT IT COVERS (read from js/config.js + js/supabase.js):
@@ -37,7 +37,7 @@ $$;
 do $$
 begin
   if not public._has_tbl('people') then
-    raise exception 'STOP: public.people not found — open the correct Supabase project first (the one connected to this site).';
+    raise exception 'STOP: public.people not found ? open the correct Supabase project first (the one connected to this site).';
   end if;
 end $$;
 
@@ -219,7 +219,7 @@ begin
     execute format('alter table public.%I add column if not exists created_at timestamptz not null default now()', t);
   end loop;
 
-  /* per-table unique columns (all added as text first — Postgres
+  /* per-table unique columns (all added as text first ? Postgres
      coerces JS numbers fine through PostgREST) */
   for t, c in select * from (values
       ('gifts','emoji'), ('gifts','message'), ('gifts','photo_drive_id'),
@@ -295,11 +295,36 @@ begin
 end $$;
 grant execute on function public.ensure_finished_ledger_table() to anon, authenticated;
 
+
+/* ---------- 10b. Storage: public 'site-ledger' bucket + object policies
+   (the Finished ledger is saved as an object in Storage; without this
+    the ??? tab cannot load on a fresh device). Idempotent. ---------- */
+insert into storage.buckets (id, name, public)
+values ('site-ledger', 'site-ledger', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists ledger_public_read on storage.objects;
+create policy ledger_public_read on storage.objects
+  for select to public using (bucket_id = 'site-ledger');
+
+drop policy if exists ledger_anon_write on storage.objects;
+create policy ledger_anon_write on storage.objects
+  for insert to anon, authenticated with check (bucket_id = 'site-ledger');
+
+drop policy if exists ledger_anon_update on storage.objects;
+create policy ledger_anon_update on storage.objects
+  for update to anon, authenticated
+  using (bucket_id = 'site-ledger') with check (bucket_id = 'site-ledger');
+
+drop policy if exists ledger_anon_delete on storage.objects;
+create policy ledger_anon_delete on storage.objects
+  for delete to anon, authenticated using (bucket_id = 'site-ledger');
+
 /* ---------- 11. REPORT: what existed before, what we fixed ---------- */
 select
   'table' as item, table_name as name,
-  case when table_name = any (array['people']) then '✅ required core table present'
-       else '✅ present' end as status
+  case when table_name = any (array['people']) then 'OK: required core table present'
+       else 'OK: present' end as status
 from information_schema.tables
 where table_schema='public'
   and table_name = any (array[
@@ -307,13 +332,16 @@ where table_schema='public'
     'finished_ledger','gifts','story_pages','event_countdowns','voice_messages',
     'video_messages','map_pins','media','uploads'])
 union all
-select 'column', 'people.'||c.column_name, '✅ available for cloud sync'
+select 'column', 'people.'||c.column_name, 'OK: available for cloud sync'
 from information_schema.columns c
 where c.table_schema='public' and c.table_name='people'
   and c.column_name = any (array['pin_hash','pin_salt','pin_plain','otp_list'])
 union all
+select 'storage-bucket', b.id, case when b.public then 'OK: public bucket ready' else 'WARN: not public' end
+from storage.buckets b where b.id = 'site-ledger'
+union all
 select 'rls-policy', tablename||' ('||policyname||')',
-       case when permissive='Y' then '✅ open to anon key' else '⚠️ restrictive' end
+       case when permissive='Y' then 'OK: open to anon key' else 'WARN: restrictive' end
 from pg_policies
 where schemaname='public'
 order by 1, 2;
