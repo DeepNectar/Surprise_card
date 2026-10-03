@@ -99,6 +99,7 @@ function ensurePkButtons(){
     const r = await window.lcPasskeyUnlock(p);
     if(r.ok){
       hideErr();
+      /* finishUnlock owns: modal hide, E2EE key prompt, load, lock/opening */
       await finishUnlock(p, null, 'passkey');
     } else if(r.cancelled){ /* user dismissed the biometric sheet */ }
     else showBlocked('🔑 Passkey did not verify — use your PIN or password.');
@@ -128,41 +129,44 @@ function hideErr(){
 /* ---------- shared success path (PIN / password / passkey) ---------- */
 
 /* The E2EE key must be derived from the SAME secret that opened the card.
-   Passkey unlocks never reveal it, so we recover the viewer secret the same
-   way home.js validated it: PIN via verification, or the locally-known card
-   password field. Best-effort — encryption simply stays locked if neither
-   matches (the 🔒 notice path in e2ee.js). */
-async function recoverSecret(person){
-  /* 1) on-device PIN mirror written by security.js when the PIN was set here */
-  try{
-    const all = JSON.parse(localStorage.getItem('lovecards::pin-salt::local') || '{}');
-    const rec = all[String(person.id)];
-    if(rec && rec.pin_plain && window.lcVerifyPin && await window.lcVerifyPin(person, rec.pin_plain)){
-      return String(rec.pin_plain);
-    }
-  }catch(e){}
-  /* 2) cloud-mirrored plain PIN (people.pin_plain — same copy the share
-        message uses; only readable by someone who can load the card) */
-  try{
-    const pp = String((person && person.pin_plain) || '');
-    if(pp && window.lcVerifyPin && await window.lcVerifyPin(person, pp)) return pp;
-  }catch(e){}
-  /* 3) card password as it is known locally (home.js checks pw === p.password) */
-  try{
-    const pw = String((person && person.password) || '');
-    if(pw) return pw;
-  }catch(e){}
+   Passkeys never reveal the secret themselves, so after a biometric unlock
+   we ask the viewer ONCE for their PIN/password to derive the decryption
+   key (the passkey already proved identity — this step only unlocks the
+   encrypted content). We deliberately do NOT read the secret from the
+   person row (pin_plain / password fields): pulling the key out of the
+   same record it protects would defeat end-to-end encryption. */
+async function promptForSecret(person){
+  const q = '🔐 Enter your PIN or password once to decrypt this card\'s ' +
+            'private messages & photos.\n(Your passkey unlocked the card; ' +
+            'this unlocks the encrypted content.)';
+  let s = null;
+  try{ s = window.prompt(q, ''); }catch(e){ return null; }
+  if(s == null) return null;                       /* cancelled */
+  s = String(s);
+  if(!s.trim()) return null;
+  /* validate against the real card secret before trusting it as a key */
+  if(window.lcVerifyPin){
+    try{ if(await window.lcVerifyPin(person, s)) return s; }catch(e){}
+  }
+  const expected = String((person && person.password) || '');
+  if(expected && s === expected) return s;
+  showBlocked('🔑 Wrong PIN/password — card opened but encrypted content stays locked.');
   return null;
 }
 
 async function finishUnlock(person, secret, how){
-  if(window.show) window.hideModal && window.hideModal($id('personLoginModal'));
+  /* utils.js convention: .pw-modal is visible while it has .active —
+     hide by REMOVING 'active' (window.hide does exactly that). */
   const m = $id('personLoginModal');
-  if(m) m.classList.remove('active');   /* modals.css: .pw-modal.active shows */
+  if(m){
+    if(window.hide) window.hide(m);
+    else m.classList.remove('active');
+  }
   S.PREVIEW_MODE = false;
-  /* 1) E2EE session key */
+  /* 1) E2EE session key — passkey path asks the viewer once for their
+        PIN/password (never reads it from the person row). */
   if(secret == null && how === 'passkey'){
-    try{ secret = await recoverSecret(person); }catch(e){ secret = null; }
+    try{ secret = await promptForSecret(person); }catch(e){ secret = null; }
   }
   if(secret != null && window.lcE2EELockIn){
     try{ window.lcE2EELockIn(String(secret), person); }catch(e){}
@@ -189,7 +193,7 @@ async function finishUnlock(person, secret, how){
   if(locked || showLock){
     window.renderLockFull();
     const ls = $id('lockScreen');
-    if(ls) ls.classList.remove('hidden');
+    if(ls && window.show) window.show(ls);        /* lock screen uses .active too */
     if(locked) window.startCountdownFull(unlockDate);
     return;
   }
@@ -228,7 +232,7 @@ function install(){
 
   window.tryPersonPw = async function(){
     const inp = $id('personPwInput');
-    const pw = inp ? inp.value : '';
+    const pw = inp ? String(inp.value || '') : '';
     const p = S.LOGIN_TARGET;
 
     /* ---- secure share-link gate (expiry / signature / view limit) ---- */
@@ -237,26 +241,30 @@ function install(){
       if(g.block){ showBlocked(g.reason); return; }
     }
 
-    const before = S.ADMIN_MODE === true;
+    const beforeAdmin = S.ADMIN_MODE === true;
     await orig.call(window);
 
+    /* Did this attempt actually unlock the card? (home.js sets one of
+       these on success; wrong secrets leave them all untouched.) */
     if(pw && p && S.LOGIN_TARGET === p){
       const unlocked =
-        ($id('personLoginModal') && $id('personLoginModal').classList.contains('hidden')) ||
         S.REQUESTER_MODE === true || S.PREVIEW_MODE === true ||
-        S.ADMIN_MODE === true || S.CURRENT_PERSON;
-      if(unlocked && !before){
-        try{ window.lcE2EELockIn(String(pw), p); }catch(e){}
-        try{ if(window.lcShareLinkLockIn) await window.lcShareLinkLockIn(String(pw), p); }catch(e){}
-        /* admin just opened a card? derive the key for it too */
-        try{
-          const cur = S.CURRENT_PERSON;
-          if(cur && cur.id === p.id && window.lcEncryptCardData){
-            /* expose one-tap encrypt/decrypt in the admin panel */
-            if(window.lcInjectE2eeAdminUi) window.lcInjectE2eeAdminUi();
-          }
-        }catch(e){}
+        S.ADMIN_MODE === true || !!S.CURRENT_PERSON;
+      if(unlocked && !beforeAdmin){
+        /* Admin bypass (startAdmin already ran): do NOT re-run the viewer
+           unlock path and do NOT derive an E2EE key from the admin password. */
+        if(S.ADMIN_MODE === true) return;
+        /* Route every successful secret-unlock through ONE shared path:
+           hide modal, derive E2EE key from the entered secret, sign the
+           share-link key, load the person, honour the date-lock. The wrap
+           returns early so home.js's own tail never runs a second time. */
+        await finishUnlock(p, pw, S.REQUESTER_MODE ? 'preview' : 'password');
+        return;
       }
+    }
+    if(pw && p && S.ADMIN_MODE && !beforeAdmin){
+      /* admin just opened a card — expose one-tap encrypt/decrypt UI */
+      try{ if(window.lcInjectE2eeAdminUi) window.lcInjectE2eeAdminUi(); }catch(e){}
     }
   };
 }

@@ -626,6 +626,9 @@ window.tryPersonPw = async function(){
 
   const adminRes = await window.lcCheckAdminPw(pw);
   if(adminRes && adminRes.ok){
+    /* Admin bypass: hand over to the admin flow. The securitywire
+       wrapper detects ADMIN_MODE and returns WITHOUT running the
+       viewer unlock path (no E2EE key from the admin password). */
     hide($('personLoginModal'));
     S.ADMIN_MODE = true;
     await window.startAdmin();
