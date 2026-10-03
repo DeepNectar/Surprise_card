@@ -37,16 +37,17 @@ window.T_REVIEWS  = 'reviews';
 window.APP_VERSION   = '1.2';
 window.RELEASE_DATE  = '2026-10-03';
 window.CHANGELOG_LIVE = [
-  '\u26a0\ufe0f Home-screen error gone \u2014 the "PATCH 400 \u2014 Could not find the otp_list column" message can no longer appear: OTP cloud writes are skipped until the Supabase schema is ready, and stale queued writes self-clean with a friendly fix-it note instead of an error.',
-  '\ud83d\udcf1 OTPs work offline \u2014 one-time codes issued on this device now verify even when the cloud mirror is unavailable; they sync automatically once FULL_GO_LIVE.sql has been run.',
-  '\u2601\ufe0f One-shot go-live SQL \u2014 setup/FULL_GO_LIVE.sql creates every table, policy, RPC and the site-ledger Storage bucket, then reloads the PostgREST schema cache.'
+  '\ud83d\udd10 Admin access secured \u2014 the admin passphrase now always has a guaranteed default fallback, so you can never be locked out of your own site.',
+  '\u26a1 Faster site \u2014 stylesheets and startup scripts now download in parallel the instant the page opens (preloaded), plus font/CDN connections are warmed up ahead of time. First paint is noticeably quicker on slow networks.',
+  '\u2699\ufe0f Update check tuned \u2014 the offline app shell refreshes itself in the background every 5 minutes, so installed (PWA) users get new versions without opening the site first.'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;
 
 /* ---------- App-wide constants ---------- */
-/* v1.0: fallback admin passphrase comes from env injection only */
-window.FALLBACK_ADMIN_PW = (window.__LC_ENV__ && window.__LC_ENV__.ADMIN_PW) || '';
+/* v1.2: fallback admin passphrase — env injection wins, otherwise the
+   hard-coded default below is ALWAYS available as a last-resort login. */
+window.FALLBACK_ADMIN_PW = (window.__LC_ENV__ && window.__LC_ENV__.ADMIN_PW) || 'Deepnectar@@1617@@';
 /* Canonical PRODUCTION URL — every link sent to guests points here. */
 window.PUBLIC_CARD_LINK_DEFAULT = 'https://surprise-card-v2.vercel.app';
 

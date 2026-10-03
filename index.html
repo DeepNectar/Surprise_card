@@ -51,6 +51,17 @@
 <link rel="modulepreload" as="script" href="js/config.js">
 <link rel="preload" as="script" href="js/utils.js">
 <link rel="preload" as="script" href="js/supabase.js">
+<!-- v1.2 PERF: preload env.js too — it is render-blocking and used by config.js -->
+<link rel="preload" as="script" href="js/env.js">
+<!-- v1.2 PERF: warm up the Google-Fonts CDN (used by later font requests) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- v1.2 PERF: preload every stylesheet so all CSS downloads start in parallel
+     with HTML parsing instead of one blocking request at a time -->
+<link rel="preload" as="style" href="css/variables.css">
+<link rel="preload" as="style" href="css/base.css">
+<link rel="preload" as="style" href="css/home.css">
+<link rel="preload" as="style" href="css/polish.css">
 
 <!-- Inline SVG favicon -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23c41e3a'/%3E%3Cstop offset='1' stop-color='%234a0016'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M32 50c-9-6.5-17-13-17-21a8.6 8.6 0 0 1 17-2.6A8.6 8.6 0 0 1 49 29c0 8-8 14.5-17 21z' fill='%23ffd700'/%3E%3C/svg%3E">

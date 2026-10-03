@@ -1407,7 +1407,15 @@ async function saveAdminFull(preview, doReload){
     if(palOn&&palA&&palB){ shared.palette = palOn.checked?'true':'false';
       shared.paletteA = palOn.checked?palA.value:''; shared.paletteB = palOn.checked?palB.value:''; } }
 
-  shared.adminPassword = ($('f_adminPassword') || {}).value || FALLBACK_ADMIN_PW;
+  /* v1.2: NEVER persist the admin passphrase in plain text — only the hash
+     travels through shared state; the hard-coded fallback (config.js) is the
+     default when nothing else is configured. */
+  shared.adminPassword = '';
+  if(window.lcHashPw){
+    const pwEl = $('f_adminPassword');
+    const wanted = (pwEl && pwEl.value) || FALLBACK_ADMIN_PW;
+    try{ shared.adminPwHash = await window.lcHashPw(wanted); }catch(e){}
+  }
   const adminLogin = $('f_adminLoginEnabled');
   shared.adminLoginEnabled = adminLogin && adminLogin.checked ? 'true' : 'false';
 
