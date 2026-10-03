@@ -211,13 +211,46 @@ begin
   create table if not exists public.media         (id bigserial primary key);
   create table if not exists public.uploads       (id bigserial primary key);
 
-  foreach t in array ('gifts','story_pages','event_countdowns','voice_messages',
-                      'video_messages','map_pins','media','uploads') loop
-    execute format('alter table public.%I add column if not exists person_id bigint', t);
-    execute format('alter table public.%I add column if not exists title text default ''''', t);
-    execute format('alter table public.%I add column if not exists sort_order int default 0', t);
-    execute format('alter table public.%I add column if not exists created_at timestamptz not null default now()', t);
-  end loop;
+  -- common columns, one explicit statement per table (no arrays -> no FOREACH pitfalls)
+  alter table public.gifts            add column if not exists person_id bigint;
+  alter table public.gifts            add column if not exists title text default '';
+  alter table public.gifts            add column if not exists sort_order int default 0;
+  alter table public.gifts            add column if not exists created_at timestamptz not null default now();
+
+  alter table public.story_pages      add column if not exists person_id bigint;
+  alter table public.story_pages      add column if not exists title text default '';
+  alter table public.story_pages      add column if not exists sort_order int default 0;
+  alter table public.story_pages      add column if not exists created_at timestamptz not null default now();
+
+  alter table public.event_countdowns add column if not exists person_id bigint;
+  alter table public.event_countdowns add column if not exists title text default '';
+  alter table public.event_countdowns add column if not exists sort_order int default 0;
+  alter table public.event_countdowns add column if not exists created_at timestamptz not null default now();
+
+  alter table public.voice_messages   add column if not exists person_id bigint;
+  alter table public.voice_messages   add column if not exists title text default '';
+  alter table public.voice_messages   add column if not exists sort_order int default 0;
+  alter table public.voice_messages   add column if not exists created_at timestamptz not null default now();
+
+  alter table public.video_messages   add column if not exists person_id bigint;
+  alter table public.video_messages   add column if not exists title text default '';
+  alter table public.video_messages   add column if not exists sort_order int default 0;
+  alter table public.video_messages   add column if not exists created_at timestamptz not null default now();
+
+  alter table public.map_pins         add column if not exists person_id bigint;
+  alter table public.map_pins         add column if not exists title text default '';
+  alter table public.map_pins         add column if not exists sort_order int default 0;
+  alter table public.map_pins         add column if not exists created_at timestamptz not null default now();
+
+  alter table public.media            add column if not exists person_id bigint;
+  alter table public.media            add column if not exists title text default '';
+  alter table public.media            add column if not exists sort_order int default 0;
+  alter table public.media            add column if not exists created_at timestamptz not null default now();
+
+  alter table public.uploads          add column if not exists person_id bigint;
+  alter table public.uploads          add column if not exists title text default '';
+  alter table public.uploads          add column if not exists sort_order int default 0;
+  alter table public.uploads          add column if not exists created_at timestamptz not null default now();
 
   /* per-table unique columns (all added as text first ? Postgres
      coerces JS numbers fine through PostgREST) */
@@ -254,9 +287,14 @@ do $$
 declare
   t text;
 begin
-  foreach t in array ('people','settings','guest_submissions','reviews','card_views',
-                      'push_subs','finished_ledger','gifts','story_pages','event_countdowns',
-                      'voice_messages','video_messages','map_pins','media','uploads') loop
+  -- plain FOR loop over a fixed list (no arrays -> works on every Postgres)
+  for t in
+    select x from (values
+      ('people'),('settings'),('guest_submissions'),('reviews'),('card_views'),
+      ('push_subs'),('finished_ledger'),('gifts'),('story_pages'),('event_countdowns'),
+      ('voice_messages'),('video_messages'),('map_pins'),('media'),('uploads')
+    ) as v(x)
+  loop
     execute format('alter table public.%I enable row level security', t);
     -- read
     execute format('drop policy if exists %1$I_r_anon on public.%1$I', t);
@@ -298,27 +336,39 @@ grant execute on function public.ensure_finished_ledger_table() to anon, authent
 
 /* ---------- 10b. Storage: public 'site-ledger' bucket + object policies
    (the Finished ledger is saved as an object in Storage; without this
-    the ??? tab cannot load on a fresh device). Idempotent. ---------- */
-insert into storage.buckets (id, name, public)
-values ('site-ledger', 'site-ledger', true)
-on conflict (id) do update set public = true;
+    the ??? tab cannot load on a fresh device). Idempotent.
+    Wrapped in a guard so it no-ops if the storage schema is missing,
+    and never aborts the rest of the script. ---------- */
+do $$
+begin
+  if to_regclass('storage.buckets') is null then
+    raise notice 'storage.buckets not found - skipping bucket setup (run on Supabase to enable)';
+    return;
+  end if;
 
-drop policy if exists ledger_public_read on storage.objects;
-create policy ledger_public_read on storage.objects
-  for select to public using (bucket_id = 'site-ledger');
+  insert into storage.buckets (id, name, public)
+  values ('site-ledger', 'site-ledger', true)
+  on conflict (id) do update set public = true;
 
-drop policy if exists ledger_anon_write on storage.objects;
-create policy ledger_anon_write on storage.objects
-  for insert to anon, authenticated with check (bucket_id = 'site-ledger');
+  execute 'drop policy if exists ledger_public_read on storage.objects';
+  execute 'create policy ledger_public_read on storage.objects
+             for select to public using (bucket_id = ''site-ledger'')';
 
-drop policy if exists ledger_anon_update on storage.objects;
-create policy ledger_anon_update on storage.objects
-  for update to anon, authenticated
-  using (bucket_id = 'site-ledger') with check (bucket_id = 'site-ledger');
+  execute 'drop policy if exists ledger_anon_write on storage.objects';
+  execute 'create policy ledger_anon_write on storage.objects
+             for insert to anon, authenticated with check (bucket_id = ''site-ledger'')';
 
-drop policy if exists ledger_anon_delete on storage.objects;
-create policy ledger_anon_delete on storage.objects
-  for delete to anon, authenticated using (bucket_id = 'site-ledger');
+  execute 'drop policy if exists ledger_anon_update on storage.objects';
+  execute 'create policy ledger_anon_update on storage.objects
+             for update to anon, authenticated
+             using (bucket_id = ''site-ledger'') with check (bucket_id = ''site-ledger'')';
+
+  execute 'drop policy if exists ledger_anon_delete on storage.objects';
+  execute 'create policy ledger_anon_delete on storage.objects
+             for delete to anon, authenticated using (bucket_id = ''site-ledger'')';
+exception when others then
+  raise notice 'storage setup skipped: %', sqlerrm;
+end $$;
 
 /* ---------- 11. REPORT: what existed before, what we fixed ---------- */
 select
@@ -336,9 +386,6 @@ select 'column', 'people.'||c.column_name, 'OK: available for cloud sync'
 from information_schema.columns c
 where c.table_schema='public' and c.table_name='people'
   and c.column_name = any (array['pin_hash','pin_salt','pin_plain','otp_list'])
-union all
-select 'storage-bucket', b.id, case when b.public then 'OK: public bucket ready' else 'WARN: not public' end
-from storage.buckets b where b.id = 'site-ledger'
 union all
 select 'rls-policy', tablename||' ('||policyname||')',
        case when permissive='Y' then 'OK: open to anon key' else 'WARN: restrictive' end
