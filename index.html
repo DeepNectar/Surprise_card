@@ -145,12 +145,12 @@
     <div class="home-changelog collapsed" id="homeChangelog">
       <div class="hcl-head" id="homeChangelogHead">
         <span class="hcl-title">✨ What's new</span>
-        <span class="hcl-badge">HD0.5 Version upgraded</span>
+        <span class="hcl-badge">HD1.1 Version upgraded</span>
         <span class="hcl-chev">▼</span>
       </div>
       <div class="hcl-body">
         <div class="hcl-group">
-          <div class="hcl-group-title">🆕 New in HD 0.5 (deployed today)</div>
+          <div class="hcl-group-title" id="hclLatestTitle">🆕 New in HD 1.1 (deployed on 2026-10-03)</div>
           <div class="hcl-list">
             <div class="hcl-item"><span class="hcl-ico">💐</span><span><strong>New 💐 Finished tab in the admin panel</strong> — moving a person to Finished now takes them OUT of ✅ Completed into the 💐 Finished tab (with a live count badge), exactly where they appear on this home screen.</span></div>
             <div class="hcl-item"><span class="hcl-ico">↩️</span><span><strong>One-tap Undo</strong> — every finished person can be moved back into ✅ Completed; requester details stay private for 🔔 Reminders and nothing is ever deleted.</span></div>
@@ -391,7 +391,7 @@
     <div class="panel-sub">Fill the basics. You can add theme, texts, gifts, etc. later by expanding the person's row.</div>
     <div class="panel-field"><label class="panel-label">Display Name <span style="color:#c41e3a;">*required</span></label><input type="text" class="panel-input" id="ap_name" placeholder="e.g. Vrunda"></div>
     <div class="panel-field"><label class="panel-label">Login ID / Slug <span style="color:#c41e3a;">*required</span></label><input type="text" class="panel-input" id="ap_slug" placeholder="e.g. vrunda (lowercase, no spaces)"></div>
-    <div class="panel-field"><label class="panel-label">Card Password (viewer)</label><input type="text" class="panel-input" id="ap_password" placeholder="Click 🎲 below to generate"></div>
+    <div class="panel-field"><label class="panel-label">Card Password (viewer)</label><input type="text" class="panel-input" id="ap_password" placeholder="Leave blank for auto 6-letter (name + birthday), or click 🎲"></div>
     <div class="panel-field"><label class="panel-label">Birthday</label><input type="date" class="panel-input" id="ap_birthday"></div>
     <div class="panel-field"><label class="panel-label">Requester name (shown on reviews)</label><input type="text" class="panel-input" id="ap_requester" placeholder="e.g. Deep Patel"></div>
     <div class="panel-field"><label class="panel-label">Requester relation (to the person — saved privately)</label><input type="text" class="panel-input" id="ap_requester_relation" placeholder="e.g. Husband, Best friend, Sister"></div>
@@ -481,7 +481,7 @@
       </div>
       <div class="panel-section">
         <div class="panel-section-title">🔑 Passwords</div>
-        <div class="panel-field"><label class="panel-label">Card password (viewer)</label><input type="text" class="panel-input" id="ge_password" placeholder="Leave blank to auto-generate"></div>
+        <div class="panel-field"><label class="panel-label">Card password (viewer)</label><input type="text" class="panel-input" id="ge_password" placeholder="Leave blank to auto-generate a unique 6-letter code (name + birthday)"></div>
         <div class="panel-field" style="padding:.5rem;background:#eef3ff;border:1px dashed #1a3d8f;border-radius:.6rem;">
           <label class="panel-label" style="color:#1a3d8f;">✏️ Requester EDIT password (auto)</label>
           <input type="text" class="panel-input" id="ge_editpw_preview" readonly style="background:#f4f8ff;font-family:monospace;font-weight:800;color:#1a3d8f;">

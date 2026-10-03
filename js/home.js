@@ -446,7 +446,17 @@ window.onPersonClick = function(p){
   }catch(e){}
   S.LOGIN_TARGET = p;
   txt($('personLoginTitle'), 'Hi ' + (p.display_name || p.slug || '') + ' 💕');
-  txt($('personLoginSub'), 'Enter your card password, or requester edit password.');
+  /* HD: when a PIN is set on the card, ONLY the PIN unlocks it — the
+     login prompt must ask for the PIN, not a password. */
+  if(p.pin_hash){
+    txt($('personLoginSub'), 'This card is PIN-locked 🔢 — enter your secret PIN to open it.');
+    const inp = $('personPwInput');
+    if(inp){ inp.placeholder = '🔢 Secret PIN'; inp.setAttribute('inputmode', 'numeric'); inp.maxLength = 8; }
+  } else {
+    txt($('personLoginSub'), 'Enter your card password, or requester edit password.');
+    const inp = $('personPwInput');
+    if(inp){ inp.placeholder = 'Password'; inp.removeAttribute('inputmode'); inp.removeAttribute('maxLength'); }
+  }
   $('personPwError').classList.remove('show');
   $('personPwInput').value = '';
   show($('personLoginModal'));
@@ -605,19 +615,33 @@ window.tryPersonPw = async function(){
   const expected = p.password || '';
   const isViewer = expected && pw === expected;
 
-  /* v1.0 NEW: optional per-card PIN (hashed, people.pin_hash). Viewers
-     need password AND PIN when a PIN is set; requester/admin bypass it. */
-  let pinOk = !p.pin_hash;
-  if((isViewer || isRequester) && p.pin_hash){
-    const pin = prompt('🔢 This card has a secret PIN. Enter it:');
-    if(pin !== null) pinOk = await window.lcVerifyPin(p, pin);
+  /* HD PIN lock: when a PIN is set on the card, the PIN ALONE unlocks it —
+     no password needed (password never works instead of/without the PIN for
+     viewers). Requesters keep their edit-password bypass; admins bypass. */
+  let pinUnlocked = false;
+  if(p.pin_hash && !isRequester){
+    const ok = await window.lcVerifyPin(p, pw);
+    if(ok){
+      pinUnlocked = true;
+    } else if(isViewer){
+      /* Correct password but wrong PIN → reject: with a PIN set, only the
+         PIN opens the card. */
+      const secs = window.lcThrottleFail(pinId);
+      $('personPwError').textContent = secs
+        ? ('🕒 Too many attempts — try again in ' + Math.ceil(secs / 60) + ' min.')
+        : '🔢 This card is PIN-locked — enter your secret PIN (not the password).';
+      $('personPwError').classList.add('show');
+      return;
+    }
   }
 
-  if((!isRequester && !isViewer) || (!pinOk && isViewer)){
+  if(!pinUnlocked && !isRequester && !isViewer){
     const secs = window.lcThrottleFail(pinId);
     $('personPwError').textContent = secs
       ? ('🕒 Too many attempts — try again in ' + Math.ceil(secs / 60) + ' min.')
-      : getText('pwError', '❌ Incorrect password.');
+      : (p.pin_hash
+          ? '🔢 Incorrect PIN. This card is PIN-locked — enter your secret PIN.'
+          : getText('pwError', '❌ Incorrect password.'));
     $('personPwError').classList.add('show');
     return;
   }

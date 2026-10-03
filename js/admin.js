@@ -831,7 +831,7 @@ function renderPeopleRepeater(){
     /* v1.0 NEW: optional per-card PIN (stored hashed as people.pin_hash) */
     const pinCtl = `
         <div class="panel-field" style="padding:.5rem;background:#fffbea;border:1px dashed #b8860b;border-radius:.6rem;">
-          <label class="panel-label" style="color:#7a5a00;">🔢 Extra PIN lock (optional, 4–8 digits — leave empty for none)</label>
+          <label class="panel-label" style="color:#7a5a00;">🔢 Card PIN (4–8 digits — when set, the PIN alone opens the card; no password needed)</label>
           <div style="display:flex;gap:.4rem;align-items:center;">
             <input type="password" inputmode="numeric" maxlength="8" class="panel-input" data-pin-for="${p.id}" placeholder="${p.pin_hash ? '•••• (PIN is set)' : 'No PIN'}" style="flex:1;">
             <button type="button" class="panel-btn" data-pin-set="${p.id}" style="min-width:0;flex:0 0 auto;padding:.4rem .8rem;font-size:.8rem;">💾 Set PIN</button>
@@ -1035,10 +1035,11 @@ function openAddPersonModal(){
   if(gen && gen.dataset._bound !== '1'){
     gen.dataset._bound = '1';
     gen.onclick = () => {
-      const words = ['Sunshine','Rainbow','Blossom','Starlight','Rose','Lotus','Velvet','Amber','Crystal','Dream'];
-      const w = words[Math.floor(Math.random() * words.length)];
-      const n = Math.floor(1000 + Math.random() * 9000);
-      $('ap_password').value = w + n + '!';
+      /* HD: unique 6-LETTER password from the entered NAME + BIRTHDATE */
+      $('ap_password').value = window.makeAutoCardPassword(
+        ($('ap_name') || {}).value,
+        ($('ap_birthday') || {}).value
+      );
     };
   }
 
@@ -1092,15 +1093,9 @@ async function saveNewPerson(closeAfter){
 
   let pwd = password;
   if(!pwd){
-    const nm = (display || 'Friend').replace(/[^A-Za-z]/g, '').slice(0, 10) || 'Friend';
-    let dd = '0000';
-    if(birthday){
-      const d = new Date(birthday);
-      if(!isNaN(d.getTime())) dd = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0');
-    }
-    const words = ['Sunshine','Rainbow','Blossom','Starlight','Rose','Lotus','Velvet','Amber','Crystal','Dream'];
-    const wd = words[Math.floor(Math.random() * words.length)];
-    pwd = nm.charAt(0).toUpperCase() + nm.slice(1).toLowerCase() + '-' + dd + '-' + wd;
+    /* HD: unique 6-LETTER auto password built from the person's NAME +
+       BIRTHDATE (deterministic, collision-resistant per person). */
+    pwd = window.makeAutoCardPassword(display, birthday);
   }
 
   const row = {

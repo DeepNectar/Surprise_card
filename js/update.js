@@ -34,6 +34,17 @@ let listenersOn = false;
 
 /* ---------- helpers ---------- */
 function vNum(v){ return parseFloat(String(v == null ? '' : v)) || 0; }
+/* Human-friendly deploy date, e.g. "2 Oct 2026". Falls back to the raw
+   string if it can't be parsed. */
+function prettyDate(iso){
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return String(iso || '');
+  try{
+    return d.toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
+  }catch(e){
+    return d.toISOString().slice(0,10);
+  }
+}
 /* esc() lives in utils.js; keep a local fallback so this file never throws. */
 function E(s){
   if(typeof window.esc === 'function') return window.esc(s);
@@ -214,6 +225,14 @@ function applyDeployedToHome(j){
     /* Home shows WHAT'S NEW; badge names the new deployment once. */
     badge.textContent = 'HD' + j.version + ' Version upgraded';
     badge.title = 'Latest deployed version' + (j.date ? ' · ' + j.date : '');
+  }
+  /* Group title: ALWAYS show the LATEST deployed HD version and the date
+     that version was deployed (from version.json) — never a hardcoded
+     version or the word "today". e.g. "🆕 New in HD 1.0 (deployed on 2 Oct 2026)" */
+  const groupTitle = document.getElementById('hclLatestTitle');
+  if(groupTitle && j.version != null){
+    groupTitle.textContent = '🆕 New in HD ' + j.version +
+      (j.date ? ' (deployed on ' + prettyDate(j.date) + ')' : '');
   }
   /* Prepend the freshly deployed highlights (from version.json) so the
      "What's new" list ALWAYS reflects the latest deployment — even if this

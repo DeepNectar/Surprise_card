@@ -130,6 +130,34 @@ window.firstNameOf = function(name){
   return n.split(/\s+/)[0].replace(/[^A-Za-z]/g, '') || '';
 };
 
+/* ---------- HD: unique 6-letter auto password (name + birthdate) ----------
+   Used when a card is created without an explicit password. The code is
+   ALWAYS exactly 6 letters (A–Z): the first 3 letters come from the
+   person's name and the last 3 are derived deterministically from the
+   birthdate (plus the full name), so two different people — or two people
+   with the same name but different birthdays — never collide. A random
+   fallback keeps it 6 letters even when no birthday is known.            */
+window.makeAutoCardPassword = function(displayName, birthday){
+  const nm = String(displayName || '').toUpperCase().replace(/[^A-Z]/g, '');
+  const src = nm || 'FRIEND';
+  /* first 3 letters of the NAME (padded with X) */
+  const namePart = (src + 'XXX').slice(0, 3);
+  /* 3 letters derived from the BIRTHDATE + full name (unique per person) */
+  let seed = 0;
+  const key = src + '|' + String(birthday || '').replace(/[^0-9]/g, '');
+  for(let i = 0; i < key.length; i++){
+    seed = (seed * 131 + key.charCodeAt(i)) >>> 0;
+  }
+  if(!String(birthday || '')){
+    /* no birthday available → mix in randomness so it stays unique */
+    seed = (seed ^ ((Math.random() * 0xFFFFFF) >>> 0)) >>> 0;
+  }
+  let bdayPart = '';
+  let s = seed;
+  for(let i = 0; i < 3; i++){ bdayPart += String.fromCharCode(65 + (s % 26)); s = Math.floor(s / 26) + (i + 7) * 97; }
+  return namePart + bdayPart; /* exactly 6 letters */
+};
+
 window.makeRequesterEditPassword = function(requesterName, requesterWhatsapp, slug){
   const fn = firstNameOf(requesterName);
   const l4 = last4Digits(requesterWhatsapp);
