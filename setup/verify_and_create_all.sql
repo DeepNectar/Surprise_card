@@ -211,8 +211,8 @@ begin
   create table if not exists public.media         (id bigserial primary key);
   create table if not exists public.uploads       (id bigserial primary key);
 
-  foreach t in array ['gifts','story_pages','event_countdowns','voice_messages',
-                      'video_messages','map_pins','media','uploads'] loop
+  foreach t in array ('gifts','story_pages','event_countdowns','voice_messages',
+                      'video_messages','map_pins','media','uploads') loop
     execute format('alter table public.%I add column if not exists person_id bigint', t);
     execute format('alter table public.%I add column if not exists title text default ''''', t);
     execute format('alter table public.%I add column if not exists sort_order int default 0', t);
@@ -254,9 +254,9 @@ do $$
 declare
   t text;
 begin
-  foreach t in array ['people','settings','guest_submissions','reviews','card_views',
+  foreach t in array ('people','settings','guest_submissions','reviews','card_views',
                       'push_subs','finished_ledger','gifts','story_pages','event_countdowns',
-                      'voice_messages','video_messages','map_pins','media','uploads'] loop
+                      'voice_messages','video_messages','map_pins','media','uploads') loop
     execute format('alter table public.%I enable row level security', t);
     -- read
     execute format('drop policy if exists %1$I_r_anon on public.%1$I', t);
