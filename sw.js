@@ -7,7 +7,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION    = 'v4';                       // bump on any precache-list or core-js change
+const VERSION    = 'v5';                       // bump on any precache-list or core-js change
 const CACHE_SHELL = 'sc-shell-'  + VERSION;    // index.html, css, js, icons, manifest
 const CACHE_RUNTIME = 'sc-runtime-' + VERSION; // same-origin GETs (images etc.)
 

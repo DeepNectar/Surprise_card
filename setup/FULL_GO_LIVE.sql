@@ -536,7 +536,10 @@ end $$;
    ============================================================ */
 
 /* 10.1 ensure_sync_schema() — re-adds PIN/OTP columns if they ever
-       disappear (e.g. project restored from an old backup). */
+       disappear (e.g. project restored from an old backup) AND asks
+       PostgREST to reload its schema cache afterwards, so the browser
+       can self-heal "400 Could not find the 'otp_list' column of
+       'people' in the schema cache" without anyone opening this editor. */
 create or replace function public.ensure_sync_schema() returns text
 language plpgsql security definer set search_path = public as $$
 begin
@@ -546,6 +549,12 @@ begin
     alter table public.people add column if not exists pin_plain text;
     alter table public.people add column if not exists otp_list  text;
   end if;
+  /* kill any stale schema cache immediately (safe no-op if unavailable) */
+  begin
+    perform pg_notify('pgrst', 'reload schema');
+  exception when others then
+    null;
+  end;
   return 'ok';
 end $$;
 grant execute on function public.ensure_sync_schema() to anon, authenticated;

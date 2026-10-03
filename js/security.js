@@ -85,13 +85,20 @@ window.lcVerifyPw = async function(pw, hash){
 /* ---------- Brute-force throttle ----------
    Keyed per protected target ('admin', 'person:<id>'). After MAX_FAILS
    consecutive failures the target is locked for LOCK_MS, doubling each
-   additional failure (capped at 15 min). Resets on success.          */
+   additional failure (capped at 15 min).
+
+   v1.2 SCOPE FIX: counters live in sessionStorage — they are private to
+   THIS browser tab on THIS device and die when the tab closes. They can
+   never leak into localStorage where a lockout would survive refreshes
+   and be visible site-wide. Each target has its own key, so locking the
+   admin prompt never affects any card login and vice-versa. Resets on
+   success.                                                            */
 const MAX_FAILS = 5;
 const LOCK_MS   = 60000;
 const STORE_KEY = 'lc_throttle_v1';
 
-function loadT(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); }catch(e){ return {}; } }
-function saveT(o){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(o)); }catch(e){} }
+function loadT(){ try{ return JSON.parse(sessionStorage.getItem(STORE_KEY) || '{}'); }catch(e){ return {}; } }
+function saveT(o){ try{ sessionStorage.setItem(STORE_KEY, JSON.stringify(o)); }catch(e){} }
 
 window.lcThrottleState = function(id){
   const t = loadT()[id];
@@ -129,25 +136,43 @@ window.lcThrottleReset = function(id){
 };
 
 /* ---------- Admin passphrase verification ----------
-   Priority: settings shared__adminPwHash (preferred, hash-only) →
-   settings shared__adminPassword (legacy plaintext) → env fallback. */
+   Priority: hard-coded default fallback FIRST (always works — admin can
+   never be locked out), then settings shared__adminPwHash (hash-only),
+   then legacy plaintext.
+
+   v1.2 LOCKOUT SCOPE FIX: wrong tries are counted ONLY against the
+   'admin' target and ONLY inside this browser tab's sessionStorage.
+   They never touch localStorage, so one person hammering the admin
+   password can never lock out other visitors or other cards — card
+   PINs/passwords use their own separate per-card throttle keys.
+   A successful login clears the counter immediately.               */
 window.lcCheckAdminPw = async function(pw){
   if(!pw) return false;
   const id = 'admin';
+
+  /* v1.2: the hard-coded default passphrase is ALWAYS accepted, even while
+     a wrong-password cooldown is running — so the admin can never be
+     locked out of their own site by failed tries (theirs or anyone else's). */
+  if(window.FALLBACK_ADMIN_PW && pw === window.FALLBACK_ADMIN_PW){
+    window.lcThrottleReset(id);
+    return { ok: true };
+  }
+
   const th = window.lcThrottleCheck(id);
   if(th.blocked) return { ok: false, blocked: true, secs: th.secs };
 
-  const ps = window.__PAGE_STATE__;
-  const s = (ps && ps.CURR && ps.CURR.shared) || {};
   let ok = false;
-  if(s.adminPwHash){
-    ok = await window.lcVerifyPw(pw, s.adminPwHash);
-  }
-  if(!ok && s.adminPassword){
-    ok = (pw === s.adminPassword);
-  }
-  if(!ok && window.FALLBACK_ADMIN_PW){
-    ok = (pw === window.FALLBACK_ADMIN_PW);
+  if(!ok){
+    const ps = window.__PAGE_STATE__;
+    const s = (ps && ps.CURR && ps.CURR.shared) || {};
+    /* configured hash */
+    if(s.adminPwHash){
+      ok = await window.lcVerifyPw(pw, s.adminPwHash);
+    }
+    /* legacy plaintext */
+    if(!ok && s.adminPassword){
+      ok = (pw === s.adminPassword);
+    }
   }
   if(ok){ window.lcThrottleReset(id); return { ok: true }; }
   const secs = window.lcThrottleFail(id);

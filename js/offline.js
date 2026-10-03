@@ -153,9 +153,13 @@ async function sendNow(item){
 /* Self-healing for PostgREST schema-cache misses:
    "Could not find the 'X' column of 'Y' in the schema cache" (PGRST204) or
    "Could not find the table 'public.X'" (PGRST205) usually means the column
-   EXISTS in Postgres but the API's cached schema is stale — retrying later
-   succeeds after a reload.  So: drop the poisoned item (never re-PATCH it),
-   and tell the user exactly how to clear the cache. */
+   EXISTS in Postgres but the API's cached schema is stale.  v1.2 fix:
+   instead of only telling the user to refresh, we call the
+   ensure_sync_schema() RPC (re-adds people.pin_* / otp_list and fires
+   NOTIFY pgrst,'reload schema'), wait for the cache to reload, then retry
+   the write once — so the "⚠️ PATCH 400 — Could not find the 'otp_list'
+   column" pill heals itself without anyone opening the SQL editor.
+   Only if that whole recovery fails do we drop the item with a notice. */
 function isSchemaCacheMiss(detail){
   return /schema cache/i.test(String(detail || ''));
 }
@@ -171,6 +175,27 @@ function isHealableSchemaDrop(item, detail){
   const col = extractMissingColumn(detail);
   if(item.table === 'people' && (!col || ['otp_list','pin_hash','pin_salt','pin_plain'].indexOf(col) >= 0)) return true;
   return false;
+}
+
+let _schemaHealAt = 0;           /* one heal attempt per minute max */
+async function healSchemaCache(){
+  if(Date.now() - _schemaHealAt < 60000) return false;
+  _schemaHealAt = Date.now();
+  try{
+    const r = await fetch(window.SUPABASE_URL + '/rest/v1/rpc/ensure_sync_schema', {
+      method: 'POST',
+      headers: {
+        'apikey': window.SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: '{}',
+      cache: 'no-store'
+    });
+    if(!r.ok) return false;
+    await new Promise(res => setTimeout(res, 2000)); /* let pgrst re-read */
+    return true;
+  }catch(e){ return false; }
 }
 
 function dropItem(item, reason){
@@ -212,6 +237,20 @@ window.lcFlushOffline = async function(manual){
           break;
         }
         if(e && e.permanent){
+          /* Schema-cache miss? Try to heal it live (RPC reload + one retry)
+             before giving up — this is what finally clears the stale
+             "PATCH 400 — otp_list not in schema cache" state. */
+          if(isSchemaCacheMiss(e.message)){
+            const healed = await healSchemaCache();
+            if(healed){
+              try{
+                await sendNow(item);
+                await remove(item.qid);
+                sent++;
+                continue;
+              }catch(e2){ /* still broken → fall through to drop/notice */ }
+            }
+          }
           console.warn('[sync] dropping permanently-failed write:', item.table, e.message);
           await dropItem(item, e.message);
           dropped++;
@@ -246,7 +285,19 @@ window.lcOfflineQueue = async function(table, body, opts){
     try{
       await sendNow(item);
       return true; /* direct success — nothing queued */
-    }catch(e){ /* fall through → queue it */ }
+    }catch(e){
+      /* Schema-cache miss → heal + one immediate retry, so OTP/PIN mirrors
+         reach the cloud (and no stale queue entry is ever created). */
+      if(isSchemaCacheMiss(e.message)){
+        try{
+          if(await healSchemaCache()){
+            await sendNow(item);
+            return true;
+          }
+        }catch(e2){}
+      }
+      /* fall through → queue it */
+    }
   }
   await enqueue(item);
   paint();

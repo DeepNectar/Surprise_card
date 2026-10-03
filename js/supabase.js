@@ -245,6 +245,18 @@ async function req(path, opts){
   try{
     return await once(path, opts, ms);
   }catch(e){
+    /* Self-heal: "Could not find the 'X' column of 'Y' in the schema cache"
+       (PGRST204) means PostgREST is serving a STALE cached schema even
+       though the column exists in Postgres. Ask the DB to re-add the
+       columns and reload the cache, wait briefly, then retry ONCE. This
+       clears the error without anyone having to open the SQL editor. */
+    if(/schema cache/i.test(String(e && e.message))){
+      try{
+        await once('rpc/ensure_sync_schema', { method:'POST', body:'{}', label:'ensure_sync_schema' }, TMO_MUT);
+        await new Promise(res => setTimeout(res, 1500));
+        return await once(path, opts, ms);
+      }catch(e2){ throw e; /* keep the original, clearer error */ }
+    }
     /* Reads get ONE fast retry — still bounded by the same short budget.
        Writes are never retried automatically (keeps rules exactly as before). */
     if(isGet){
