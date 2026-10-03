@@ -135,7 +135,7 @@ async function sendNow(item){
   }
   if(r.ok) return true;
   /* Read PostgREST's error body so the console tells us WHY it failed
-     (403 RLS policy missing, 400 column pin_hash/otp_list not in schema …) */
+     (403 RLS policy missing, 400 column pin_hash not in schema …) */
   let detail = '';
   try{
     const j = await r.json();
@@ -155,9 +155,9 @@ async function sendNow(item){
    "Could not find the table 'public.X'" (PGRST205) usually means the column
    EXISTS in Postgres but the API's cached schema is stale.  v1.2 fix:
    instead of only telling the user to refresh, we call the
-   ensure_sync_schema() RPC (re-adds people.pin_* / otp_list and fires
+   ensure_sync_schema() RPC (re-adds the optional people.pin_* columns and fires
    NOTIFY pgrst,'reload schema'), wait for the cache to reload, then retry
-   the write once — so the "⚠️ PATCH 400 — Could not find the 'otp_list'
+   the write once — so the "⚠️ PATCH 400 — Could not find the 'pin_hash'
    column" pill heals itself without anyone opening the SQL editor.
    Only if that whole recovery fails do we drop the item with a notice. */
 function isSchemaCacheMiss(detail){
@@ -168,19 +168,29 @@ function extractMissingColumn(detail){
   return m ? m[1] : null;
 }
 /* People PATCHes that mention a column the API can't see yet must NEVER
-   surface as an error pill.  OTP/PIN mirrors are device-local-capable
-   (hd1.js + security.js guard new writes; this also cleans up anything
+   surface as an error pill.  The PIN mirror is device-local-capable
+   (security.js guards new writes; this also cleans up anything
    already sitting in old queues from previous versions).  When such a
-   write finally succeeds after a heal we clear any stale notice too. */
-const LC_MIRROR_COLS = ['otp_list','pin_hash','pin_salt','pin_plain'];
-/* A mirror write is any people PATCH whose BODY mentions otp_list/pin_* —
+   write finally succeeds after a heal we clear any stale notice too.
+   NOTE: 'otp_list' belongs to the REMOVED one-time-code feature — it is
+   handled separately by the legacy purge below and must never be sent. */
+const LC_MIRROR_COLS = ['pin_hash','pin_salt','pin_plain'];
+const LC_LEGACY_COLS = ['otp_list'];
+/* A mirror write is any people PATCH whose BODY mentions pin_* —
    regardless of which table-name string the caller passed (some call sites
    use window.T_PEOPLE, others the literal 'people'). Checking the body is
    what finally kills the recurring "PATCH 400 — Could not find the
-   'otp_list' column of 'people'" home-screen error. */
-function bodyHasMirrorCol(body){
+   '<mirror column>' column of 'people'" home-screen error. */
+function bodyHasCols(body, cols){
   return !!(body && typeof body === 'object' &&
-    LC_MIRROR_COLS.some(c => Object.prototype.hasOwnProperty.call(body, c)));
+    cols.some(c => Object.prototype.hasOwnProperty.call(body, c)));
+}
+function bodyHasMirrorCol(body){ return bodyHasCols(body, LC_MIRROR_COLS); }
+/* Legacy OTP payloads (queue entries saved by older app versions that
+   still mention the removed one-time-code column) — always purged. */
+function isLegacyOtpItem(item){
+  return !!item && String(item.table || '').toLowerCase() === 'people' &&
+         bodyHasCols(item.body, LC_LEGACY_COLS);
 }
 function isMirrorItem(item){
   return !!item && String(item.table || '').toLowerCase() === 'people' &&
@@ -206,21 +216,21 @@ let _healInFlight = null;        /* concurrent heal callers share ONE probe */
    asynchronous — PostgREST may keep serving the OLD cached schema for a
    few seconds.  If we retried the PATCH immediately after calling the RPC,
    the retry would hit the same stale cache and fail with another
-   "400 Could not find the 'otp_list' column of 'people'".  So instead of
-   a blind sleep we POLL a cheap `select=otp_list` GET until the API
+   "400 Could not find the 'pin_hash' column of 'people'".  So instead of
+   a blind sleep we POLL a cheap `select=pin_hash` GET until the API
    actually sees the column (max ~10s), and only then report "healed". */
 async function waitForSchemaReload(maxMs){
   const deadline = Date.now() + (maxMs || 10000);
   for(;;){
     try{
-      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=otp_list&limit=1', {
+      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=pin_hash&limit=1', {
         headers: {
           'apikey': window.SUPABASE_ANON_KEY,
           'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
         },
         cache: 'no-store'
       });
-      if(r.ok){                       /* column visible in the live cache now */
+      if(r.ok){                       /* columns visible in the live cache now */
         window.lcPeopleMirrorColsOk = true;
         return true;
       }
@@ -250,7 +260,7 @@ async function healSchemaCache(){
       cache: 'no-store'
     });
     if(!r.ok) return false;
-    /* Wait until PostgREST's reloaded cache actually serves otp_list —
+    /* Wait until PostgREST's reloaded cache actually serves the pin_* columns —
        this is what makes the single retry succeed instead of throwing the
        same 400 again (the reason the pill used to come back). */
     return await waitForSchemaReload(10000);
@@ -282,16 +292,17 @@ window.lcFlushOffline = async function(manual){
   flushing = true;
   try{
     /* Safety net: any people PATCH in the queue that mentions the optional
-       PIN/OTP mirror columns can re-trigger the stale-schema 400 on every
-       flush tick (the exact cause of the recurring "⚠️ PATCH 400 —
-       Could not find the 'otp_list' column" pill). Purge those legacy
-       entries BEFORE flushing and clear their old notice — the values are
-       already persisted device-local by hd1.js / security.js. */
+       PIN mirror columns — or the removed OTP feature's otp_list column —
+       can re-trigger the stale-schema 400 on every flush tick (the exact
+       cause of the recurring "⚠️ PATCH 400 — Could not find the
+       'otp_list' column" pill). Purge those legacy entries BEFORE
+       flushing and clear their old notice — PIN values are already
+       persisted device-local by security.js; OTP data is obsolete. */
     try{
       const pre = await allQueued();
       let purged = false;
       for(const it of pre){
-        if(isMirrorItem(it)){
+        if(isMirrorItem(it) || isLegacyOtpItem(it)){
           await remove(it.qid);
           purged = true;
         }
@@ -317,7 +328,7 @@ window.lcFlushOffline = async function(manual){
         if(e && e.permanent){
           /* Schema-cache miss? Try to heal it live (RPC reload + one retry)
              before giving up — this is what finally clears the stale
-             "PATCH 400 — otp_list not in schema cache" state. */
+             "PATCH 400 — <mirror column> not in schema cache" state. */
           if(isSchemaCacheMiss(e.message)){
             const healed = await healSchemaCache();
             if(healed){
@@ -334,7 +345,7 @@ window.lcFlushOffline = async function(manual){
           console.warn('[sync] dropping permanently-failed write:', item.table, e.message);
           await dropItem(item, e.message);
           dropped++;
-          /* OTP/PIN cloud mirrors are OPTIONAL — the data lives safely on
+          /* The PIN cloud mirror is OPTIONAL — the data lives safely on
              this device (localStorage), so a schema-cache miss for those
              columns must NEVER raise the scary ⚠️ pill. Drop the queue
              entry quietly and clear any stale notice from older versions. */
@@ -364,13 +375,16 @@ window.lcFlushOffline = async function(manual){
 window.lcOfflineQueue = async function(table, body, opts){
   opts = opts || {};
   /* Client-side schema guard: never even attempt a people PATCH that mentions
-     the optional PIN/OTP mirror columns while PostgREST can't see them —
+     the optional PIN mirror columns while PostgREST can't see them —
      that is exactly what produced the "PATCH 400 — Could not find the
-     'otp_list' column of 'people' in the schema cache" home-screen error.
+     'pin_hash' column of 'people' in the schema cache" home-screen error.
      The data always lives on-device; the cloud mirror is best-effort. */
+  /* The OTP feature was removed outright — silently drop any late call
+     that still tries to mirror otp_list instead of sending it. */
+  if(isLegacyOtpItem({ table: table, body: body })) return false;
   const isMirrorPatch = isMirrorItem({ table: table, body: body });
   if(isMirrorPatch){
-    /* NEVER queue an optional OTP/PIN mirror write while the API can't see
+    /* NEVER queue an optional PIN mirror write while the API can't see
        the column — a queued copy re-triggers the same 400 on every flush
        tick, which is exactly how the ⚠️ pill kept coming back on the home
        screen. The value is already persisted device-local by hd1.js /
@@ -392,8 +406,8 @@ window.lcOfflineQueue = async function(table, body, opts){
       }
       return true; /* direct success — nothing queued */
     }catch(e){
-      /* Schema-cache miss → heal + one immediate retry, so OTP/PIN mirrors
-         reach the cloud (and no stale queue entry is ever created). */
+      /* Schema-cache miss → heal + one immediate retry, so the PIN mirror
+         reaches the cloud (and no stale queue entry is ever created). */
       if(isSchemaCacheMiss(e.message)){
         if(isMirrorPatch) window.lcPeopleMirrorColsOk = false; /* block until healed */
         try{
@@ -408,7 +422,7 @@ window.lcOfflineQueue = async function(table, body, opts){
         /* Heal failed / offline mid-write: drop this OPTIONAL mirror write
            instead of queueing it — a queued copy would only re-trigger the
            same 400 on every flush tick. The value is already persisted
-           locally by hd1.js / security.js, so nothing is lost. */
+           locally by security.js, so nothing is lost. */
         console.warn('[sync] optional people-mirror write skipped (schema cache):', e.message);
         paint();
         return false;
@@ -470,14 +484,15 @@ async function paint(){
       pill.classList.add('show');
     } else if(droppedInfo && Date.now() - (droppedInfo.at || 0) < 24 * 3600 * 1000){
       /* queue is empty but some writes were rejected by the server — be honest.
-         EXCEPT optional OTP/PIN cloud-mirror failures: that data lives safely
-         on this device, and surfacing "⚠️ PATCH 400 — Could not find the
-         'otp_list' column of 'people'" on the home screen scared users for
-         nothing. Purge such legacy notices instead of painting them. */
+         EXCEPT optional PIN cloud-mirror failures (and leftovers of the
+         removed OTP feature): that data lives safely on this device, and
+         surfacing "⚠️ PATCH 400 — Could not find the 'otp_list' column of
+         'people'" on the home screen scared users for nothing. Purge such
+         legacy notices instead of painting them. */
       var dReason = String(droppedInfo.reason || '');
       var dCol = dReason.match(/find the '([A-Za-z0-9_]+)' column/i);
       var isMirrorNotice = /schema cache/i.test(dReason) &&
-        ((dCol && LC_MIRROR_COLS.indexOf(dCol[1]) >= 0) ||
+        ((dCol && (LC_MIRROR_COLS.indexOf(dCol[1]) >= 0 || LC_LEGACY_COLS.indexOf(dCol[1]) >= 0)) ||
          (!dCol && String(droppedInfo.table || '').toLowerCase() === 'people'));
       if(isMirrorNotice){
         try{ localStorage.removeItem('lc_sync_dropped'); }catch(_e){}
@@ -525,11 +540,11 @@ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', e
 
 document.addEventListener('DOMContentLoaded', () => { paint(); setTimeout(() => window.lcFlushOffline(), 2500); });
 
-/* ---------- Boot-time schema probe (v1.3) ----------
-   Settle window.lcPeopleMirrorColsOk EARLY — before any PIN/OTP write can
-   happen — by probing `select=otp_list` once and, if it 400s, running the
+/* ---------- Boot-time schema probe ----------
+   Settle window.lcPeopleMirrorColsOk EARLY — before any PIN write can
+   happen — by probing `select=pin_hash` once and, if it 400s, running the
    ensure_sync_schema() heal + reload-wait right away.  This prevents the
-   "⚠️ PATCH 400 — Could not find the 'otp_list' column of 'people'" pill
+   "⚠️ PATCH 400 — Could not find the 'pin_hash' column of 'people'" pill
    from ever appearing on the home screen instead of only cleaning it up
    after the fact. */
 window.lcProbeMirrorCols = async function(){
@@ -538,7 +553,7 @@ window.lcProbeMirrorCols = async function(){
     if(window.lcPeopleMirrorColsOk === true) return;
     let visible = false;
     try{
-      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=otp_list&limit=1', {
+      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=pin_hash&limit=1', {
         headers: {
           'apikey': window.SUPABASE_ANON_KEY,
           'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
@@ -563,17 +578,18 @@ setTimeout(() => { window.lcProbeMirrorCols(); }, 800);
 
 /* ---------- Startup purge: legacy queue entries ----------
    Queues saved by older app versions may still hold people PATCHes that
-   mention otp_list / pin_* — columns that might not exist in the cloud
-   schema yet. Flushing those is what kept re-showing
+   mention otp_list (removed one-time-code feature) or pin_* — columns
+   that might not exist in the cloud schema yet. Flushing those is what
+   kept re-showing
    "⚠️ PATCH 400 — Could not find the 'otp_list' column of 'people'".
-   Those writes are device-local-capable, so we drop them up-front and
-   clear any stale ⚠️ notice they left behind. */
+   Those writes are device-local-capable or obsolete, so we drop them
+   up-front and clear any stale ⚠️ notice they left behind. */
 window.lcPurgeMirrorQueue = async function(){
   try{
     const rows = await allQueued();
     let removed = false;
     for(const item of rows){
-      if(isMirrorItem(item)){
+      if(isMirrorItem(item) || isLegacyOtpItem(item)){
         await remove(item.qid);
         removed = true;
       }
