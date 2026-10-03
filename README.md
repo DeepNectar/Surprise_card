@@ -66,6 +66,7 @@ Edit `js/env.js` (injected as `window.__LC_ENV__` before `js/config.js` loads):
 - `setup/ledger.sql` — permanent 💐 Finished ledger (HD0.6)
 - `setup/rls.sql` — analytics (`card_views`), push subscriptions (`push_subs`) & settings policies (v1.0)
 - `setup/sync_queue.sql` — unblocks the "📴 N changes queued — tap to sync" offline queue: adds `people.pin_hash / pin_salt / pin_plain / otp_list` columns, reviews table + anon PATCH policies so queued PIN/OTP writes flush to the cloud (HD 1.0)
+- `setup/pin_otp_safe.sql` — v3 minimal script (pure ASCII, zero quote characters, per-statement DO blocks) for when pasting into Supabase throws `42601 syntax error at or near ";"` from smart-quote mangling; run this instead of hand-typed ALTER/DROP POLICY snippets
 
 ---
 
