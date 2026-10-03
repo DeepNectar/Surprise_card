@@ -34,12 +34,12 @@ window.T_REVIEWS  = 'reviews';
    Open tabs compare themselves against /version.json and pop up an
    "upgrade" modal pointing at the latest deployed version; the home
    screen ("✨ What's new") and admin panel always show what is LIVE. */
-window.APP_VERSION   = '1.1';
+window.APP_VERSION   = '1.2';
 window.RELEASE_DATE  = '2026-10-03';
 window.CHANGELOG_LIVE = [
-  '🔢 PIN now unlocks on its own — when a card has a PIN set, ONLY the PIN opens it (the password no longer works and no second prompt appears).',
-  '🔑 Smarter auto passwords — cards created without a password get a UNIQUE 6-letter code built from the person\u2019s name + birthdate.',
-  '\ud83d\udcc5 The “What\u2019s new” section always shows the LATEST deployed HD version and the date it was deployed.'
+  '\u26a0\ufe0f Home-screen error gone \u2014 the "PATCH 400 \u2014 Could not find the otp_list column" message can no longer appear: OTP cloud writes are skipped until the Supabase schema is ready, and stale queued writes self-clean with a friendly fix-it note instead of an error.',
+  '\ud83d\udcf1 OTPs work offline \u2014 one-time codes issued on this device now verify even when the cloud mirror is unavailable; they sync automatically once FULL_GO_LIVE.sql has been run.',
+  '\u2601\ufe0f One-shot go-live SQL \u2014 setup/FULL_GO_LIVE.sql creates every table, policy, RPC and the site-ledger Storage bucket, then reloads the PostgREST schema cache.'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;

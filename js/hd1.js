@@ -409,10 +409,38 @@ const OTP_TTL_MS = 10 * 60 * 1000;
 function loadOtps(){ try{ return JSON.parse(localStorage.getItem(OTP_KEY) || '{}'); }catch(e){ return {}; } }
 function saveOtps(o){ try{ localStorage.setItem(OTP_KEY, JSON.stringify(o)); }catch(e){} }
 
+/* Schema-cache guard: the cloud PATCH/GET of people.otp_list only works
+   once PostgREST knows the column exists.  Until FULL_GO_LIVE.sql has been
+   run (or the schema cache is still stale) we must NEVER send an otp_list
+   PATCH — it would surface as
+   "⚠️ PATCH 400 — Could not find the 'otp_list' column of 'people'
+    in the schema cache" on the home screen.
+   We probe the cheap `select=otp_list` GET instead: a 400 means the column
+   isn't visible yet → OTPs stay local-only until the next page load. */
+let _otpColOk = null;              /* true / false / unknown(null) */
+let _otpColChecking = null;        /* in-flight promise            */
+async function otpColumnAvailable(){
+  if(_otpColOk === true) return true;
+  if(_otpColChecking) return _otpColChecking;
+  _otpColChecking = (async () => {
+    try{
+      if(!window.SUPABASE_URL || !navigator.onLine) return false;
+      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=otp_list&limit=1',
+        { headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY }, cache: 'no-store' });
+      _otpColOk = !!r.ok;          /* 400 PGRST204 → column missing in schema cache */
+      if(!_otpColOk) console.warn('[hd1] people.otp_list not in cloud schema yet — OTP stays device-local. Run setup/FULL_GO_LIVE.sql in the Supabase SQL editor.');
+      return _otpColOk;
+    }catch(e){ return false; }
+    finally{ _otpColChecking = null; }
+  })();
+  return _otpColChecking;
+}
+
 async function cloudOtpList(personId){
   /* fresh pull from people table (cheap: one row by id) */
   try{
     if(!window.SUPABASE_URL || !navigator.onLine) return null;
+    if(!await otpColumnAvailable()) return null;
     const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?id=eq.' + encodeURIComponent(personId) + '&select=otp_list',
       { headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY }, cache: 'no-store' });
     if(!r.ok) return null;
@@ -429,16 +457,31 @@ window.lcIssueOtp = async function(person){
   let list = (await cloudOtpList(person.id)) || loadOtps()[person.id] || [];
   list = list.concat([{ hash, exp: Date.now() + OTP_TTL_MS, created: Date.now() }]).slice(-5);
   const all = loadOtps(); all[person.id] = list; saveOtps(all);
-  try{
-    await window.lcOfflineQueue('people', { otp_list: JSON.stringify(list) },
-      { method: 'PATCH', filter: 'id=eq.' + encodeURIComponent(person.id) });
-  }catch(e){}
+  /* Only PATCH the cloud when people.otp_list is actually visible in the
+     PostgREST schema cache — otherwise the flush produces the
+     "PATCH 400 — Could not find the 'otp_list' column" home-screen error. */
+  if(await otpColumnAvailable()){
+    try{
+      await window.lcOfflineQueue('people', { otp_list: JSON.stringify(list) },
+        { method: 'PATCH', filter: 'id=eq.' + encodeURIComponent(person.id) });
+    }catch(e){}
+  }
   return code;
 };
 
 window.lcVerifyOtp = async function(person, code){
   if(!person) return false;
-  let list = (await cloudOtpList(person.id)) || loadOtps()[person.id] || [];
+  /* Cloud list first (works cross-device); fall back to the device-local
+     mirror when the column isn't in the schema cache yet or we're offline —
+     OTPs issued on THIS device still verify instead of erroring. */
+  let list = null;
+  try{ list = await cloudOtpList(person.id); }catch(e){}
+  if(!list || !list.length){
+    try{
+      const all = loadOtps();
+      list = all[person.id] || [];
+    }catch(e){ list = []; }
+  }
   list = list.filter(o => o.exp > Date.now());
   if(!list.length) return false;
   const used = (() => { try{ return JSON.parse(localStorage.getItem(OTP_USED) || '[]'); }catch(e){ return []; } })();
@@ -455,10 +498,12 @@ window.lcVerifyOtp = async function(person, code){
       try{ localStorage.setItem(OTP_USED, JSON.stringify(used.slice(-50))); }catch(e){}
       const rest = list.filter(x => x !== o);
       const all = loadOtps(); all[person.id] = rest; saveOtps(all);
-      try{
-        await window.lcOfflineQueue('people', { otp_list: JSON.stringify(rest) },
-          { method: 'PATCH', filter: 'id=eq.' + encodeURIComponent(person.id) });
-      }catch(e){}
+      if(await otpColumnAvailable()){
+        try{
+          await window.lcOfflineQueue('people', { otp_list: JSON.stringify(rest) },
+            { method: 'PATCH', filter: 'id=eq.' + encodeURIComponent(person.id) });
+        }catch(e){}
+      }
       return true;
     }
   }

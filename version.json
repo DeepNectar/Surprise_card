@@ -2,8 +2,8 @@
   "version": "1.2",
   "date": "2026-10-03",
   "changes": [
-    "☁️ Tap-to-sync really syncs — clicking the 📴 pill now shows ⏳ Syncing…, pushes every queued change to Supabase, then ✅ All changes synced.",
-    "🧹 Stuck queues self-heal — writes rejected by the server (missing pin_hash/otp_list columns or RLS policy) are dropped with a visible ⚠️ reason instead of blocking the queue forever.",
-    "🛡️ Missing-config guard — if Supabase URL/key isn't set, the pill says so instead of silently re-queueing."
+    "⚠️ Home-screen error gone — the \"PATCH 400 — Could not find the otp_list column\" message can no longer appear: OTP cloud writes are skipped until the Supabase schema is ready, and stale queued writes self-clean with a friendly fix-it note instead of an error.",
+    "📱 OTPs work offline — one-time codes issued on this device now verify even when the cloud mirror is unavailable; they sync automatically once FULL_GO_LIVE.sql has been run.",
+    "☁️ One-shot go-live SQL — setup/FULL_GO_LIVE.sql creates every table, policy, RPC and the site-ledger Storage bucket, then reloads the PostgREST schema cache."
   ]
 }
