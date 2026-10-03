@@ -7,17 +7,14 @@
      1) E2EE            → lcE2EELockIn(secret, person) so the
                           session key is derived the moment a
                           PIN/password unlocks a card.
-     2) WebAuthn        → 🔑 "Unlock with passkey" button in the
-   (viewer-focused)      login modal + "Save passkey on this
-                          device" after a successful unlock.
-     3) Secure links    → verifies the HMAC/expiry/view-limit of
+     2) Secure links    → verifies the HMAC/expiry/view-limit of
                           #s/slug?e=…&v=…&sig=… BEFORE the card
                           opens; blocks expired / tampered /
                           exhausted links with a clear message.
 
-   Everything degrades gracefully: if e2ee.js / passkeys.js /
-   sharelinks.js are missing or the browser lacks support, the
-   plain PIN+password path behaves exactly as before.
+   Everything degrades gracefully: if e2ee.js / sharelinks.js are
+   missing or the browser lacks support, the plain PIN+password
+   path behaves exactly as before.
    ============================================================ */
 (function(){
 'use strict';
@@ -66,94 +63,12 @@ function showBlocked(msg){
   else alert(msg);
 }
 
-/* ---------- passkey buttons in the login modal ---------- */
-function ensurePkButtons(){
-  const box = document.querySelector('#personLoginModal .pw-buttons');
-  if(!box || $id('pkUnlockBtn')) return;
-  const pk = document.createElement('button');
-  pk.type = 'button'; pk.id = 'pkUnlockBtn'; pk.className = 'pw-btn confirm';
-  pk.style.cssText = 'background:#0d5c4a;color:#fff;';
-  pk.textContent = '🔑 Passkey';
-  pk.title = 'Unlock with Face ID / fingerprint';
-  box.insertBefore(pk, box.firstChild);
+/* ---------- shared success path (PIN / password) ---------- */
 
-  const save = document.createElement('button');
-  save.type = 'button'; save.id = 'pkSaveBtn'; save.className = 'pw-btn cancel';
-  save.textContent = '💾 Save passkey';
-  save.title = 'Store a passkey for this card on this device';
-  box.appendChild(save);
-
-  pk.onclick = async (e) => {
-    if(e && e.preventDefault) e.preventDefault();
-    const p = S.LOGIN_TARGET;
-    if(!p) return;
-    if(!window.lcPasskeysSupported || !window.lcPasskeysSupported()){
-      showBlocked('🔑 Passkeys need an updated browser over https.'); return;
-    }
-    if(!window.lcPasskeyExists(p)){
-      showBlocked('🔑 No passkey saved for this card yet — unlock once with your PIN/password, then tap "💾 Save passkey".'); return;
-    }
-    /* gate the arriving secure link first */
-    const g = await window.lcShareLinkGate(p);
-    if(g.block){ showBlocked(g.reason); return; }
-    const r = await window.lcPasskeyUnlock(p);
-    if(r.ok){
-      hideErr();
-      /* finishUnlock owns: modal hide, E2EE key prompt, load, lock/opening */
-      await finishUnlock(p, null, 'passkey');
-    } else if(r.cancelled){ /* user dismissed the biometric sheet */ }
-    else showBlocked('🔑 Passkey did not verify — use your PIN or password.');
-  };
-
-  save.onclick = async (e) => {
-    if(e && e.preventDefault) e.preventDefault();
-    const p = S.LOGIN_TARGET;
-    if(!p) return;
-    if(!window.lcPasskeysSupported || !window.lcPasskeysSupported()){
-      showBlocked('🔑 Passkeys need an updated browser over https.'); return;
-    }
-    const btn = $id('pkSaveBtn');
-    btn.textContent = '⏳ Follow the prompt…';
-    const r = await window.lcPasskeyEnroll(p);
-    if(r && r.ok){ btn.textContent = '✅ Passkey saved!'; }
-    else if(r && r.error){ btn.textContent = '❌ Cancelled'; }
-    else btn.textContent = '🔑 Not supported';
-    setTimeout(() => { btn.textContent = '💾 Save passkey'; }, 2200);
-  };
-}
-function hideErr(){
-  const err = $id('personPwError');
-  if(err) err.classList.remove('show');
-}
-
-/* ---------- shared success path (PIN / password / passkey) ---------- */
-
-/* The E2EE key must be derived from the SAME secret that opened the card.
-   Passkeys never reveal the secret themselves, so after a biometric unlock
-   we ask the viewer ONCE for their PIN/password to derive the decryption
-   key (the passkey already proved identity — this step only unlocks the
-   encrypted content). We deliberately do NOT read the secret from the
-   person row (pin_plain / password fields): pulling the key out of the
+/* The E2EE key is derived from the SAME secret that opened the card.
+   We deliberately do NOT read the secret from the person row
+   (pin_plain / password fields): pulling the key out of the
    same record it protects would defeat end-to-end encryption. */
-async function promptForSecret(person){
-  const q = '🔐 Enter your PIN or password once to decrypt this card\'s ' +
-            'private messages & photos.\n(Your passkey unlocked the card; ' +
-            'this unlocks the encrypted content.)';
-  let s = null;
-  try{ s = window.prompt(q, ''); }catch(e){ return null; }
-  if(s == null) return null;                       /* cancelled */
-  s = String(s);
-  if(!s.trim()) return null;
-  /* validate against the real card secret before trusting it as a key */
-  if(window.lcVerifyPin){
-    try{ if(await window.lcVerifyPin(person, s)) return s; }catch(e){}
-  }
-  const expected = String((person && person.password) || '');
-  if(expected && s === expected) return s;
-  showBlocked('🔑 Wrong PIN/password — card opened but encrypted content stays locked.');
-  return null;
-}
-
 async function finishUnlock(person, secret, how){
   /* utils.js convention: .pw-modal is visible while it has .active —
      hide by REMOVING 'active' (window.hide does exactly that). */
@@ -163,11 +78,7 @@ async function finishUnlock(person, secret, how){
     else m.classList.remove('active');
   }
   S.PREVIEW_MODE = false;
-  /* 1) E2EE session key — passkey path asks the viewer once for their
-        PIN/password (never reads it from the person row). */
-  if(secret == null && how === 'passkey'){
-    try{ secret = await promptForSecret(person); }catch(e){ secret = null; }
-  }
+  /* 1) E2EE session key — derived from the PIN/password just entered. */
   if(secret != null && window.lcE2EELockIn){
     try{ window.lcE2EELockIn(String(secret), person); }catch(e){}
   }
@@ -198,25 +109,6 @@ async function finishUnlock(person, secret, how){
     return;
   }
   window.openOpeningFull();
-
-  /* 2) offer passkey enrollment once per card per device */
-  try{
-    if(how !== 'passkey' && secret &&
-       window.lcPasskeysSupported && window.lcPasskeysSupported() &&
-       !window.lcPasskeyExists(person)){
-      const KEY = 'lovecards::passkey::asked::' + person.id;
-      if(!localStorage.getItem(KEY)){
-        localStorage.setItem(KEY, '1');
-        setTimeout(() => {
-          if(confirm('🔐 Save a passkey for this card?\n\nNext time you can unlock with Face ID / fingerprint instead of typing your PIN.')){
-            window.lcPasskeyEnroll(person).then(r => {
-              if(r && r.ok && window.__showToast) window.__showToast('✅ Passkey saved — biometric unlock enabled 💚', true);
-            });
-          }
-        }, 1600);
-      }
-    }
-  }catch(e){}
 }
 function hide(el){ if(el) el.classList.add('hidden'); }
 
@@ -227,8 +119,6 @@ function install(){
   const orig = window.tryPersonPw;
   if(typeof orig !== 'function'){ setTimeout(install, 300); return; }
   wrapped = true;
-
-  ensurePkButtons();
 
   window.tryPersonPw = async function(){
     const inp = $id('personPwInput');

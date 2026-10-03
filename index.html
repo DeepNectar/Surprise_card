@@ -1430,12 +1430,10 @@
      securitywire.js re-wraps window.tryPersonPw once it exists):
      e2ee.js       = client-side AES-256-GCM for messages/photos,
                      PBKDF2 key derived from the viewer's PIN/password,
-     passkeys.js   = WebAuthn biometric unlock (Face ID / fingerprint),
      sharelinks.js = HMAC-signed expiring share links with view limits,
      e2eeadmin.js  = admin one-tap encrypt/decrypt panel,
      securitywire.js = glues all of the above into the real login flow. -->
 <script defer src="js/e2ee.js"></script>
-<script defer src="js/passkeys.js"></script>
 <script defer src="js/sharelinks.js"></script>
 <script defer src="js/e2eeadmin.js"></script>
 <script defer src="js/securitywire.js"></script>
