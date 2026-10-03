@@ -167,20 +167,60 @@ function extractMissingColumn(detail){
   const m = String(detail || '').match(/find the '([A-Za-z0-9_]+)' column/i);
   return m ? m[1] : null;
 }
-/* People PATCHes that mention a column the API can't see yet must be dropped
-   silently-ish: OTP mirrors are device-local-capable (hd1.js guards new ones;
-   this cleans up anything already sitting in old queues). */
-function isHealableSchemaDrop(item, detail){
+/* People PATCHes that mention a column the API can't see yet must NEVER
+   surface as an error pill.  OTP/PIN mirrors are device-local-capable
+   (hd1.js + security.js guard new writes; this also cleans up anything
+   already sitting in old queues from previous versions).  When such a
+   write finally succeeds after a heal we clear any stale notice too. */
+const LC_MIRROR_COLS = ['otp_list','pin_hash','pin_salt','pin_plain'];
+function isMirrorSchemaMiss(item, detail){
   if(!isSchemaCacheMiss(detail)) return false;
   const col = extractMissingColumn(detail);
-  if(item.table === 'people' && (!col || ['otp_list','pin_hash','pin_salt','pin_plain'].indexOf(col) >= 0)) return true;
-  return false;
+  if(item.table !== 'people') return false;
+  return !col || LC_MIRROR_COLS.indexOf(col) >= 0;
+}
+function clearDroppedNotice(){
+  try{ localStorage.removeItem('lc_sync_dropped'); }catch(e){}
 }
 
-let _schemaHealAt = 0;           /* one heal attempt per minute max */
+let _schemaHealAt = 0;           /* one heal attempt per 20s max */
+let _healInFlight = null;        /* concurrent heal callers share ONE probe */
+/* Schema-cache reload verification: NOTIFY pgrst,'reload schema' is
+   asynchronous — PostgREST may keep serving the OLD cached schema for a
+   few seconds.  If we retried the PATCH immediately after calling the RPC,
+   the retry would hit the same stale cache and fail with another
+   "400 Could not find the 'otp_list' column of 'people'".  So instead of
+   a blind sleep we POLL a cheap `select=otp_list` GET until the API
+   actually sees the column (max ~10s), and only then report "healed". */
+async function waitForSchemaReload(maxMs){
+  const deadline = Date.now() + (maxMs || 10000);
+  for(;;){
+    try{
+      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=otp_list&limit=1', {
+        headers: {
+          'apikey': window.SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
+        },
+        cache: 'no-store'
+      });
+      if(r.ok){                       /* column visible in the live cache now */
+        window.lcPeopleMirrorColsOk = true;
+        return true;
+      }
+      if(r.status >= 400 && r.status < 500 && r.status !== 404 && r.status !== 429){
+        return false;                 /* PGRST204 etc. — still stale/missing */
+      }
+    }catch(e){ return false; }
+    if(Date.now() >= deadline) return false;
+    await new Promise(res => setTimeout(res, 1500));
+  }
+}
+
 async function healSchemaCache(){
-  if(Date.now() - _schemaHealAt < 60000) return false;
+  if(_healInFlight) return _healInFlight;
+  if(Date.now() - _schemaHealAt < 20000) return false;
   _schemaHealAt = Date.now();
+  _healInFlight = (async () => {
   try{
     const r = await fetch(window.SUPABASE_URL + '/rest/v1/rpc/ensure_sync_schema', {
       method: 'POST',
@@ -193,9 +233,13 @@ async function healSchemaCache(){
       cache: 'no-store'
     });
     if(!r.ok) return false;
-    await new Promise(res => setTimeout(res, 2000)); /* let pgrst re-read */
-    return true;
+    /* Wait until PostgREST's reloaded cache actually serves otp_list —
+       this is what makes the single retry succeed instead of throwing the
+       same 400 again (the reason the pill used to come back). */
+    return await waitForSchemaReload(10000);
   }catch(e){ return false; }
+  })().finally(() => { _healInFlight = null; });
+  return _healInFlight;
 }
 
 function dropItem(item, reason){
@@ -220,6 +264,24 @@ window.lcFlushOffline = async function(manual){
   if(flushing) return;
   flushing = true;
   try{
+    /* Safety net: any people PATCH in the queue that mentions the optional
+       PIN/OTP mirror columns can re-trigger the stale-schema 400 on every
+       flush tick (the exact cause of the recurring "⚠️ PATCH 400 —
+       Could not find the 'otp_list' column" pill). Purge those legacy
+       entries BEFORE flushing and clear their old notice — the values are
+       already persisted device-local by hd1.js / security.js. */
+    try{
+      const pre = await allQueued();
+      let purged = false;
+      for(const it of pre){
+        if(it && it.table === 'people' && it.body &&
+           LC_MIRROR_COLS.some(c => Object.prototype.hasOwnProperty.call(it.body, c))){
+          await remove(it.qid);
+          purged = true;
+        }
+      }
+      if(purged) clearDroppedNotice();
+    }catch(e){}
     const rows = await allQueued();
     let sent = 0, failed = 0, dropped = 0;
     for(const item of rows){
@@ -246,6 +308,8 @@ window.lcFlushOffline = async function(manual){
               try{
                 await sendNow(item);
                 await remove(item.qid);
+                /* mirror write recovered → wipe any old ⚠️ notice for it */
+                if(isMirrorSchemaMiss(item, e.message)) clearDroppedNotice();
                 sent++;
                 continue;
               }catch(e2){ /* still broken → fall through to drop/notice */ }
@@ -254,6 +318,14 @@ window.lcFlushOffline = async function(manual){
           console.warn('[sync] dropping permanently-failed write:', item.table, e.message);
           await dropItem(item, e.message);
           dropped++;
+          /* OTP/PIN cloud mirrors are OPTIONAL — the data lives safely on
+             this device (localStorage), so a schema-cache miss for those
+             columns must NEVER raise the scary ⚠️ pill. Drop the queue
+             entry quietly and clear any stale notice from older versions. */
+          if(isMirrorSchemaMiss(item, e.message)){
+            try{ localStorage.removeItem('lc_sync_dropped'); }catch(_){}
+            dropped--;   /* not a user-visible failure */
+          }
           continue;                       /* don't let one bad row block the rest */
         }
         failed++;
@@ -275,6 +347,14 @@ window.lcFlushOffline = async function(manual){
    went straight to the cloud, false if it was queued for later.  */
 window.lcOfflineQueue = async function(table, body, opts){
   opts = opts || {};
+  /* Client-side schema guard: never even attempt a people PATCH that mentions
+     the optional PIN/OTP mirror columns while PostgREST can't see them —
+     that is exactly what produced the "PATCH 400 — Could not find the
+     'otp_list' column of 'people' in the schema cache" home-screen error.
+     The data always lives on-device; the cloud mirror is best-effort. */
+  const isMirrorPatch = table === 'people' && body &&
+    LC_MIRROR_COLS.some(c => Object.prototype.hasOwnProperty.call(body, c));
+  if(isMirrorPatch && window.lcPeopleMirrorColsOk === false) return false;
   const item = {
     table, body,
     method: opts.method || 'POST',
@@ -284,20 +364,39 @@ window.lcOfflineQueue = async function(table, body, opts){
   if(navigator.onLine){
     try{
       await sendNow(item);
+      if(isMirrorPatch && window.lcPeopleMirrorColsOk === false){
+        window.lcPeopleMirrorColsOk = true;   /* it worked after all → unblock */
+        clearDroppedNotice();
+      }
       return true; /* direct success — nothing queued */
     }catch(e){
       /* Schema-cache miss → heal + one immediate retry, so OTP/PIN mirrors
          reach the cloud (and no stale queue entry is ever created). */
       if(isSchemaCacheMiss(e.message)){
+        if(isMirrorPatch) window.lcPeopleMirrorColsOk = false; /* block until healed */
         try{
           if(await healSchemaCache()){
             await sendNow(item);
+            if(isMirrorPatch){ window.lcPeopleMirrorColsOk = true; clearDroppedNotice(); }
             return true;
           }
         }catch(e2){}
       }
+      if(isMirrorPatch){
+        /* Heal failed / offline mid-write: drop this OPTIONAL mirror write
+           instead of queueing it — a queued copy would only re-trigger the
+           same 400 on every flush tick. The value is already persisted
+           locally by hd1.js / security.js, so nothing is lost. */
+        console.warn('[sync] optional people-mirror write skipped (schema cache):', e.message);
+        paint();
+        return false;
+      }
       /* fall through → queue it */
     }
+  }
+  if(isMirrorPatch){
+    console.warn('[sync] offline — optional people-mirror write skipped (kept device-local).');
+    return false;
   }
   await enqueue(item);
   paint();
@@ -382,5 +481,32 @@ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', e
 });
 
 document.addEventListener('DOMContentLoaded', () => { paint(); setTimeout(() => window.lcFlushOffline(), 2500); });
+
+/* ---------- Startup purge: legacy queue entries ----------
+   Queues saved by older app versions may still hold people PATCHes that
+   mention otp_list / pin_* — columns that might not exist in the cloud
+   schema yet. Flushing those is what kept re-showing
+   "⚠️ PATCH 400 — Could not find the 'otp_list' column of 'people'".
+   Those writes are device-local-capable, so we drop them up-front and
+   clear any stale ⚠️ notice they left behind. */
+window.lcPurgeMirrorQueue = async function(){
+  try{
+    const rows = await allQueued();
+    let removed = false;
+    for(const item of rows){
+      if(item && item.table === 'people' && item.body &&
+         LC_MIRROR_COLS.some(c => Object.prototype.hasOwnProperty.call(item.body, c))){
+        await remove(item.qid);
+        removed = true;
+      }
+    }
+    if(removed){
+      clearDroppedNotice();
+      paint();
+    }
+    return removed;
+  }catch(e){ return false; }
+};
+setTimeout(() => { window.lcPurgeMirrorQueue(); }, 1200);
 
 })();

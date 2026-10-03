@@ -233,6 +233,36 @@ window.lcSavePersonPatch = async function(person, patch, opts){
     attempts.push(p2);
   });
   for(const body of attempts){
+    /* Client-side schema guard: if PostgREST can't see the optional PIN
+       mirror columns yet (probe/heal result shared by offline.js), don't
+       send or queue a patch that mentions them — that is what produced the
+       "⚠️ PATCH 400 — Could not find the 'otp_list'/'pin_hash' column of
+       'people' in the schema cache" pill. The PIN stays safely on-device
+       (localStorage) and retries after the next heal/page load. */
+    const mirrorMissing = window.lcPeopleMirrorColsOk === false;
+    if(mirrorMissing && (opts.optionalCols || []).length){
+      let stripped = null, changed = false;
+      for(const c of opts.optionalCols){
+        if(Object.prototype.hasOwnProperty.call(body, c)){
+          stripped = Object.assign({}, stripped || body);
+          delete stripped[c];
+          changed = true;
+        }
+      }
+      if(changed){
+        if(!Object.keys(stripped).some(k => k !== 'id')) continue; /* nothing left to save */
+        try{
+          if(window.sb && typeof sb.updPerson === 'function'){ await sb.updPerson(id, stripped); return true; }
+        }catch(e){}
+        try{
+          if(typeof window.lcOfflineQueue === 'function'){
+            await window.lcOfflineQueue(names, stripped, { method: 'PATCH', filter: 'id=eq.' + encodeURIComponent(id) });
+            return true;
+          }
+        }catch(e){}
+        continue;
+      }
+    }
     /* 1) direct cloud write */
     try{
       if(window.sb && typeof sb.updPerson === 'function'){
