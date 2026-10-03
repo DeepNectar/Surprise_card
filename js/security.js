@@ -137,7 +137,8 @@ window.lcCheckAdminPw = async function(pw){
   const th = window.lcThrottleCheck(id);
   if(th.blocked) return { ok: false, blocked: true, secs: th.secs };
 
-  const s = (window.__PAGE_STATE__ && S.CURR.shared) || {};
+  const ps = window.__PAGE_STATE__;
+  const s = (ps && ps.CURR && ps.CURR.shared) || {};
   let ok = false;
   if(s.adminPwHash){
     ok = await window.lcVerifyPw(pw, s.adminPwHash);
