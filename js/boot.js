@@ -142,6 +142,12 @@ async function boot(){
     S.REVIEWS = [];
   }
 
+  /* HD1.1 — pull the cloud 💐 Finished ledger BEFORE the first home paint, so
+     people the admin already moved to Finished never flash on the active grid
+     (and Finished tiles are complete on first render). Best-effort: boot
+     continues even offline. */
+  try{ if(window.pullFinishedLedger) await pullFinishedLedger(); }catch(e){}
+
   if(window.buildHome) window.buildHome();
   /* keep the 💐 Finished tab badge in the admin panel fresh on load */
   if(window.updateFinishedBadge) window.updateFinishedBadge();

@@ -736,6 +736,20 @@ window.loadGuestHistory = async function(){
   if(!list) return;
   list.textContent = 'Loading…';
 
+  /* HD1.1 — refresh the finished ledger + live people table first, so rows
+     whose AUTO-WIPE has already run get marked "🕊️ Awaiting finish" (shown
+     in a different colour) instead of looking like normal completed cards. */
+  try{ if(window.pullFinishedLedger) await pullFinishedLedger(); }catch(e){}
+  try{ S.PEOPLE = await sb.people() || S.PEOPLE || []; }catch(e){}
+  const dueSlugs = {};
+  try{
+    (S.PEOPLE || []).forEach(p => {
+      if(p && p.slug && p.wipe_iso && Date.parse(p.wipe_iso) <= Date.now()){
+        dueSlugs[String(p.slug).toLowerCase()] = 1;
+      }
+    });
+  }catch(e){}
+
   const rows = await sb.guests();
   const approved = (rows || []).filter(r => r.status === 'approved');
 
@@ -744,6 +758,23 @@ window.loadGuestHistory = async function(){
     return;
   }
   list.innerHTML = '';
+
+  /* awaiting-finish rows float to the TOP so the admin sees them first */
+  const slugOf = r => String(r.approved_login_id
+    || (r.payload && r.payload.person_proposal && r.payload.person_proposal.slug)
+    || r.target_person_slug || '').toLowerCase();
+  const isDue = r => {
+    const s = slugOf(r);
+    if(!s) return false;
+    if(dueSlugs[s]) return true;
+    /* person row already deleted → the auto-wipe ran; unless they were
+       already moved to 💐 Finished, this row is awaiting the admin */
+    const stillLive = (S.PEOPLE || []).some(p => p && p.slug && String(p.slug).toLowerCase() === s);
+    if(stillLive) return false;
+    if(window.isFinishedSlug && isFinishedSlug(s)) return false;
+    return !!(r.wipe_iso && Date.parse(r.wipe_iso) <= Date.now());
+  };
+  approved.sort((a, b) => (isDue(b) ? 1 : 0) - (isDue(a) ? 1 : 0));
 
   approved.forEach(r => {
     const pl = r.payload || {};
@@ -763,14 +794,22 @@ window.loadGuestHistory = async function(){
       loginId
     );
 
+    /* HD1.1 — auto-wipe already done, but the admin has NOT moved this
+       person to the 💐 Finished tab yet → highlight in a DIFFERENT colour
+       (amber) with a 🕊️ badge and an amber Move-to-Finished button. They do
+       NOT appear on the home screen until moved. */
+    const due = isDue(r);
+
     const el = document.createElement('div');
-    el.className = 'repeat-row guest-row collapsed';
+    el.className = 'repeat-row guest-row collapsed' + (due ? ' awaiting-finish' : '');
     el.dataset.expanded = '0';
-    el.style.background = 'linear-gradient(135deg,#f0fff4,#e8f5f0)';
+    el.style.background = due
+      ? 'linear-gradient(135deg,#fff7e0,#ffedc2)'
+      : 'linear-gradient(135deg,#f0fff4,#e8f5f0)';
     el.innerHTML = `<div class="guest-row-head">
       <input type="checkbox" class="guest-check completed-check" data-id="${r.id}" title="Tick to move this person to the 💐 Finished tab — or to delete from the database with 🗑️ Delete selected" onclick="event.stopPropagation()">
       <span class="guest-caret">▸</span>
-      <span class="guest-row-summary"><strong>✅ ${esc(prop.display_name || r.target_person_slug)}</strong>${r.approved_person_id ? ' <span class="person-id-pill">#' + r.approved_person_id + '</span>' : ''}${loginId ? ' · 🔑 ' + esc(loginId) : ''}</span>
+      <span class="guest-row-summary"><strong>${due ? '🕊️' : '✅'} ${esc(prop.display_name || r.target_person_slug)}</strong>${due ? ' <span style="color:#b26a00;font-size:.72rem;font-weight:800;">AUTO-WIPED · awaiting 💐 Finished</span>' : ''}${r.approved_person_id ? ' <span class="person-id-pill">#' + r.approved_person_id + '</span>' : ''}${loginId ? ' · 🔑 ' + esc(loginId) : ''}</span>
     </div>
     <div class="guest-row-body" style="font-size:.85rem;line-height:1.6;">
       <em style="color:var(--c-text-muted);"> (login id: ${esc(loginId)})</em>

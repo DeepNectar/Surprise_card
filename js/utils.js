@@ -386,6 +386,40 @@ window.formatBirthdayDate = function(birthday){
   catch(e){ return parts.join('-'); }
 };
 
+/* Is this person already on the 💐 Finished list (home screen)? Used to keep
+   auto-wiped people OUT of the Active grid — they must only appear once the
+   admin moves them from ✅ Completed into the 💐 Finished tab. */
+window.isFinishedSlug = function(slug){
+  if(!slug) return false;
+  const low = String(slug).toLowerCase();
+  /* a deleted-from-home-screen person is NOT finished either */
+  try{
+    if(window.getPurgedSlugs && getPurgedSlugs()
+        .some(t => t && t.slug && String(t.slug).toLowerCase() === low)) return false;
+  }catch(e){}
+  try{
+    return (window.getFinishedPeople ? getFinishedPeople() : [])
+      .some(f => f && f.slug && String(f.slug).toLowerCase() === low);
+  }catch(e){ return false; }
+};
+
+/* Is this submission row "awaiting the admin" — i.e. its auto-wipe has ALREADY
+   run but the admin has not moved it from ✅ Completed to 💐 Finished yet?
+   Such rows are shown in a DIFFERENT colour in the Completed tab and must NOT
+   appear on the home screen until they are moved. */
+window.isAwaitingFinish = function(row){
+  if(!row || row.status !== 'approved') return false;
+  if(!row.wipe_iso) return false;
+  const t = Date.parse(row.wipe_iso);
+  if(isNaN(t)) return false;
+  /* already filed into the 💐 Finished list → no longer "awaiting" */
+  const slug = row.approved_login_id
+    || (row.payload && row.payload.person_proposal && row.payload.person_proposal.slug)
+    || row.target_person_slug || '';
+  if(slug && window.isFinishedSlug && isFinishedSlug(slug)) return false;
+  return t <= Date.now();
+};
+
 /* Person / finished-ledger lookup by slug (case-insensitive). */
 window.findPersonBySlug = function(slug){
   if(!slug) return null;
