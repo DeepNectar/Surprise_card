@@ -149,10 +149,38 @@ async function sendNow(item){
 /* 4xx responses are permanent (missing table/column, RLS denial, bad filter).
    Retrying them on every tick is what kept the pill stuck at "N changes
    queued" forever. Drop them from the queue with a visible notice instead. */
+
+/* Self-healing for PostgREST schema-cache misses:
+   "Could not find the 'X' column of 'Y' in the schema cache" (PGRST204) or
+   "Could not find the table 'public.X'" (PGRST205) usually means the column
+   EXISTS in Postgres but the API's cached schema is stale — retrying later
+   succeeds after a reload.  So: drop the poisoned item (never re-PATCH it),
+   and tell the user exactly how to clear the cache. */
+function isSchemaCacheMiss(detail){
+  return /schema cache/i.test(String(detail || ''));
+}
+function extractMissingColumn(detail){
+  const m = String(detail || '').match(/find the '([A-Za-z0-9_]+)' column/i);
+  return m ? m[1] : null;
+}
+/* People PATCHes that mention a column the API can't see yet must be dropped
+   silently-ish: OTP mirrors are device-local-capable (hd1.js guards new ones;
+   this cleans up anything already sitting in old queues). */
+function isHealableSchemaDrop(item, detail){
+  if(!isSchemaCacheMiss(detail)) return false;
+  const col = extractMissingColumn(detail);
+  if(item.table === 'people' && (!col || ['otp_list','pin_hash','pin_salt','pin_plain'].indexOf(col) >= 0)) return true;
+  return false;
+}
+
 function dropItem(item, reason){
   try{
+    let msg = reason;
+    if(isSchemaCacheMiss(reason)){
+      msg = 'Cloud schema cache is stale — run setup/FULL_GO_LIVE.sql once in the Supabase SQL editor, then press F5 (hard refresh). The change was saved on this device.';
+    }
     localStorage.setItem('lc_sync_dropped', JSON.stringify({
-      table: item.table, method: item.method || 'POST', reason: reason, at: Date.now()
+      table: item.table, method: item.method || 'POST', reason: msg, at: Date.now()
     }));
   }catch(e){}
   return remove(item.qid);
