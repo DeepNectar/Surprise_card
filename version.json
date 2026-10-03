@@ -1,9 +1,9 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "date": "2026-10-03",
   "changes": [
-    "🔢 PIN now unlocks on its own — when a card has a PIN set, ONLY the PIN opens it (the password no longer works and no second prompt appears).",
-    "🔑 Smarter auto passwords — cards created without a password get a UNIQUE 6-letter code built from the person’s name + birthdate.",
-    "📅 The “What’s new” section always shows the LATEST deployed HD version and the date it was deployed."
+    "☁️ Tap-to-sync really syncs — clicking the 📴 pill now shows ⏳ Syncing…, pushes every queued change to Supabase, then ✅ All changes synced.",
+    "🧹 Stuck queues self-heal — writes rejected by the server (missing pin_hash/otp_list columns or RLS policy) are dropped with a visible ⚠️ reason instead of blocking the queue forever.",
+    "🛡️ Missing-config guard — if Supabase URL/key isn't set, the pill says so instead of silently re-queueing."
   ]
 }
