@@ -106,23 +106,56 @@ async function remove(qid){
 
 /* ---------- Flush queue to Supabase ---------- */
 async function sendNow(item){
+  /* Hard guard: without URL+key we can NEVER reach the cloud — say so loudly
+     instead of silently re-queueing forever. */
+  if(!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY){
+    throw new Error('not-configured');
+  }
   const base = window.SUPABASE_URL + '/rest/v1/';
   const headers = {
     'apikey': window.SUPABASE_ANON_KEY,
     'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   };
-  if(item.method === 'PATCH'){
-    headers['Prefer'] = 'return=minimal';
-    const r = await fetch(base + item.table + '?' + item.filter, { method:'PATCH', headers, body: JSON.stringify(item.body) });
-    if(!r.ok) throw new Error('PATCH ' + r.status);
-    return true;
+  let url = base + item.table;
+  if(item.filter) url += '?' + item.filter;
+  let r;
+  try{
+    if(item.method === 'PATCH'){
+      headers['Prefer'] = 'return=minimal';
+      r = await fetch(url, { method:'PATCH', headers, body: JSON.stringify(item.body), cache:'no-store' });
+    } else {
+      headers['Prefer'] = (item.table === 'push_subs' || item.table === 'reviews')
+        ? 'resolution=ignore-duplicates,return=minimal' : 'return=minimal';
+      r = await fetch(url, { method:'POST', headers, body: JSON.stringify(item.body), cache:'no-store' });
+    }
+  }catch(e){
+    throw new Error('network');   /* offline / DNS / CORS — keep queued */
   }
-  headers['Prefer'] = (item.table === 'push_subs' || item.table === 'reviews')
-    ? 'resolution=ignore-duplicates,return=minimal' : 'return=minimal';
-  const r = await fetch(base + item.table, { method:'POST', headers, body: JSON.stringify(item.body) });
-  if(!r.ok) throw new Error('POST ' + r.status);
-  return true;
+  if(r.ok) return true;
+  /* Read PostgREST's error body so the console tells us WHY it failed
+     (403 RLS policy missing, 400 column pin_hash/otp_list not in schema …) */
+  let detail = '';
+  try{
+    const j = await r.json();
+    detail = (j && (j.message || j.error)) || '';
+  }catch(e){ try{ detail = await r.text(); }catch(e2){} }
+  const err = new Error((item.method || 'POST') + ' ' + r.status + (detail ? ' — ' + String(detail).slice(0,180) : ''));
+  err.permanent = (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429);
+  throw err;
+}
+
+/* 4xx responses are permanent (missing table/column, RLS denial, bad filter).
+   Retrying them on every tick is what kept the pill stuck at "N changes
+   queued" forever. Drop them from the queue with a visible notice instead. */
+function dropItem(item, reason){
+  try{
+    localStorage.setItem('lc_sync_dropped', JSON.stringify({
+      table: item.table, method: item.method || 'POST', reason: reason, at: Date.now()
+    }));
+  }catch(e){}
+  return remove(item.qid);
 }
 
 async function count(){
@@ -130,12 +163,12 @@ async function count(){
   return rows.length;
 }
 
-window.lcFlushOffline = async function(){
+window.lcFlushOffline = async function(manual){
   if(flushing) return;
   flushing = true;
   try{
     const rows = await allQueued();
-    let sent = 0, failed = 0;
+    let sent = 0, failed = 0, dropped = 0;
     for(const item of rows){
       if(!navigator.onLine) break;
       try{
@@ -143,17 +176,30 @@ window.lcFlushOffline = async function(){
         await remove(item.qid);
         sent++;
       }catch(e){
+        if(String(e && e.message) === 'not-configured'){
+          /* Supabase URL/key missing — the pill must say this, not "queued" */
+          try{ localStorage.setItem('lc_sync_dropped', JSON.stringify({
+            table:'—', method:'—', reason:'Supabase is not configured (missing URL/anon key)', at: Date.now() })); }catch(_){}
+          paint();
+          break;
+        }
+        if(e && e.permanent){
+          console.warn('[sync] dropping permanently-failed write:', item.table, e.message);
+          await dropItem(item, e.message);
+          dropped++;
+          continue;                       /* don't let one bad row block the rest */
+        }
         failed++;
-        /* keep in queue; stop early so we don't hammer a broken table */
+        /* transient (network/5xx): keep in queue and stop so we don't hammer */
         break;
       }
     }
-    if(sent){
+    if(sent || dropped){
       const rem = await count();
-      listeners.forEach(fn => { try{ fn({ sent, remaining: rem }); }catch(e){} });
+      listeners.forEach(fn => { try{ fn({ sent, dropped, remaining: rem, manual: !!manual }); }catch(e){} });
     }
     paint();
-    return { sent, failed, remaining: await count() };
+    return { sent, failed, dropped, remaining: await count() };
   } finally { flushing = false; }
 };
 
@@ -197,6 +243,7 @@ function ensureStyle(){
   document.head.appendChild(s);
 }
 let pill = null;
+let lastFlushInfo = null;      /* { sent, dropped } of the most recent flush */
 async function paint(){
   try{
     ensureStyle();
@@ -205,23 +252,39 @@ async function paint(){
       pill.type = 'button';
       pill.className = 'lc-off-pill';
       pill.setAttribute('aria-live', 'polite');
-      pill.addEventListener('click', () => { window.lcFlushOffline(); });
+      pill.addEventListener('click', () => {
+        pill.textContent = '⏳ Syncing…';
+        pill.classList.remove('ok');
+        pill.classList.add('show');
+        window.lcFlushOffline(true);   /* manual tap → always attempt a real cloud push */
+      });
       document.body.appendChild(pill);
     }
     const n = await count();
+    let droppedInfo = null;
+    try{ droppedInfo = JSON.parse(localStorage.getItem('lc_sync_dropped') || 'null'); }catch(e){}
     if(n > 0){
       pill.textContent = '📴 ' + n + ' change' + (n > 1 ? 's' : '') + ' queued — tap to sync';
+      pill.title = 'Tap to push these changes to the cloud now.';
       pill.classList.remove('ok');
       pill.classList.add('show');
-    } else if(pill.classList.contains('show')){
+    } else if(droppedInfo && Date.now() - (droppedInfo.at || 0) < 24 * 3600 * 1000){
+      /* queue is empty but some writes were rejected by the server — be honest */
+      pill.textContent = '⚠️ ' + droppedInfo.reason.slice(0, 90);
+      pill.title = 'Some changes could not reach the cloud: ' + droppedInfo.reason;
+      pill.classList.remove('ok');
+      pill.classList.add('show');
+    } else if(lastFlushInfo && (lastFlushInfo.sent || lastFlushInfo.dropped)){
       pill.textContent = '✅ All changes synced';
       pill.classList.add('ok');
-      setTimeout(() => pill.classList.remove('show', 'ok'), 2500);
+      pill.classList.add('show');
+      setTimeout(() => { pill.classList.remove('show', 'ok'); }, 2500);
     } else {
       pill.classList.remove('show');
     }
   }catch(e){}
 }
+window.lcOnSync(info => { lastFlushInfo = info; });
 
 /* ---------- Retry triggers ---------- */
 window.addEventListener('online',  () => { window.lcFlushOffline(); });
