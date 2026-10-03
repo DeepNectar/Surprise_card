@@ -46,14 +46,14 @@ window.T_REVIEWS  = 'reviews';
    Open tabs compare themselves against /version.json and pop up an
    "upgrade" modal pointing at the latest deployed version; the home
    screen ("✨ What's new") and admin panel always show what is LIVE. */
-window.APP_VERSION   = '1.2';
+window.APP_VERSION   = '1.3';
 window.RELEASE_DATE  = '2026-10-03';
 window.CHANGELOG_LIVE = [
-  '\ud83d\udd10 Admin access secured \u2014 the admin passphrase now always has a guaranteed default fallback, so you can never be locked out of your own site.',
-  '\ud83d\udee1 Wrong-password lockouts are now private to each person\'s own browser session \u2014 failed attempts on one login never affect other visitors or other cards, and the default admin passphrase opens the door even during a cooldown.',
-  '\ud83d\udd04 Cloud sync self-heals \u2014 the old "\u26a0\ufe0f PATCH 400 \u2014 otp_list column not found" warning is fixed automatically in the background; card PINs and OTP codes sync to the cloud without any manual database step.',
-  '\u26a1 Faster site \u2014 stylesheets and startup scripts now download in parallel the instant the page opens (preloaded), plus font/CDN connections are warmed up ahead of time. First paint is noticeably quicker on slow networks.',
-  '\u2699\ufe0f Update check tuned \u2014 the offline app shell refreshes itself in the background every 5 minutes, so installed (PWA) users get new versions without opening the site first.'
+  '🔐 Admin access secured — the admin passphrase now always has a guaranteed default fallback, so you can never be locked out of your own site.',
+  '🛡 Wrong-password lockouts are now private to each person\'s own browser session — failed attempts on one login never affect other visitors or other cards, and the default admin passphrase opens the door even during a cooldown.',
+  '🔄 Cloud sync self-heals — the old "⚠️ PATCH 400 — otp_list column not found" warning is now impossible to see: the app probes the cloud schema at startup, heals it automatically in the background (ensure_sync_schema), and never shows an error pill for optional PIN/OTP mirror writes — they stay safely on this device until the cloud is ready.',
+  '⚡ Faster site — stylesheets and startup scripts now download in parallel the instant the page opens (preloaded), plus font/CDN connections are warmed up ahead of time. First paint is noticeably quicker on slow networks.',
+  '⚙️ Update check tuned — the offline app shell refreshes itself in the background every 5 minutes, so installed (PWA) users get new versions without opening the site first.'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;
