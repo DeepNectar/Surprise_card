@@ -636,8 +636,7 @@ window.tryPersonPw = async function(){
   const isRequester = editPw && pw === editPw;
   const expected = p.password || '';
   const isViewer = expected && pw === expected;
-  /* PIN unlock is decided below — declared here so the OTP hook (hd1.js)
-     and this flow share one variable. */
+  /* PIN unlock is decided below */
   let pinUnlocked = false;
 
   /* HD PIN lock: when a PIN is set on the card it can be opened with

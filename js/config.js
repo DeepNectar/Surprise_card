@@ -13,15 +13,16 @@ window.SUPABASE_ANON_KEY = __ENV__.SUPABASE_ANON_KEY || '';
 window.__LC_VAPID_PUBLIC__ = __ENV__.VAPID_PUBLIC_KEY || '';
 
 /* ---------- Cloud schema-cache guard (shared flag) ----------
-   null  = unknown yet (first people.otp_list probe pending)
-   true  = PostgREST's schema cache serves the optional PIN/OTP mirror
-           columns (pin_hash/pin_salt/pin_plain/otp_list) on `people`
+   null  = unknown yet (first people.pin_hash probe pending)
+   true  = PostgREST's schema cache serves the optional PIN mirror
+           columns (pin_hash/pin_salt/pin_plain) on `people`
    false = the columns are NOT visible → app code must never send a
            PATCH mentioning them (that is what produced the recurring
            "⚠️ PATCH 400 — Could not find the 'otp_list' column of
-            'people' in the schema cache" home-screen error).
-   js/offline.js + js/hd1.js own the probe/heal logic; this is just the
-   initial declaration so every module sees the same variable.          */
+            'people' in the schema cache" home-screen error; the OTP
+            feature itself has since been removed entirely).
+   js/offline.js owns the probe/heal logic; this is just the initial
+   declaration so every module sees the same variable.                  */
 window.lcPeopleMirrorColsOk = null;
 
 /* ---------- Table names ---------- */
@@ -46,12 +47,14 @@ window.T_REVIEWS  = 'reviews';
    Open tabs compare themselves against /version.json and pop up an
    "upgrade" modal pointing at the latest deployed version; the home
    screen ("✨ What's new") and admin panel always show what is LIVE. */
-window.APP_VERSION   = '1.3';
+window.APP_VERSION   = '1.4';
 window.RELEASE_DATE  = '2026-10-03';
 window.CHANGELOG_LIVE = [
+  '🗜 The one-time code (OTP) feature has been REMOVED everywhere — cards open with the card password or the secret PIN only. This also permanently kills the old "⚠️ PATCH 400 — Could not find the otp_list column" home-screen warning: the app never touches that column again and auto-purges any leftover queue entries from older versions.',
+  '✅ Auto-wipe flow update — when a card\'s scheduled wipe runs, it now waits in the admin ✅ Completed tab marked in amber (🕔 auto-wiped · awaiting finish). Move it to 💐 Finished there, and only then does it appear on the home screen\'s finished section.',
   '🔐 Admin access secured — the admin passphrase now always has a guaranteed default fallback, so you can never be locked out of your own site.',
   '🛡 Wrong-password lockouts are now private to each person\'s own browser session — failed attempts on one login never affect other visitors or other cards, and the default admin passphrase opens the door even during a cooldown.',
-  '🔄 Cloud sync self-heals — the old "⚠️ PATCH 400 — otp_list column not found" warning is now impossible to see: the app probes the cloud schema at startup, heals it automatically in the background (ensure_sync_schema), and never shows an error pill for optional PIN/OTP mirror writes — they stay safely on this device until the cloud is ready.',
+  '🔄 Cloud sync self-heals — the app probes the cloud schema at startup and heals it automatically in the background (ensure_sync_schema), and never shows an error pill for optional PIN mirror writes — they stay safely on this device until the cloud is ready.',
   '⚡ Faster site — stylesheets and startup scripts now download in parallel the instant the page opens (preloaded), plus font/CDN connections are warmed up ahead of time. First paint is noticeably quicker on slow networks.',
   '⚙️ Update check tuned — the offline app shell refreshes itself in the background every 5 minutes, so installed (PWA) users get new versions without opening the site first.'
 ];
