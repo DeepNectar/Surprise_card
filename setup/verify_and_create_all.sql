@@ -312,6 +312,15 @@ begin
 end $$;
 
 /* ---------- 10. self-healing RPCs called by the app ---------- */
+/* Drop-then-create: an older deployment may have these functions with a
+   different return type (e.g. void), and Postgres refuses to change the
+   return type via CREATE OR REPLACE (error 42P13). Dropping first makes
+   this section safe no matter what already exists. */
+drop function if exists public.ensure_sync_schema();
+drop function if exists public.ensure_sync_schema(void);
+drop function if exists public.ensure_finished_ledger_table();
+drop function if exists public.ensure_finished_ledger_table(void);
+
 create or replace function public.ensure_sync_schema() returns text
 language plpgsql security definer set search_path = public as $$
 begin
