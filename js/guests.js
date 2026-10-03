@@ -464,17 +464,9 @@ window.approveGuestRow = async function(r, overridePassword, skipStatusUpdate){
 
     let password = overridePassword;
     if(!password){
-      const nm = (display_name || 'Friend').replace(/[^A-Za-z]/g, '').slice(0, 10) || 'Friend';
-      let dd = '0000';
-      if(birthday){
-        const d = new Date(birthday);
-        if(!isNaN(d.getTime())){
-          dd = String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0');
-        }
-      }
-      const words = ['Sunshine','Rainbow','Blossom','Starlight','Rose','Lotus','Velvet','Amber','Crystal','Dream'];
-      const wd = words[Math.floor(Math.random() * words.length)];
-      password = nm.charAt(0).toUpperCase() + nm.slice(1).toLowerCase() + '-' + dd + '-' + wd;
+      /* HD: unique 6-LETTER auto password built from the person's NAME +
+         BIRTHDATE (deterministic, collision-resistant per person). */
+      password = window.makeAutoCardPassword(display_name, birthday);
     }
 
     const row = {
@@ -1764,6 +1756,10 @@ window.openShareModal = function(person, guestRow){
 
   const loginId = person.slug || '';
   const cardPw = person.password || '';
+  /* HD: if the admin stored the plain viewer PIN on the person row
+     (pin_plain — PINs are normally kept hashed only), share THAT instead of
+     the password, because with a PIN set only the PIN opens the card. */
+  const pinShare = String(person.pin_plain || '').trim();
   /* SECURITY: the EDIT password must never appear in shared messages.
      It is only ever shown inside the admin panel (below), never sent. */
   const editPw = makeRequesterEditPassword(reqName, reqWa, loginId);
@@ -1775,11 +1771,13 @@ window.openShareModal = function(person, guestRow){
   );
 
   /* Build the outbound message: viewer credentials ONLY
-     (login ID + viewer card password + link). No edit password. */
+     (login ID + viewer card secret + link). No edit password.
+     HD: if the card is PIN-locked, share the PIN — not the password. */
   function buildShareMessage(){
     return '💕 A surprise card has been created for ' + (person.display_name || loginId) + '!\n\n' +
       '🔑 Login ID: ' + loginId + '\n' +
-      (cardPw ? '🔒 Card password: ' + cardPw + '\n' : '') +
+      (pinShare ? '🔢 Card PIN (secret): ' + pinShare + '\n'
+                : (cardPw ? '🔒 Card password: ' + cardPw + '\n' : '')) +
       '🌐 Link: ' + link;
   }
 
@@ -1790,10 +1788,11 @@ window.openShareModal = function(person, guestRow){
         <div class="title">📲 Share credentials</div>
         <div class="line"><strong>👤 Person:</strong> ${esc(person.display_name || loginId)}</div>
         <div class="line"><strong>🔑 Login ID:</strong> <code style="background:#fff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;">${esc(loginId)}</code></div>
-        ${cardPw ? '<div class="line"><strong>🔒 Card Password (viewer):</strong> <code style="background:#fff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;">' + esc(cardPw) + '</code></div>' : ''}
+        ${pinShare ? '<div class="line"><strong>🔢 Card PIN (viewer):</strong> <code style="background:#fff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;">' + esc(pinShare) + '</code></div>' : ''}
+        ${(!pinShare && cardPw) ? '<div class="line"><strong>🔒 Card Password (viewer):</strong> <code style="background:#fff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;">' + esc(cardPw) + '</code></div>' : ''}
         ${editPw ? '<div class="line"><strong>✏️ EDIT Password (requester — admin reference only, never sent):</strong> <code style="background:#eef3ff;padding:.15rem .45rem;border-radius:.35rem;font-family:monospace;color:#1a3d8f;">' + esc(editPw) + '</code></div>' : ''}
         <div class="line"><strong>🌐 Link:</strong> <a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="color:#0a4f8f;word-break:break-all;">${esc(link)}</a></div>
-        <div class="line" style="font-size:.72rem;color:var(--c-text-muted);margin-top:.35rem;">ℹ️ The WhatsApp / copy message includes the Login ID, viewer password and link only — the edit password is never shared.</div>
+        <div class="line" style="font-size:.72rem;color:var(--c-text-muted);margin-top:.35rem;">ℹ️ The WhatsApp / copy message includes the Login ID and the viewer secret (PIN if set, otherwise the password) plus the link — the edit password is never shared.</div>
       </div>
       <div class="wa-row">
         <button type="button" class="wa-btn" id="shareWaBtn">💬 Send on WhatsApp</button>

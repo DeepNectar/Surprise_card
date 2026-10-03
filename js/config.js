@@ -34,14 +34,12 @@ window.T_REVIEWS  = 'reviews';
    Open tabs compare themselves against /version.json and pop up an
    "upgrade" modal pointing at the latest deployed version; the home
    screen ("✨ What's new") and admin panel always show what is LIVE. */
-window.APP_VERSION   = '1.0';
-window.RELEASE_DATE  = '2026-10-02';
+window.APP_VERSION   = '1.1';
+window.RELEASE_DATE  = '2026-10-03';
 window.CHANGELOG_LIVE = [
-  '🛡️ v1.0 SECURITY HARDENING — credentials moved to js/env.js, salted SHA-256 admin passphrase (hash-only mode supported), brute-force lockout (5 tries → timed cooldown) on every login, and a one-time RLS lockdown script (setup/rls.sql).',
-  '🔢 NEW Per-card PIN lock — requesters/admins can set an optional 4–8 digit PIN on any card; PINs are stored hashed, never in plaintext.',
-  '👁 NEW View-tracking analytics — every card open is counted in the cloud (views + unique viewers + time-on-card); badges on home tiles and a new 📊 Analytics panel in admin.',
-  '✨ NEW AI Message Writer — sparkle button ✨ next to every message field drafts romantic copy in 4 tones (works fully offline too; optional OpenAI-compatible key stays local).',
-  '🔔 NEW Push notifications — subscribe to unlock/birthday reminders straight from the browser (Web Push, service-worker based).'
+  '🔢 PIN now unlocks on its own — when a card has a PIN set, ONLY the PIN opens it (the password no longer works and no second prompt appears).',
+  '🔑 Smarter auto passwords — cards created without a password get a UNIQUE 6-letter code built from the person\u2019s name + birthdate.',
+  '\ud83d\udcc5 The “What\u2019s new” section always shows the LATEST deployed HD version and the date it was deployed.'
 ];
 /* Alias used by js/update.js */
 window.CHANGELOG = window.CHANGELOG_LIVE;

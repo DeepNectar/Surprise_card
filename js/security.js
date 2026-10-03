@@ -161,8 +161,15 @@ window.lcPersonPinId = function(p){ return 'person:' + ((p && p.id) || (p && p.s
 window.lcSetPinHash = async function(person, pin){
   const hash = pin ? await window.lcHashPw('PIN:' + String(pin).trim()) : '';
   if(person) person.pin_hash = hash;
+  /* HD: keep the plain PIN on the person row too (pin_plain) so share /
+     resend messages can include it — with a PIN set, only the PIN opens
+     the card. If the DB column doesn't exist yet, silently skip it. */
+  if(person) person.pin_plain = pin ? String(pin).trim() : '';
   if(sb && person && person.id){
-    try{ await sb.updPerson(person.id, { pin_hash: hash }); }catch(e){}
+    try{ await sb.updPerson(person.id, { pin_hash: hash, pin_plain: pin ? String(pin).trim() : '' }); }
+    catch(e){
+      try{ await sb.updPerson(person.id, { pin_hash: hash }); }catch(_e){}
+    }
   }
   return hash;
 };
