@@ -602,7 +602,7 @@ function SS_close(){
    ============================================================ */
 /* SS_MODE: 'public'  → "Our Memories"        (is_private falsy rows ONLY)
    SS_MODE: 'private' → "Our Private Memory"  (is_private truthy rows ONLY,
-                                              behind the name+phone → OTP gate)
+                                              behind the one-time-code (OTP) gate)
    The two lists are fully separated: a private photo NEVER leaks into the
    normal slideshow and vice-versa. */
 let SS_MODE = 'public';
@@ -612,7 +612,7 @@ async function SS_openShow(mode){
     if(!S.CURRENT_PERSON){ alert('No person selected.'); return; }
 
     /* 🔒 HARD BLOCK (media level): the PRIVATE slideshow may ONLY be
-       opened after the name+phone → OTP gate was passed
+       opened after the one-time-code (OTP) gate was passed
        (S.PRIVATE_OK is set once per unlock inside privateview.js).
        When the card itself is private, even the normal "Our Memories"
        button must pass through the gate first.
@@ -692,22 +692,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   /* 🔒 OUR PRIVATE MEMORY — separate slideshow fed ONLY by media rows
-     flagged "Private". Routed through the name+phone → OTP gate first;
-     after unlock it launches SS_openShow('private'), which plays ONLY
-     the private rows. "Our Memories" (openBtn) plays ONLY public rows. */
+     flagged "Private". Routed through the OTP gate first (🔓 HD1.9:
+     name + phone verification is no longer required — only the 6-digit
+     one-time code); after unlock it launches SS_openShow('private'),
+     which plays ONLY the private rows. "Our Memories" (openBtn) plays
+     ONLY public rows. */
   const privBtn = $('privateSlideshowBtn');
   if(privBtn) privBtn.onclick = async (e) => {
     if(e && e.preventDefault) e.preventDefault();
     if(e && e.stopPropagation) e.stopPropagation();
-    if(window.lcCardIsPrivate && window.lcCardIsPrivate()){
-      if(S.PRIVATE_OK){ await SS_openShow('private'); }
-      else if(window.openPrivateGate){ window.openPrivateGate(); }
-    } else {
-      /* card not flagged private yet — still allow a gated peek at the
-         private-scene list so uploaded private photos are previewable */
-      if(S.PRIVATE_OK){ await SS_openShow('private'); }
-      else if(window.openPrivateGate){ window.openPrivateGate(); }
-    }
+    if(S.PRIVATE_OK){ await SS_openShow('private'); }
+    else if(window.openPrivateGate){ window.openPrivateGate(); }
     return false;
   };
 

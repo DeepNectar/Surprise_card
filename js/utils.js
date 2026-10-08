@@ -117,7 +117,7 @@ window.splitDriveIds = function(raw){
    Every media row carries an `is_private` flag (0/1 in the DB).
    • "Our Memories"        shows ONLY rows with is_private falsy
    • "Our Private Memory"  shows ONLY rows with is_private truthy
-     (and only after the name+phone → OTP gate was passed)
+     (and only after the one-time-code gate was passed)
    dedupeMedia() keys on drive_id/src only, so the SAME photo may
    exist once publicly and once privately without clashing — the
    combined list is always de-duplicated by (key + privacy) below. */

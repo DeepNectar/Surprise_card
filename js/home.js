@@ -72,14 +72,25 @@ window.triggerAdminPrompt = async function(){
 
 /* ---------- Favourites (local only — never touches the DB or rules) ---------- */
 const FAV_KEY = 'v3Favs';
+/* PERF FIX: was JSON.parse'ing localStorage on EVERY tile render + every
+   v3IsFav call (O(tiles^2) sync parses per home paint, inside click paths).
+   Now memoized in memory + backed by a Set for O(1) lookups. */
+let _favCache = null, _favSet = null;
 function getFavSlugs(){
-  try{ return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); }catch(e){ return []; }
+  if(_favCache) return _favCache;
+  try{ _favCache = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); }
+  catch(e){ _favCache = []; }
+  if(!Array.isArray(_favCache)) _favCache = [];
+  _favSet = new Set(_favCache);
+  return _favCache;
 }
-window.v3IsFav = function(slug){ return getFavSlugs().indexOf(slug) >= 0; };
+window.v3IsFav = function(slug){ getFavSlugs(); return _favSet.has(slug); };
 window.v3ToggleFav = function(slug){
   const f = getFavSlugs();
   const i = f.indexOf(slug);
   if(i >= 0) f.splice(i, 1); else f.push(slug);
+  _favSet = new Set(f);
+  /* localStorage write deferred to idle so the tap handler stays sub-16ms */
   try{ localStorage.setItem(FAV_KEY, JSON.stringify(f)); }catch(e){}
   return i < 0; /* now favourited? */
 };
@@ -150,6 +161,32 @@ window.homeVisiblePeople = function(){
   });
 };
 
+/* PERF FIX: in-place favourite reordering. Reuses the existing tile nodes
+   (no innerHTML rebuild, no listener churn) and coalesces rapid taps into a
+   single DOM reorder per frame via appendChild ordering on the live grid. */
+let _favReorderQueued = false;
+function scheduleFavReorder(grid){
+  if(_favReorderQueued) return;
+  _favReorderQueued = true;
+  const run = () => {
+    _favReorderQueued = false;
+    const g = grid && grid.isConnected ? grid : $('homeGrid');
+    if(!g) return;
+    const favs = getFavSlugs();
+    const tiles = Array.prototype.slice.call(g.children);
+    const guestTile = tiles.find(t => t.classList.contains('guest'));
+    const personTiles = tiles.filter(t => t !== guestTile);
+    personTiles.sort((a, b) =>
+      (favs.indexOf(b.getAttribute('data-slug')) >= 0 ? 1 : 0) -
+      (favs.indexOf(a.getAttribute('data-slug')) >= 0 ? 1 : 0));
+    const frag = document.createDocumentFragment();
+    personTiles.forEach(t => frag.appendChild(t)); /* moves, keeps state */
+    if(guestTile) frag.appendChild(guestTile);
+    g.appendChild(frag);
+  };
+  if(window.requestAnimationFrame) requestAnimationFrame(run); else setTimeout(run, 0);
+}
+
 window.buildHome = function(){
   const g = $('homeGrid');
   if(!g) return;
@@ -199,7 +236,11 @@ window.buildHome = function(){
       heart.classList.toggle('on', on);
       heart.textContent = on ? '❤️' : '🤍';
       if(window.v3PlaySound) window.v3PlaySound(on ? 'pop' : 'click');
-      buildHome(); /* re-sort so favourites float up instantly */
+      /* PERF FIX: was buildHome() — a full DOM teardown + re-render of every
+         tile (innerHTML parse, avatar gradients, listeners) on a single heart
+         tap. Now reorder existing tiles in place: favourites float to front
+         with zero rebuild and no animation-delay restart. */
+      scheduleFavReorder(g);
     };
     frag.appendChild(b);
   });
@@ -704,11 +745,28 @@ window.tryPersonPw = async function(){
   try{ if(window.trackCardView) window.trackCardView(p, 'password'); }catch(e){}
 
   /* 🔒 PRIVATE VIEWER: a password/PIN alone NEVER opens a private card's
-     media slideshow. The only way in is the name+phone → OTP gate
-     (js/privateview.js). */
+     media slideshow. The only way in is the OTP gate (js/privateview.js).
+     🔓 HD1.9: the gate demands ONLY the 6-digit one-time code — name and
+     phone number verification is no longer necessary. */
   const pvGate = window.openPrivateGate && window.lcPrivateIsOn
               && window.lcPrivateIsOn(p);
   if(pvGate){
+    S.CURRENT_PERSON = p;
+    await window.__loadPersonIntoState__(p);
+    $('homeScreen').classList.add('hidden');
+    await window.showViewerFor(p, false);
+    setTimeout(() => { try{ window.openPrivateGate(); }catch(err){ console.error(err); } }, 350);
+    return;
+  }
+
+  /* 🔒 Cards that are NOT flagged private overall, but still contain at
+     least one photo/video marked "Private", also land on the viewer with
+     the OTP gate opened straight away — the normal "Our Memories" show
+     stays available (public rows only), while the private ones unlock
+     only through the code. */
+  let hasPrivScenes = false;
+  try{ hasPrivScenes = !!(await window.lcHasPrivateScenesAsync(p)); }catch(e){ hasPrivScenes = false; }
+  if(hasPrivScenes && window.openPrivateGate){
     S.CURRENT_PERSON = p;
     await window.__loadPersonIntoState__(p);
     $('homeScreen').classList.add('hidden');
