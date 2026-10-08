@@ -602,7 +602,7 @@ function SS_close(){
    ============================================================ */
 /* SS_MODE: 'public'  → "Our Memories"        (is_private falsy rows ONLY)
    SS_MODE: 'private' → "Our Private Memory"  (is_private truthy rows ONLY,
-                                              behind the name+phone → OTP gate)
+                                              behind the one-time-code (OTP) gate)
    The two lists are fully separated: a private photo NEVER leaks into the
    normal slideshow and vice-versa. */
 let SS_MODE = 'public';
@@ -612,7 +612,7 @@ async function SS_openShow(mode){
     if(!S.CURRENT_PERSON){ alert('No person selected.'); return; }
 
     /* 🔒 HARD BLOCK (media level): the PRIVATE slideshow may ONLY be
-       opened after the name+phone → OTP gate was passed
+       opened after the one-time-code (OTP) gate was passed
        (S.PRIVATE_OK is set once per unlock inside privateview.js).
        When the card itself is private, even the normal "Our Memories"
        button must pass through the gate first.

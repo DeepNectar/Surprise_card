@@ -231,49 +231,83 @@ function renderREPins(){
 }
 
 function renderREMedia(){
-  const w = $('reMediaRepeater');
-  if(!w) return;
-  w.innerHTML = '';
-  (RE.media || []).forEach((m, i) => {
+  /* 🔒 HD1.9: Private rows live in their own tab (rePrivMediaRepeater);
+     the 📸 Photos tab shows only the public slideshow rows. Both repeaters
+     edit the SAME RE.media array — rows carry their global index. */
+  const all = RE.media || [];
+  const pub = [], priv = [];
+  all.forEach(m => (window.mediaIsPrivateRow(m) ? priv : pub).push(m));
+
+  const buildRow = (m, i, isPriv) => {
     const row = document.createElement('div');
     row.className = 'repeat-row';
     row.innerHTML =
-      '<button type="button" class="repeat-remove" data-i="' + i + '">✕</button>' +
+      '<button type="button" class="repeat-remove" data-i="' + i + '">\u2715</button>' +
       '<div class="panel-field"><label class="panel-label">Type</label><select class="panel-select" data-rm="type" data-i="' + i + '"><option value="photo"' + (m.type === 'photo' ? ' selected' : '') + '>Photo</option><option value="video"' + (m.type === 'video' ? ' selected' : '') + '>Video</option></select></div>' +
       '<div class="panel-field"><label class="panel-label">Drive ID</label><input type="text" class="panel-input" data-rm="drive_id" data-i="' + i + '" value="' + escAttr(m.drive_id || '') + '"></div>' +
       '<div class="panel-field"><label class="panel-label">Direct URL</label><input type="text" class="panel-input" data-rm="src" data-i="' + i + '" value="' + escAttr(m.src || '') + '"></div>' +
       '<div class="panel-field"><label class="panel-label">Title</label><input type="text" class="panel-input" data-rm="title" data-i="' + i + '" value="' + escAttr(m.title || '') + '"></div>' +
-      /* 🔒 per-row privacy switch — Private rows play ONLY in the
-         "Our Private Memory" slideshow (name+phone → OTP gate). */
-      '<label class="panel-label" style="display:flex;align-items:center;gap:.45rem;font-size:.88rem;margin-top:.3rem;">' +
-        '<input type="checkbox" data-rm-priv="' + i + '"' + (window.mediaIsPrivateRow(m) ? ' checked' : '') +
-        ' style="width:1.05rem;height:1.05rem;">' +
-        '<span>🔒 Private — show only in the OTP-locked slideshow</span>' +
-      '</label>' +
-      (window.mediaIsPrivateRow(m)
-        ? ('<div style="font-size:.78rem;opacity:.8;margin-top:.2rem;">' + reSceneOtpInfo(m) + '</div>')
-        : '');
-    w.appendChild(row);
-  });
-  /* Only the text/select fields carry data-rm — the privacy checkbox is
-     bound separately below (it has no data-i, so it can never corrupt a row). */
-  w.querySelectorAll('[data-rm]').forEach(el => {
-    el.onchange = el.oninput = () => { RE.media[+el.dataset.i][el.dataset.rm] = el.value; };
-  });
-  w.querySelectorAll('.repeat-remove').forEach(b => {
-    b.onclick = () => { RE.media.splice(+b.dataset.i, 1); renderREMedia(); };
-  });
-  /* 🔒 per-scene privacy switch: Private scenes play ONLY in the
-     "Our Private Memory" slideshow (behind name+phone → OTP gate);
-     Public scenes play in the normal "Our Memories" slideshow. */
-  w.querySelectorAll('[data-rm-priv]').forEach(chk => {
-    chk.onchange = () => {
-      const m = RE.media[+chk.dataset.rmPriv];
-      if(!m) return;
-      m.is_private = chk.checked ? 1 : 0;
-      renderREMedia();
-    };
-  });
+      (isPriv
+        ? ('<div style="font-size:.78rem;opacity:.85;margin-top:.2rem;">\ud83d\udd12 Private \u2014 plays only in \u201cOur Private Memory\u201d \u00b7 ' + reSceneOtpInfo(m) + '</div>')
+        : ('<label class="panel-label" style="display:flex;align-items:center;gap:.45rem;font-size:.88rem;margin-top:.3rem;">' +
+            '<input type="checkbox" data-rm-priv="' + i + '"' + (window.mediaIsPrivateRow(m) ? ' checked' : '') +
+            ' style="width:1.05rem;height:1.05rem;">' +
+            '<span>\ud83d\udd12 Private \u2014 show only in the OTP-locked slideshow</span>' +
+          '</label>'));
+    return row;
+  };
+
+  const bind = (w, list, isPriv) => {
+    if(!w) return;
+    w.innerHTML = '';
+    list.forEach(m => {
+      w.appendChild(buildRow(m, all.indexOf(m), isPriv));   /* global index into RE.media */
+    });
+    /* Only the text/select fields carry data-rm — the privacy checkbox is
+       bound separately below (it has no data-i, so it can never corrupt a row). */
+    w.querySelectorAll('[data-rm]').forEach(el => {
+      el.onchange = el.oninput = () => { RE.media[+el.dataset.i][el.dataset.rm] = el.value; };
+    });
+    w.querySelectorAll('.repeat-remove').forEach(b => {
+      b.onclick = () => { RE.media.splice(+b.dataset.i, 1); renderREMedia(); };
+    });
+    /* \ud83d\udd12 per-scene privacy switch: unchecking moves the row back to the
+       \ud83d\udcf8 Photos tab; Private scenes play ONLY behind the OTP gate. */
+    w.querySelectorAll('[data-rm-priv]').forEach(chk => {
+      chk.onchange = () => {
+        const m = RE.media[+chk.dataset.rmPriv];
+        if(!m) return;
+        m.is_private = chk.checked ? 1 : 0;
+        renderREMedia();
+      };
+    });
+  };
+
+  bind($('reMediaRepeater'), pub, false);
+  bind($('rePrivMediaRepeater'), priv, true);   /* \ud83d\udd12 Private Media tab */
+}
+
+/* ---------- 🔒 Private Media tab (re-pane-privmedia) ----------
+   Same upload UI as the 📸 Photos tab, but every row added here is
+   automatically flagged Private — it plays ONLY in the "Our Private
+   Memory" slideshow behind the one-time-code gate. */
+function reAddPrivMediaRow(){
+  RE.media = RE.media || [];
+  RE.media.push({type:'photo', drive_id:'', src:'', title:'', is_private:1});
+  renderREMedia();
+}
+
+function reBulkAddPrivMedia(){
+  const v = $('re_bulkPrivMediaIds').value || '';
+  const ids = v.split(',').map(x => x.trim()).filter(Boolean);
+  if(!ids.length){ __showToast('Paste at least one ID', false); return; }
+  RE.media = RE.media || [];
+  const before = RE.media.length;
+  ids.forEach(id => RE.media.push({type:'photo', drive_id:id, src:'', title:'', is_private:1}));
+  RE.media = dedupeMedia(RE.media);
+  const removed = (before + ids.length) - RE.media.length;
+  renderREMedia();
+  __showToast('🔒 Added as Private' + (removed > 0 ? (' · ' + removed + ' duplicate(s) removed') : ''));
 }
 
 /* ---------- 🔒 OTP codes attached to a private scene ----------
@@ -465,7 +499,7 @@ async function reGenerateOtp(){
         if(!cur.includes(r.code)) cur.push(r.code);
         m.otp_code = cur.slice(-3).join(',');
       });
-      renderREMedia();
+      renderREMedia();   /* refreshes BOTH tabs incl. 🔒 Private Media */
     }
   }catch(e){ console.warn('otp attach', e.message); }
   const box = $('reOtpResult');
@@ -481,7 +515,7 @@ async function reCopyOtp(){
   const p = S.CURRENT_PERSON || {};
   const msg = '🔒 Your private memories code for "' + (p.display_name || '') +
     '" is: ' + LAST_OTP +
-    '\nOpen the card, tap 🔒 Private Memories, confirm your name + phone number, then enter this code. It expires in ~10 minutes and works only once.';
+    '\nOpen the card, tap 🔒 Private Memories, then enter this code. It expires in ~10 minutes and works only once.';
   try{
     if(navigator.clipboard && navigator.clipboard.writeText){
       await navigator.clipboard.writeText(msg);
@@ -832,6 +866,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if(rAddPin) rAddPin.onclick = () => { RE.pins.push({label:'', lat:'', lng:'', photo_drive_id:'', story:''}); renderREPins(); };
   const rAddMedia = $('reAddMediaRow');
   if(rAddMedia) rAddMedia.onclick = () => { RE.media = RE.media || []; RE.media.push({type:'photo', drive_id:'', src:'', title:''}); renderREMedia(); };
+
+  /* 🔒 Private Media tab buttons */
+  const rAddPriv = $('reAddPrivMediaRow');
+  if(rAddPriv) rAddPriv.onclick = () => reAddPrivMediaRow();
+  const rBulkPriv = $('reBulkAddPrivMedia');
+  if(rBulkPriv) rBulkPriv.onclick = () => reBulkAddPrivMedia();
 
   const rBulk = $('reBulkAddMedia');
   if(rBulk) rBulk.onclick = () => {

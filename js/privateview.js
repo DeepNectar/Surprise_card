@@ -242,8 +242,8 @@ window.lcHasPrivateScenesAsync = async function(p){
 /* Open the private verification modal.
    🔓 HD1.9: name + phone identity verification is NO LONGER required —
    the only gate for "Our Private Memory" is the 6-digit OTP minted by
-   the requester. Step 1 (pgStep1 / pgName / pgPhone) stays in the DOM
-   for backwards compatibility but is never shown. */
+   the requester. Step 1 (pgStep1 / pgName / pgPhone) has been removed
+   from the markup entirely. */
 window.openPrivateGate = function(){
   const m = document.getElementById('privateGateModal');
   if(!m) return;
@@ -252,14 +252,10 @@ window.openPrivateGate = function(){
   const sub = document.getElementById('privateGateSub');
   if(sub) sub.innerHTML = 'This gallery is locked with <strong>maximum security</strong>.<br>' +
     'Enter the <strong>6-digit one-time code</strong> the sender generated for you.';
-  const s1 = document.getElementById('pgStep1');
-  if(s1) s1.style.display = 'none';
   const s2 = document.getElementById('pgStep2');
   if(s2) s2.style.display = 'block';
   const s2sub = document.getElementById('pgStep2Sub');
   if(s2sub) s2sub.textContent = 'Ask the sender to generate a fresh one-time code from their edit panel and enter it below (valid ~10 minutes, usable once).';
-  const gN = document.getElementById('pgName'); if(gN) gN.value = '';
-  const gP = document.getElementById('pgPhone'); if(gP) gP.value = '';
   const gO = document.getElementById('pgOtp'); if(gO) gO.value = '';
   const err = document.getElementById('pgError');
   err.classList.remove('show'); err.textContent = '';
@@ -272,26 +268,14 @@ async function pgFail(msg){
   if(err){ err.textContent = msg; err.classList.add('show'); }
 }
 
-/* Step 1 — identity check → reveals that a fresh OTP is required */
-window.pgCheckIdentity = async function(){
-  const p = S.CURRENT_PERSON;
-  if(!p) return;
-  const th = window.lcThrottleCheck ? window.lcThrottleCheck(window.lcOtpThrottleId(p)) : {blocked:false};
-  if(th.blocked){ pgFail('🕒 Too many attempts — try again in ' + Math.ceil(th.secs / 60) + ' min.'); return; }
-  const name = (document.getElementById('pgName').value || '');
-  const phone = (document.getElementById('pgPhone').value || '');
-  const v = window.lcVerifyPrivateIdentity(p, name, phone);
-  if(!v.ok){
-    if(window.lcThrottleFail) window.lcThrottleFail(window.lcOtpThrottleId(p));
-    pgFail(v.reason);
-    return;
-  }
-  document.getElementById('pgError').classList.remove('show');
-  document.getElementById('pgStep1').style.display = 'none';
-  document.getElementById('pgStep2').style.display = 'block';
-  const s2 = document.getElementById('pgStep2Sub');
-  if(s2) s2.textContent = 'Identity confirmed ✅ — ask the sender to generate a fresh one-time code from their edit panel and enter it below (valid ~10 minutes, usable once).';
-  setTimeout(() => { const o = document.getElementById('pgOtp'); if(o) o.focus(); }, 120);
+/* 🔓 HD1.9: Step 1 (name + phone identity check) has been removed —
+   the gate is OTP-only. This stub stays so any legacy callers / inline
+   handlers never throw; it simply jumps straight to the code step. */
+window.pgCheckIdentity = function(){
+  const s2 = document.getElementById('pgStep2');
+  if(s2) s2.style.display = 'block';
+  const o = document.getElementById('pgOtp');
+  if(o) setTimeout(() => o.focus(), 120);
 };
 
 /* Step 2 — OTP check → burns the code and launches the slideshow */
@@ -320,7 +304,7 @@ window.pgCheckOtp = async function(){
 /* Launch the standard photo & video slideshow programmatically.
    Calls SS_openShow() directly (js/slideshow.js) — the same code path
    as the 📸 "Our Memories" button, so the private show looks and
-   behaves identical, just gated by name+phone → OTP first. */
+   behaves identical, just gated by the one-time code first. */
 window.pv_launchSlideshow = async function(){
   if(window.SS_openShow){ await window.SS_openShow('private'); return; }
   const btn = document.getElementById('privateSlideshowBtn') || document.getElementById('openBtn');
@@ -381,7 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         /* 🔒 HD1.8 ONE-TIME UNLOCK: when the private show closes (or any
            show closes on a private card), revoke the grant so the same OTP
            unlock can never be reused later — the next open demands a fresh
-           name+phone → OTP pass. Codes are already single-use in
+           fresh one-time-code pass. Codes are already single-use in
            people.otp_list; this is the session-side half of that rule. */
         if(window.lcCardIsPrivate() && S.PRIVATE_OK){
           S.PRIVATE_OK = false;
@@ -391,8 +375,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }).observe(ov, { attributes: true, attributeFilter: ['class'] });
   }
 
-  const c1 = document.getElementById('pgVerifyBtn');
-  if(c1) c1.onclick = (e) => { e.preventDefault(); window.pgCheckIdentity(); };
   const c2 = document.getElementById('pgOtpBtn');
   if(c2) c2.onclick = (e) => { e.preventDefault(); window.pgCheckOtp(); };
   const cc = document.getElementById('pgCancel');
@@ -400,10 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     window.hide(document.getElementById('privateGateModal'));
   };
-  const nm = document.getElementById('pgName');
-  if(nm) nm.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); window.pgCheckIdentity(); } });
-  const ph = document.getElementById('pgPhone');
-  if(ph) ph.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); window.pgCheckIdentity(); } });
   const ot = document.getElementById('pgOtp');
   if(ot) ot.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); window.pgCheckOtp(); } });
 });
