@@ -244,7 +244,7 @@ function renderREMedia(){
       '<div class="panel-field"><label class="panel-label">Direct URL</label><input type="text" class="panel-input" data-rm="src" data-i="' + i + '" value="' + escAttr(m.src || '') + '"></div>' +
       '<div class="panel-field"><label class="panel-label">Title</label><input type="text" class="panel-input" data-rm="title" data-i="' + i + '" value="' + escAttr(m.title || '') + '"></div>' +
       /* 🔒 per-row privacy switch — Private rows play ONLY in the
-         "Our Private Memory" slideshow (OTP-only gate). */
+         "Our Private Memory" slideshow (name+phone → OTP gate). */
       '<label class="panel-label" style="display:flex;align-items:center;gap:.45rem;font-size:.88rem;margin-top:.3rem;">' +
         '<input type="checkbox" data-rm-priv="' + i + '"' + (window.mediaIsPrivateRow(m) ? ' checked' : '') +
         ' style="width:1.05rem;height:1.05rem;">' +
@@ -264,39 +264,14 @@ function renderREMedia(){
     b.onclick = () => { RE.media.splice(+b.dataset.i, 1); renderREMedia(); };
   });
   /* 🔒 per-scene privacy switch: Private scenes play ONLY in the
-     "Our Private Memory" slideshow (behind the OTP-only gate);
-     Public scenes play in the normal "Our Memories" slideshow.
-
-     ⚡ SAVE-ONCE DESIGN: ticking this box does NOT re-render the whole
-     media list any more (that used to rebuild every row on each click —
-     the main reason the Photos tab felt slow). The tick is remembered
-     instantly, the little status line updates in place, and everything
-     persists to the cloud ONCE when 💾 Save My Card is pressed. */
+     "Our Private Memory" slideshow (behind name+phone → OTP gate);
+     Public scenes play in the normal "Our Memories" slideshow. */
   w.querySelectorAll('[data-rm-priv]').forEach(chk => {
     chk.onchange = () => {
-      const i = +chk.dataset.rmPriv;
-      const m = RE.media[i];
+      const m = RE.media[+chk.dataset.rmPriv];
       if(!m) return;
       m.is_private = chk.checked ? 1 : 0;
-      /* update only this row's OTP hint — no full re-render */
-      const row = chk.closest('.repeat-row');
-      if(row){
-        let info = row.querySelector('[data-rm-priv-info]');
-        if(chk.checked){
-          if(!info){
-            info = document.createElement('div');
-            info.setAttribute('data-rm-priv-info', '');
-            info.style.cssText = 'font-size:.78rem;opacity:.8;margin-top:.2rem;';
-            row.appendChild(info);
-          }
-          info.innerHTML = reSceneOtpInfo(m);
-        } else if(info){
-          info.remove();
-        }
-      }
-      /* a fresh tick means the private set changed — the viewer button
-         should appear as soon as the card is saved */
-      syncPrivateTabState();
+      renderREMedia();
     };
   });
 }
@@ -428,39 +403,19 @@ let LAST_OTP = '';
 function renderREPrivate(){
   const p = S.CURRENT_PERSON;
   if(!p) return;
-  syncPrivateTabState();
+  const tog = $('rePrivateModeToggle');
+  RE_PRIVATE_ON = !!(window.lcPrivateIsOn && window.lcPrivateIsOn(p));
+  if(tog){ tog.checked = RE_PRIVATE_ON; }
   const idEl = $('rePrivateIdentity');
   if(idEl){
-    /* ⚡ OTP-ONLY ACCESS: identity fields are NOT required any more —
-       the viewer unlocks with the one-time code alone. */
-    idEl.innerHTML = '✅ No name or phone number is needed from the viewer — ' +
-      'the <strong>6-digit code alone</strong> opens the private slideshow.';
+    const nm = p.requester_name || '(not set)';
+    const ph = p.requester_whatsapp || p.requester_phone || '(not set)';
+    idEl.innerHTML = 'The viewer must enter <strong>' + esc(nm) + '</strong> and <strong>' + esc(ph) +
+      '</strong> to pass step 1.<br><span style="opacity:.75;">(These come from your card submission — ask the admin to update them if wrong.)</span>';
   }
   $('reOtpResult').style.display = 'none';
   LAST_OTP = '';
   refreshOtpCount();
-}
-
-/* ---------- 🔒 Private tab state (OTP gate enablement) ----------
-   The switch starts from the saved card flag, but ALSO auto-ticks as
-   soon as at least one photo/video row is marked "🔒 Private" in the
-   📸 Photos tab — so the flow the requester asked for works:
-     tick rows → switch ticks → Generate OTP becomes allowed.
-   Nothing is written to the cloud here: everything persists ONCE,
-   when 💾 Save My Card is pressed (or right before a code is minted).
-   Cheap by design — no DOM rebuilds, no re-renders, no network. */
-function syncPrivateTabState(){
-  const tog = $('rePrivateModeToggle');
-  const hasPrivScene = (RE.media || []).some(m => window.mediaIsPrivateRow(m));
-  if(hasPrivScene) RE_PRIVATE_ON = true;   /* ticking a scene arms private mode */
-  else if(tog) RE_PRIVATE_ON = !!tog.checked;
-  if(tog) tog.checked = RE_PRIVATE_ON;
-  const gen = $('reGenOtpBtn');
-  if(gen){
-    gen.disabled = !RE_PRIVATE_ON;
-    gen.style.opacity = RE_PRIVATE_ON ? '' : '.5';
-    gen.title = RE_PRIVATE_ON ? '' : 'Tick 🔒 Private on a photo/video (or the switch above) first';
-  }
 }
 
 async function refreshOtpCount(){
@@ -480,27 +435,11 @@ async function reGenerateOtp(){
   const p = S.CURRENT_PERSON;
   if(!p || !p.id){ __showToast('❌ No person', false); return; }
   if(!RE_PRIVATE_ON){
-    __showToast('⚠️ Tick 🔒 Private on at least one photo/video (or the switch above), press 💾 Save My Card, then generate.', false);
+    __showToast('⚠️ Turn ON the private switch first, then save your card.', false);
     return;
   }
   /* Save the private flag to the cloud before minting a code */
   await window.lcSetPrivateMode(p, true);
-  /* ⚡ SAVE-ONCE: also push the fresh is_private flags of the selected
-     scenes right now, so the very first OTP generation already locks
-     onto the ticked photos — no extra saving needed afterwards. */
-  try{
-    const rows = (window.sb && window.sb.rows) ? (await window.sb.rows(T_MEDIA, p.id) || []) : [];
-    const byKey = {};
-    rows.forEach(r => { byKey[String(r.drive_id || r.src || r.id)] = r; });
-    await Promise.all((RE.media || []).map(m => {
-      const key = String(m.drive_id || m.src || '');
-      const r = byKey[key];
-      if(!r) return null;
-      const want = window.mediaIsPrivateRow(m) ? 1 : 0;
-      if(Number(r.is_private || 0) === want) return null;   /* unchanged — skip */
-      return window.sb.upd(T_MEDIA, r.id, { is_private: want }).catch(() => {});
-    }));
-  }catch(e){ console.warn('private scene sync', e.message); }
   const r = await window.lcGenerateOtp(p);
   if(!r.ok){ __showToast(r.reason || '❌ Could not generate code', false); return; }
   LAST_OTP = r.code;
@@ -532,7 +471,7 @@ async function reCopyOtp(){
   const p = S.CURRENT_PERSON || {};
   const msg = '🔒 Your private memories code for "' + (p.display_name || '') +
     '" is: ' + LAST_OTP +
-    '\nOpen the card, tap 🔒 Our Private Memory, and enter this code — no name or phone needed. It expires in ~10 minutes and works only once.';
+    '\nOpen the card, tap 🔒 Private Memories, confirm your name + phone number, then enter this code. It expires in ~10 minutes and works only once.';
   try{
     if(navigator.clipboard && navigator.clipboard.writeText){
       await navigator.clipboard.writeText(msg);
@@ -991,10 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ---------- 🔒 Private tab bindings (OTP generator lives HERE only) ---------- */
   const pvTog = $('rePrivateModeToggle');
-  if(pvTog) pvTog.onchange = () => {
-    RE_PRIVATE_ON = !!pvTog.checked;
-    syncPrivateTabState();   /* keeps the Generate-OTP button in sync */
-  };
+  if(pvTog) pvTog.onchange = () => { RE_PRIVATE_ON = !!pvTog.checked; };
   const genOtp = $('reGenOtpBtn');
   if(genOtp) genOtp.onclick = (e) => { e.preventDefault(); reGenerateOtp(); };
   const revOtp = $('reRevokeOtpsBtn');
