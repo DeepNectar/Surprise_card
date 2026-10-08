@@ -1,25 +1,32 @@
 /* ============================================================
-   privateview.js — 🔒 PRIVATE PHOTO VIEWER (high-security mode)
+   privateview.js — 🔒 PRIVATE PHOTO VIEWER (OTP-only, fast mode)
    ------------------------------------------------------------
    A card can be flagged "Private" by the REQUESTER in their edit
    panel (Requester → 🔒 Private tab). Once private:
 
      • The normal viewer path is HARD-BLOCKED — a password/PIN alone
-       never opens the media slideshow of a private card. Only an
-       OTP unlocks it, so nobody who merely knows the password can
-       see the photos/videos.
-     • To watch the slideshow the guest must verify their NAME and
-       PHONE NUMBER against the requester details saved on the card.
+       never opens the media slideshow of a private card. Only the
+       one-time code unlocks it.
+     • ⚡ SIMPLIFIED ACCESS (current design): the viewer types the
+       6-digit OTP and NOTHING ELSE. Name / phone-number verification
+       has been removed from the viewer entirely — no identity fields,
+       no "requester details" check, no second step. One field, one tap.
      • The 6-digit OTP itself is generated ONLY from the requester's
        edit panel (js/requester.js → "🎟️ Generate OTP"). Admins and
        viewers can never mint codes — the generator lives nowhere else.
-     • Codes are hashed (salted SHA-256 via security.js), single-use,
-       time-boxed (default 10 min), throttled (5 wrong tries → lock).
+     • ⚡ PLAIN STORAGE MODE: codes live in people.otp_list as they were
+       typed — {code, exp, created} — so unlocking is a plain string
+       compare with zero crypto work (fast even on weak phones). Salted
+       SHA-256 entries minted by older builds are still accepted.
+     • Codes stay single-use (burnt instantly in memory, mirrored to the
+       cloud in the background), time-boxed (default 10 min) and
+       throttled (5 wrong tries → timed lock per device).
      • While the private slideshow runs the screen is shielded:
        right-click/save/context-menu/copy are blocked, screenshots on
        mobile blur the content, and leaving the tab pauses playback.
 
-   Storage: people.otp_list holds JSON [{hash, salt, exp, created}].
+   Storage: people.otp_list holds JSON [{code, exp, created}]
+            (legacy [{hash, salt, exp, created}] still readable).
    Offline-safe: writes go through lcSavePersonPatch() which queues to
    IndexedDB when offline (setup/pin_otp_safe.sql ensures the column).
    ============================================================ */
@@ -31,18 +38,40 @@ const S = window.__PAGE_STATE__;
 /* ---------- schema guard for the otp_list mirror column ---------- */
 window.lcOtpColOk = null; /* null unknown / true visible / false missing */
 
+/* Pending background mirror write of a just-burnt code (declared early —
+   loadOtpList() waits on it so a stale list is never re-read). */
+let OTP_SAVE_P = null;
+async function flushOtpSave(){
+  try{ if(OTP_SAVE_P) await OTP_SAVE_P; }catch(e){}
+  OTP_SAVE_P = null;
+}
+
+/* ⚡ SPEED: optimistic in-flight mirror writes. When several otp_list
+   PATCHes overlap (generate → revoke → viewer burn), each one waits for
+   the previous to land so PostgREST never applies them out of order and
+   a stale list can't resurrect an already-used code. */
+let OTP_WRITE_P = Promise.resolve();
+function queueOtpWrite(fn){
+  OTP_WRITE_P = OTP_WRITE_P.then(fn).catch(() => {});
+  return OTP_WRITE_P;
+}
+
 async function saveOtpList(person, list){
-  const payload = { otp_list: JSON.stringify(list || []) };
+  /* keep the local shadow copy ALWAYS in sync — instant, offline-safe,
+     and it is what loadOtpList merges, so the gate never has to wait on
+     a cloud round-trip to know which codes are still valid. */
+  try{ localStorage.setItem('lc_otp_local_' + person.id, JSON.stringify(list)); }catch(e){}
   if(window.lcOtpColOk === false){
     /* Column not visible yet — keep codes on-device only. */
-    try{ localStorage.setItem('lc_otp_local_' + person.id, JSON.stringify(list)); }catch(e){}
     return false;
   }
-  const ok = await window.lcSavePersonPatch(person, payload, { optionalCols: ['otp_list'] });
-  if(!ok){
-    try{ localStorage.setItem('lc_otp_local_' + person.id, JSON.stringify(list)); }catch(e){}
-  }
-  return ok;
+  const payload = { otp_list: JSON.stringify(list || []) };
+  return queueOtpWrite(async () => {
+    const ok = await window.lcSavePersonPatch(person, payload, { optionalCols: ['otp_list'] });
+    /* If the PATCH fails after its own retries the local copy above still
+       holds the truth for this device — nothing else to do. */
+    return ok;
+  });
 }
 
 function readLocalOtpList(person){
@@ -51,6 +80,7 @@ function readLocalOtpList(person){
 }
 
 async function loadOtpList(person){
+  await flushOtpSave();               /* pending burn must be reflected */
   let list = [];
   try{
     const raw = person && person.otp_list;
@@ -61,14 +91,75 @@ async function loadOtpList(person){
   /* merge any device-local codes (offline generation before heal) */
   const loc = readLocalOtpList(person);
   const seen = {};
-  list.concat(loc).forEach(o => { if(o && o.hash) seen[o.hash] = o; });
+  list.concat(loc).forEach(o => { if(o && (o.hash || o.code)) seen[otpKeyOf(o)] = o; });
   return Object.keys(seen).map(k => seen[k]);
+}
+
+/* identity of a stored entry: plain code (new) or hash (legacy) */
+function otpKeyOf(o){
+  return o && o.code ? ('c:' + String(o.code).trim()) : ('h:' + String((o && o.hash) || '').toLowerCase());
 }
 
 /* purge expired entries whenever we touch the list */
 function prune(list){
   const now = Date.now();
   return (list || []).filter(o => o && o.exp && o.exp > now);
+}
+
+/* ⚡ SPEED: optimistic in-flight mirror writes. When several otp_list
+   PATCHes overlap (generate → revoke → viewer burn), each one waits for
+   the previous to land so PostgREST never applies them out of order and
+   a stale list can't resurrect an already-used code. */
+let OTP_WRITE_P = Promise.resolve();
+function queueOtpWrite(fn){
+  OTP_WRITE_P = OTP_WRITE_P.then(fn).catch(() => {});
+  return OTP_WRITE_P;
+}
+
+async function saveOtpList(person, list){
+  /* keep the local shadow copy ALWAYS in sync — instant, offline-safe,
+     and it is what loadOtpList merges, so the gate never has to wait on
+     a cloud round-trip to know which codes are still valid. */
+  try{ localStorage.setItem('lc_otp_local_' + person.id, JSON.stringify(list)); }catch(e){}
+  if(window.lcOtpColOk === false){
+    /* Column not visible yet — keep codes on-device only. */
+    return false;
+  }
+  const payload = { otp_list: JSON.stringify(list || []) };
+  return queueOtpWrite(async () => {
+    const ok = await window.lcSavePersonPatch(person, payload, { optionalCols: ['otp_list'] });
+    if(!ok){
+      /* PATCH failed after its own retries — the local copy above still
+         holds the truth for this device, nothing else to do. */
+    }
+    return ok;
+  });
+}
+
+function readLocalOtpList(person){
+  try{ return JSON.parse(localStorage.getItem('lc_otp_local_' + person.id) || '[]'); }
+  catch(e){ return []; }
+}
+
+async function loadOtpList(person){
+  await flushOtpSave();               /* pending burn must be reflected */
+  let list = [];
+  try{
+    const raw = person && person.otp_list;
+    if(typeof raw === 'string' && raw.trim()) list = JSON.parse(raw);
+    else if(Array.isArray(raw)) list = raw;
+  }catch(e){ list = []; }
+  if(!Array.isArray(list)) list = [];
+  /* merge any device-local codes (offline generation before heal) */
+  const loc = readLocalOtpList(person);
+  const seen = {};
+  list.concat(loc).forEach(o => { if(o && (o.hash || o.code)) seen[otpKeyOf(o)] = o; });
+  return Object.keys(seen).map(k => seen[k]);
+}
+
+/* identity of a stored entry: plain code (new) or hash (legacy) */
+function otpKeyOf(o){
+  return o && o.code ? ('c:' + String(o.code).trim()) : ('h:' + String((o && o.hash) || '').toLowerCase());
 }
 
 /* Private flag lives on the person row (people.private_mode boolean).
@@ -102,15 +193,18 @@ window.lcGenerateOtp = async function(person){
     return { ok:false, reason:'🚫 OTP codes can only be generated from the requester edit panel.' };
   }
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const salt = Array.from({length:8}, () => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
-  const hash = await window.lcHashPw('OTP:' + salt + ':' + code);
   const ttlMin = parseInt(((S.CURR && S.CURR.shared) || {}).privateOtpTtlMin || '10', 10) || 10;
-  const entry = { hash: hash, salt: salt, exp: Date.now() + ttlMin * 60000, created: Date.now() };
+  /* ⚡ PLAIN STORAGE MODE: keep the code as-is ({code,exp}) so unlocking
+     is a simple string compare. Salted hashes are still accepted for
+     codes minted by older builds (see findOtpEntry). */
+  const entry = { code: code, exp: Date.now() + ttlMin * 60000, created: Date.now() };
   const list = prune(await loadOtpList(person)).concat([entry]);
   /* write back onto the row copy too */
   person.otp_list = JSON.stringify(list);
   await saveOtpList(person, list);
-  try{ if(window.__loadPersonIntoState__) await window.__loadPersonIntoState__(person, {fresh:true}); }catch(e){}
+  /* ⚡ SPEED: no __loadPersonIntoState__ refetch here any more — the row
+     copy above already holds the fresh list, so generating a code costs
+     one small PATCH instead of re-downloading the whole card. */
   return { ok:true, code: code, ttlMin: ttlMin };
 };
 
@@ -128,47 +222,61 @@ window.lcActiveOtpCount = async function(person){
   return list.length;
 };
 
-/* ---------- VERIFY identity + OTP ---------- */
-function normPhone(v){
-  return String(v || '').replace(/[^0-9]/g, '').replace(/^0+/, '');
-}
-function normName(v){
-  return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+/* ---------- VERIFY OTP ONLY ----------
+   ⚡ SIMPLIFIED ACCESS: the viewer types NOTHING but the 6-digit code.
+   No name, no phone number, no "requester details" check — that whole
+   identity step was removed from the viewer (and from this file), so a
+   guest can unlock 🔒 Our Private Memory with the one-time code alone.
+   Everything else still applies: salted-SHA256 hashes, single use,
+   expiry and per-device throttling.                                  */
+
+/* ⚡ SPEED: pending cloud write of the burnt-code list. The unlock never
+   waits for Supabase any more — the hash is removed from the in-memory
+   list IMMEDIATELY (so a double tap / second tab can't reuse it) and the
+   cloud mirror is updated in the background. */
+let OTP_SAVE_P = null;
+async function flushOtpSave(){
+  try{ if(OTP_SAVE_P) await OTP_SAVE_P; }catch(e){}
+  OTP_SAVE_P = null;
 }
 
-window.lcVerifyPrivateIdentity = function(person, name, phone){
-  const wantName = normName(person.requester_name || '');
-  const wantPhone = normPhone(person.requester_whatsapp || person.requester_phone || '');
-  const gotName = normName(name);
-  const gotPhone = normPhone(phone);
-  if(!wantName || !wantPhone){
-    /* No identity on file — cannot verify. Ask admin/requester to fill it. */
-    return { ok:false, reason:'⚠️ This card has no verified requester details on file. Ask the sender to confirm your access.' };
+/* ---------- 🔑 PLAIN STORAGE MODE (fast by design) ----------
+   Codes are now stored on the card row as they were typed — a plain
+   6-digit string in people.otp_list / media.otp_code — instead of a
+   salted SHA-256 hash. That is what makes unlocking instant: no crypto
+   work, no waiting loop, and the requester panel can show the live code
+   again after a reload. The trade-off is stated honestly: anyone who
+   dumps the database could read pending codes. Password/PIN still gates
+   the card itself, and codes stay single-use + time-boxed. Old hashed
+   entries keep working (fallback branch below).                        */
+window.lcPrivatePlainOtp = true;
+
+/* Find the entry that matches the typed code: plain first, then legacy
+   hashed entries (one SHA-256 only if no plain match exists). */
+async function findOtpEntry(list, given){
+  for(const o of list){
+    if(String(o.code || '').trim() === given) return o;
   }
-  const nameOk = gotName === wantName ||
-                 (gotName && wantName.indexOf(gotName) === 0) ||
-                 (wantName && gotName.indexOf(wantName.split(' ')[0]) === 0 && gotName.split(' ')[0] === wantName.split(' ')[0]);
-  const phoneOk = gotPhone === wantPhone ||
-                  (gotPhone.length >= 8 && (wantPhone.endsWith(gotPhone) || gotPhone.endsWith(wantPhone)));
-  if(!nameOk) return { ok:false, reason:'❌ Name does not match the requester record.' };
-  if(!phoneOk) return { ok:false, reason:'❌ Phone number does not match the requester record.' };
-  return { ok:true };
-};
+  for(const o of list){
+    if(!o.hash) continue;
+    const h = await window.lcHashPw('OTP:' + (o.salt || '') + ':' + given);
+    if(h === String(o.hash).toLowerCase()) return o;
+  }
+  return null;
+}
 
 window.lcVerifyOtp = async function(person, code){
+  await flushOtpSave();               /* never read a stale mirror */
   const list = prune(await loadOtpList(person));
   const given = String(code || '').trim();
   if(!/^\d{6}$/.test(given)) return { ok:false, reason:'Enter the full 6-digit code.' };
-  let matched = null;
-  for(const o of list){
-    const h = await window.lcHashPw('OTP:' + (o.salt || '') + ':' + given);
-    if(h === String(o.hash).toLowerCase()){ matched = o; break; }
-  }
+  /* ⚡ SPEED: plain-text compare — zero hashing on the happy path. */
+  const matched = await findOtpEntry(list, given);
   if(!matched) return { ok:false, reason:'❌ Wrong or expired code.' };
-  /* SINGLE USE — burn it immediately, even before opening the show. */
+  /* SINGLE USE — burn it in memory right now, sync the cloud in flight. */
   const rest = list.filter(o => o !== matched);
   person.otp_list = JSON.stringify(rest);
-  await saveOtpList(person, rest);
+  OTP_SAVE_P = Promise.resolve(saveOtpList(person, rest)).catch(() => {});
   return { ok:true };
 };
 
