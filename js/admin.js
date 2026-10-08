@@ -836,7 +836,7 @@ function renderPeopleRepeater(){
   if(info) info.textContent = ADM.people.length + ' people total';
 
   /* 🔒 Private-mode awareness: one glance shows which cards are locked
-     behind the name+phone → OTP gate. Admins can SEE the badge but have
+     behind the one-time-code (OTP) gate. Admins can SEE the badge but have
      NO toggle and NO OTP generator — codes exist only in the requester
      edit panel (js/requester.js). */
   const privCount = ADM.people.filter(p => window.lcPrivateIsOn && window.lcPrivateIsOn(p)).length;
@@ -844,7 +844,7 @@ function renderPeopleRepeater(){
     const banner = document.createElement('div');
     banner.className = 'pv-admin-banner';
     banner.style.cssText = 'padding:.5rem .7rem;margin-bottom:.6rem;border:2px solid #c41e3a;border-radius:.7rem;background:#fff0f3;font-size:.85rem;';
-    banner.innerHTML = '🔒 <strong>' + privCount + '</strong> card(s) are in PRIVATE mode — their photo &amp; video slideshow is hard-blocked behind the name + phone → OTP gate. ' +
+    banner.innerHTML = '🔒 <strong>' + privCount + '</strong> card(s) are in PRIVATE mode — their photo &amp; video slideshow is hard-blocked behind the one-time-code (OTP) gate. ' +
       'Admins cannot generate or bypass OTP codes; only the requester edit panel can.';
     w.appendChild(banner);
   }

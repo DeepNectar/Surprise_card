@@ -139,7 +139,7 @@
             <div class="hi-body">
               <div class="hi-h">Private photo slideshow 🎟️ (high security)</div>
               <div class="hi-p"><strong>How to make one:</strong> open your card with the <strong>EDIT password</strong> → tab <strong>🔒 Private</strong> → switch <strong>ON “Make this card’s photos private”</strong> → upload/keep your photos &amp; videos in the <strong>📸 Photos</strong> tab (same as always) → tap <strong>🎟️ Generate OTP</strong> and send the 6-digit code to your viewer. Codes are ONLY generated here — never by admins or viewers.<br>
-              <strong>How to watch one:</strong> open the card with its normal password/PIN, then tap the 🔒 <strong>Private Memories</strong> button (shown next to “Our Memories” on private cards). Confirm your <strong>name + phone number</strong> exactly as the sender saved them, enter the fresh <strong>OTP</strong> (valid ~10 minutes, single use) — and the photo &amp; video slideshow opens under an anti-screenshot shield.</div>
+              <strong>How to watch one:</strong> open the card with its normal password/PIN, then tap the 🔒 <strong>Private Memories</strong> button (shown next to “Our Memories” on private cards). Enter the fresh <strong>one-time code (OTP)</strong> the sender generated for you (valid ~10 minutes, single use) — and the photo &amp; video slideshow opens under an anti-screenshot shield.</div>
             </div>
           </div>
         </div>
@@ -317,7 +317,7 @@
       <button type="button" class="open-btn" id="openBtn"><span>📸</span><span id="openMemoriesBtnTextEl">Open Memories</span></button>
 
       <!-- 🔒 PRIVATE MEMORIES — same button as "Our Memories", but for
-           private cards it routes through the name+phone → OTP gate.
+           private cards it routes through the one-time-code (OTP) gate.
            Shown only when the card is flagged Private (js/privateview.js). -->
       <button type="button" class="open-btn private-open-btn" id="privateSlideshowBtn" style="display:none;"><span>🔒</span><span id="privateSlideshowBtnTextEl">Our Private Memory</span></button>
 
@@ -606,6 +606,7 @@
       <button type="button" class="panel-tab" data-re-pane="re-pane-video">🎬 Video</button>
       <button type="button" class="panel-tab" data-re-pane="re-pane-pins">🗺️ Pins</button>
       <button type="button" class="panel-tab" data-re-pane="re-pane-media">📸 Photos</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-privmedia">🔒 Private Media</button>
       <button type="button" class="panel-tab" data-re-pane="re-pane-private">🔒 Private</button>
     </div>
     <div class="panel-pane active" id="re-pane-text">
@@ -667,11 +668,31 @@
     <div class="panel-pane" id="re-pane-pins"><div class="panel-section"><div class="panel-section-title">🗺️ Map Pins</div><div id="rePinsRepeater"></div><button type="button" class="repeat-add" id="reAddPinRow">➕ Add Pin</button></div></div>
     <div class="panel-pane" id="re-pane-media">
       <div class="panel-section">
-        <div class="panel-section-title">📸 Slideshow Photos &amp; Videos</div>
+        <div class="panel-section-title">📸 Slideshow Photos &amp; Videos (Public)</div>
         <div id="reMediaRepeater"></div>
         <button type="button" class="repeat-add" id="reAddMediaRow">➕ Add Photo/Video Row</button>
         <div class="panel-field" style="margin-top:.4rem;"><label class="panel-label">Bulk paste Drive IDs (comma separated)</label><textarea class="panel-textarea" id="re_bulkMediaIds" placeholder="id1, id2, id3"></textarea></div>
         <button type="button" class="repeat-add" id="reBulkAddMedia" style="background:#2a5fd1;">📥 Add all IDs above</button>
+        <div style="font-size:.82rem;line-height:1.5;opacity:.85;margin-top:.6rem;padding:.55rem .7rem;background:#eef4ff;border:1px dashed rgba(42,95,209,.35);border-radius:.6rem;">
+          Everything here plays in the normal <strong>“Our Memories”</strong> slideshow for anyone who can open the card.
+          To upload photos &amp; videos that stay behind the one-time-code lock, use the 🔒 <strong>Private Media</strong> tab.
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔒 PRIVATE MEDIA pane — same upload UI as the 📸 Photos tab, but every
+         row added here is automatically flagged Private and plays ONLY in the
+         "Our Private Memory" slideshow behind the OTP gate (js/requester.js). -->
+    <div class="panel-pane" id="re-pane-privmedia">
+      <div class="panel-section">
+        <div class="panel-section-title">🔒 Private Photos &amp; Videos (OTP-locked)</div>
+        <div id="rePrivMediaRepeater"></div>
+        <button type="button" class="repeat-add" id="reAddPrivMediaRow" style="background:linear-gradient(135deg,#c41e3a,#8f0f26);">➕ Add Private Photo/Video Row</button>
+        <div class="panel-field" style="margin-top:.4rem;"><label class="panel-label">Bulk paste Drive IDs (comma separated)</label><textarea class="panel-textarea" id="re_bulkPrivMediaIds" placeholder="id1, id2, id3"></textarea></div>
+        <button type="button" class="repeat-add" id="reBulkAddPrivMedia" style="background:linear-gradient(135deg,#c41e3a,#8f0f26);">📥 Add all IDs above (as Private)</button>
+        <div style="font-size:.82rem;line-height:1.5;opacity:.85;margin-top:.6rem;padding:.55rem .7rem;background:#fff5f7;border:1px dashed rgba(196,30,58,.35);border-radius:.6rem;">
+          These play <strong>only</strong> in the 🔒 “Our Private Memory” slideshow after the viewer enters a valid one-time code. Generate codes in the 🔒 Private tab.
+        </div>
       </div>
     </div>
 
@@ -682,14 +703,14 @@
         <div class="panel-section-title">🔒 Private Photo Slideshow (high security)</div>
         <label style="display:flex;align-items:center;gap:.5rem;font-size:.92rem;padding:.4rem 0;">
           <input type="checkbox" id="rePrivateModeToggle" style="width:1.15rem;height:1.15rem;">
-          <span>Make this card&rsquo;s photo &amp; video slideshow <strong>private</strong> — nobody can open it without verifying name + phone and entering a one-time code.</span>
+          <span>Make this card&rsquo;s photo &amp; video slideshow <strong>private</strong> — nobody can open it without entering a one-time code.</span>
         </label>
         <div class="pv-help" style="font-size:.85rem;line-height:1.5;background:#fff5f7;border:1px dashed rgba(196,30,58,.35);border-radius:.6rem;padding:.6rem .7rem;margin:.5rem 0;">
           <strong>How it works:</strong><br>
           1️⃣ Upload your photos &amp; videos in the 📸 Photos tab (unchanged — they become the slideshow).<br>
           2️⃣ Turn the switch ON above and press 💾 Save My Card.<br>
           3️⃣ Press 🎟️ Generate OTP below and send the 6-digit code to your viewer (valid ~10 minutes, usable once).<br>
-          4️⃣ Viewer opens the card with its normal password/PIN → taps 🔒 Private Memories → confirms their <em>name + phone number</em> (exactly as you saved them) → enters the OTP → slideshow plays under an anti-screenshot shield.<br>
+          4️⃣ Viewer opens the card with its normal password/PIN → taps 🔒 Private Memories → enters the OTP → slideshow plays under an anti-screenshot shield.<br>
           ⚠️ Codes can ONLY be minted from this panel — admins and viewers have no generator anywhere.
         </div>
         <div class="panel-field"><label class="panel-label">Requester identity used for verification</label>
@@ -1117,7 +1138,7 @@
           1️⃣ The <strong>requester</strong> opens their card with the <strong>EDIT password</strong> → tab <strong>🔒 Private</strong> → switches ON “Make this card's photos private”.<br>
           2️⃣ Photos &amp; videos are uploaded in the requester's <strong>📸 Photos</strong> tab exactly as before — they become the slideshow scenes.<br>
           3️⃣ The OTP is generated <strong>ONLY from that requester edit panel</strong> (🎟️ Generate OTP). There is no admin button, API, or shortcut to mint a code — by design.<br>
-          4️⃣ The viewer opens the card with its normal password/PIN, taps the 🔒 <strong>Private Memories</strong> button (shown next to “Our Memories”), confirms <strong>name + phone number</strong>, then enters the OTP. Only then does the photo &amp; video slideshow play, under an anti-screenshot shield.<br>
+          4️⃣ The viewer opens the card with its normal password/PIN, taps the 🔒 <strong>Private Memories</strong> button (shown next to “Our Memories”), then enters the OTP. Only then does the photo &amp; video slideshow play, under an anti-screenshot shield.<br>
           <strong>Admins can:</strong> see which cards are 🔒 Private (badge in 👥 People), and revoke access by asking the requester to toggle Private off / regenerate a code. Admins CANNOT view a private slideshow or generate OTPs.
         </div>
       </div>
@@ -1312,25 +1333,16 @@
 <div class="pw-modal" id="privateGateModal">
   <div class="pw-content">
     <div class="pw-icon">🔒</div>
-    <div class="pw-title" id="privateGateTitle">Private Memories — Verified Access Only</div>
+    <div class="pw-title" id="privateGateTitle">Private Memories — One-Time Code Required</div>
     <div class="pw-sub" id="privateGateSub"></div>
 
-    <!-- STEP 1: identity verification -->
-    <div id="pgStep1">
-      <input type="text" class="pw-input" id="pgName" placeholder="Your full name (as given by the sender)" autocomplete="off" style="margin-bottom:.5rem;">
-      <input type="tel" class="pw-input" id="pgPhone" placeholder="Your phone number (e.g. +91 98765 43210)" autocomplete="off">
-      <div class="pw-buttons">
-        <button type="button" class="pw-btn cancel" id="pgCancel">Cancel</button>
-        <button type="button" class="pw-btn confirm" id="pgVerifyBtn">✅ Verify Me</button>
-      </div>
-    </div>
-
-    <!-- STEP 2: one-time code -->
-    <div id="pgStep2" style="display:none;">
+    <!-- 🔓 HD1.9: identity step (name + phone) removed — OTP-only gate -->
+    <!-- ONE-TIME CODE step -->
+    <div id="pgStep2">
       <div class="pw-sub" id="pgStep2Sub" style="margin-bottom:.5rem;"></div>
       <input type="text" class="pw-input" id="pgOtp" inputmode="numeric" maxlength="6" placeholder="6-digit one-time code" autocomplete="off">
       <div class="pw-buttons">
-        <button type="button" class="pw-btn cancel" id="pgCancel2" onclick="document.getElementById('pgCancel').click()">Cancel</button>
+        <button type="button" class="pw-btn cancel" id="pgCancel">Cancel</button>
         <button type="button" class="pw-btn confirm" id="pgOtpBtn">🎟️ Unlock Slideshow</button>
       </div>
     </div>

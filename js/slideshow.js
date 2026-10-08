@@ -602,7 +602,7 @@ function SS_close(){
    ============================================================ */
 /* SS_MODE: 'public'  → "Our Memories"        (is_private falsy rows ONLY)
    SS_MODE: 'private' → "Our Private Memory"  (is_private truthy rows ONLY,
-                                              behind the name+phone → OTP gate)
+                                              behind the one-time-code (OTP) gate)
    The two lists are fully separated: a private photo NEVER leaks into the
    normal slideshow and vice-versa. */
 let SS_MODE = 'public';
@@ -612,7 +612,7 @@ async function SS_openShow(mode){
     if(!S.CURRENT_PERSON){ alert('No person selected.'); return; }
 
     /* 🔒 HARD BLOCK (media level): the PRIVATE slideshow may ONLY be
-       opened after the name+phone → OTP gate was passed
+       opened after the one-time-code (OTP) gate was passed
        (S.PRIVATE_OK is set once per unlock inside privateview.js).
        When the card itself is private, even the normal "Our Memories"
        button must pass through the gate first.
@@ -630,7 +630,20 @@ async function SS_openShow(mode){
       return;
     }
 
-    const rows = await sb.rows(T_MEDIA, S.CURRENT_PERSON.id) || [];
+    /* 🔧 HD1.9.1: read media from the freshest source available —
+       cloud rows first, falling back to the in-memory viewer state.
+       (The old build could throw here with no try/catch, making the
+       private button look completely dead on flaky connections.) */
+    let rows = [];
+    try{
+      rows = (window.sb && window.T_MEDIA)
+        ? (await sb.rows(T_MEDIA, S.CURRENT_PERSON.id) || []) : [];
+    }catch(e){
+      console.warn('[slideshow] media fetch failed, using cached state:', e);
+    }
+    if(!rows.length){
+      rows = (S.CURR && S.CURR.media) || [];
+    }
     const filtered = (rows || []).filter(r => {
       /* privacy split — public show hides ALL private rows, private
          show only ever contains private rows */
@@ -641,7 +654,9 @@ async function SS_openShow(mode){
              (r.type === 'photo' && r.drive_id);
     });
     if(!filtered.length){
-      alert(SS_MODE === 'private' ? 'No private memories yet 🔒' : 'No memories yet 💕');
+      __showToast(SS_MODE === 'private'
+        ? '🔒 No private memories yet — ask the sender to add photos in the 🔒 Private Media tab.'
+        : 'No memories yet 💕', false);
       return;
     }
 
@@ -701,8 +716,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if(privBtn) privBtn.onclick = async (e) => {
     if(e && e.preventDefault) e.preventDefault();
     if(e && e.stopPropagation) e.stopPropagation();
-    if(S.PRIVATE_OK){ await SS_openShow('private'); }
+    /* 🔧 HD1.9.1: S is captured at script-load; keep the grant check
+       resilient even if another module replaced/updated the state obj. */
+    const st = window.__PAGE_STATE__ || S;
+    const ok = !!(st.PRIVATE_OK || S.PRIVATE_OK);
+    if(ok){ await SS_openShow('private'); }
     else if(window.openPrivateGate){ window.openPrivateGate(); }
+    else __showToast('🔒 Private viewer unavailable on this build.', false);
     return false;
   };
 
