@@ -745,11 +745,28 @@ window.tryPersonPw = async function(){
   try{ if(window.trackCardView) window.trackCardView(p, 'password'); }catch(e){}
 
   /* 🔒 PRIVATE VIEWER: a password/PIN alone NEVER opens a private card's
-     media slideshow. The only way in is the name+phone → OTP gate
-     (js/privateview.js). */
+     media slideshow. The only way in is the OTP gate (js/privateview.js).
+     🔓 HD1.9: the gate demands ONLY the 6-digit one-time code — name and
+     phone number verification is no longer necessary. */
   const pvGate = window.openPrivateGate && window.lcPrivateIsOn
               && window.lcPrivateIsOn(p);
   if(pvGate){
+    S.CURRENT_PERSON = p;
+    await window.__loadPersonIntoState__(p);
+    $('homeScreen').classList.add('hidden');
+    await window.showViewerFor(p, false);
+    setTimeout(() => { try{ window.openPrivateGate(); }catch(err){ console.error(err); } }, 350);
+    return;
+  }
+
+  /* 🔒 Cards that are NOT flagged private overall, but still contain at
+     least one photo/video marked "Private", also land on the viewer with
+     the OTP gate opened straight away — the normal "Our Memories" show
+     stays available (public rows only), while the private ones unlock
+     only through the code. */
+  let hasPrivScenes = false;
+  try{ hasPrivScenes = !!(await window.lcHasPrivateScenesAsync(p)); }catch(e){ hasPrivScenes = false; }
+  if(hasPrivScenes && window.openPrivateGate){
     S.CURRENT_PERSON = p;
     await window.__loadPersonIntoState__(p);
     $('homeScreen').classList.add('hidden');
