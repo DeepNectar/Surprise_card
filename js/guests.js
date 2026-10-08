@@ -2132,10 +2132,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* Excel export (guest) — now with src column */
   const gExport = $('guestExportBtn');
-  if(gExport) gExport.onclick = () => {
+  if(gExport) gExport.onclick = async () => {
     const st = $('guestExcelStatus');
     try{
-      if(!window.XLSX) throw new Error('XLSX library not loaded.');
+      if(!(window.XLSX || await window.ensureXlsx())) throw new Error('XLSX library not loaded.');
       saveGuestTextsFromFields(S.GUEST_EDIT_LANG);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{sheet:'How-to', instruction:'Fill all sheets, then Import + Submit.'}]), 'How-to');
@@ -2208,7 +2208,7 @@ document.addEventListener('DOMContentLoaded', () => {
     st.textContent = '⏳ Reading…';
     st.className = 'panel-status';
     try{
-      if(!window.XLSX) throw new Error('XLSX library not loaded');
+      if(!(window.XLSX || await window.ensureXlsx())) throw new Error('XLSX library not loaded');
       const buf = await f.arrayBuffer();
       const wb = XLSX.read(buf, {type:'array'});
       const readSheet = name => wb.Sheets[name] ? XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:''}) : [];

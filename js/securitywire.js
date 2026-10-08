@@ -86,7 +86,14 @@ async function finishUnlock(person, secret, how){
     try{ await window.lcShareLinkLockIn(String(secret), person); }catch(e){}
   }
   try{ if(window.trackCardView) window.trackCardView(person, how || 'password'); }catch(e){}
-  await window.__loadPersonIntoState__(person);
+  /* PERF FIX: home.js's own tail already called __loadPersonIntoState__ for
+     this same person moments ago. Reuse that snapshot instead of firing a
+     redundant second batch of 8 table fetches on every unlock. */
+  const alreadyLoaded = S.CURRENT_PERSON && person &&
+                        S.CURRENT_PERSON.id === person.id && !!S.CURR;
+  if(!alreadyLoaded){
+    await window.__loadPersonIntoState__(person);
+  }
   if(window.lcThrottleReset && window.lcPersonPinId){
     try{ window.lcThrottleReset(window.lcPersonPinId(person)); }catch(e){}
   }

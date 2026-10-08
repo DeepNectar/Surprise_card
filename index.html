@@ -1435,9 +1435,9 @@
 <button type="button" class="darkmode-toggle" id="darkmodeToggle" aria-label="Toggle dark mode">🌙</button>
 
 <!-- ============ SCRIPTS (order matters!) ============ -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
-        integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
-        crossorigin="anonymous" defer></script>
+<!-- PERF FIX: xlsx.full.min.js (~900KB) was loaded on every page view even
+     though it is only used by Excel import/export. It is now lazy-loaded on
+     demand via window.ensureXlsx() (see js/utils.js). -->
 
 <!-- Core (env.js MUST load before config.js — it injects window.__LC_ENV__
      with the Supabase URL/anon key; without it every cloud call 401s.) -->
