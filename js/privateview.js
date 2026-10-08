@@ -243,10 +243,32 @@ window.lcHasPrivateScenesAsync = async function(p){
    🔓 HD1.9: name + phone identity verification is NO LONGER required —
    the only gate for "Our Private Memory" is the 6-digit OTP minted by
    the requester. Step 1 (pgStep1 / pgName / pgPhone) has been removed
-   from the markup entirely. */
+   from the markup entirely.
+   🔧 HD1.9.1 ROBUSTNESS: this function can now be called at ANY moment,
+   even before privateview.js's DOMContentLoaded bindings have run (the
+   old build silently did nothing when tapped early — that was the main
+   reason "Our Private Memory appeared not to work"). Handlers are bound
+   on demand right here, so Unlock / Cancel / Enter always respond. */
+let PV_GATE_BOUND = false;
+function pvBindGateHandlers(){
+  if(PV_GATE_BOUND) return;
+  const c2 = document.getElementById('pgOtpBtn');
+  const cc = document.getElementById('pgCancel');
+  const ot = document.getElementById('pgOtp');
+  if(!c2 || !cc || !ot) return; /* controls missing in DOM — retry later */
+  c2.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.pgCheckOtp(); };
+  cc.onclick = (e) => {
+    e.preventDefault();
+    window.hide(document.getElementById('privateGateModal'));
+  };
+  ot.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); window.pgCheckOtp(); } });
+  PV_GATE_BOUND = true;
+}
+
 window.openPrivateGate = function(){
   const m = document.getElementById('privateGateModal');
-  if(!m) return;
+  if(!m){ console.warn('[privateview] #privateGateModal not in DOM yet.'); return; }
+  pvBindGateHandlers(); /* bind NOW, regardless of DOMContentLoaded timing */
   const t = document.getElementById('privateGateTitle');
   if(t) t.textContent = '🔒 Private Memories — One-Time Code Required';
   const sub = document.getElementById('privateGateSub');
@@ -258,7 +280,8 @@ window.openPrivateGate = function(){
   if(s2sub) s2sub.textContent = 'Ask the sender to generate a fresh one-time code from their edit panel and enter it below (valid ~10 minutes, usable once).';
   const gO = document.getElementById('pgOtp'); if(gO) gO.value = '';
   const err = document.getElementById('pgError');
-  err.classList.remove('show'); err.textContent = '';
+  if(err){ err.classList.remove('show'); err.textContent = ''; }
+  pvBindGateHandlers(); /* re-try binding in case the first call raced page parse */
   window.show(m);
   setTimeout(() => { const o = document.getElementById('pgOtp'); if(o) o.focus(); }, 120);
 };
@@ -281,15 +304,25 @@ window.pgCheckIdentity = function(){
 /* Step 2 — OTP check → burns the code and launches the slideshow */
 window.pgCheckOtp = async function(){
   const p = S.CURRENT_PERSON;
-  if(!p) return;
+  if(!p){ pgFail('⚠️ No card is open yet — unlock the card first, then enter the code.'); return; }
+  /* 🔧 HD1.9.1: defensive fallback — some legacy paths set the gate
+     grant on a different state object than the one this module closed
+     over at load time. Always keep BOTH in sync so the private show
+     can never dead-end after a correct code. */
+  const sGlobal = window.__PAGE_STATE__;
+  const grantPrivateOk = () => {
+    S.PRIVATE_OK = true;
+    if(sGlobal && sGlobal !== S) sGlobal.PRIVATE_OK = true;
+  };
   const tid = window.lcOtpThrottleId(p);
   const th = window.lcThrottleCheck ? window.lcThrottleCheck(tid) : {blocked:false};
   if(th.blocked){ pgFail('🕒 Too many attempts — try again in ' + Math.ceil(th.secs / 60) + ' min.'); return; }
-  const code = (document.getElementById('pgOtp').value || '').trim();
+  const inp = document.getElementById('pgOtp');
+  const code = ((inp && inp.value) || '').trim();
   const r = await window.lcVerifyOtp(p, code);
   if(!r.ok){
     const secs = window.lcThrottleFail ? window.lcThrottleFail(tid) : 0;
-    pgFail(secs ? ('🕒 Code failed ' + (5 - Math.max(0, 5 - secs)) + '× — locked for ' + Math.ceil(secs / 60) + ' min.') : r.reason);
+    pgFail(secs ? ('🕒 Code failed too many times — locked for ' + Math.ceil(secs / 60) + ' min.') : r.reason);
     return;
   }
   if(window.lcThrottleReset) window.lcThrottleReset(tid);
@@ -297,7 +330,8 @@ window.pgCheckOtp = async function(){
   window.lcPrivateShieldOn(true);
   __showToast('🎟️ Code accepted — private memories unlocked');
   /* Grant the slideshow gate exactly once for this unlock. */
-  S.PRIVATE_OK = true;
+  grantPrivateOk();
+  if(window.pvRefreshViewerSecurity) try{ window.pvRefreshViewerSecurity(); }catch(e){}
   if(window.pv_launchSlideshow) window.pv_launchSlideshow();
 };
 
@@ -307,8 +341,16 @@ window.pgCheckOtp = async function(){
    behaves identical, just gated by the one-time code first. */
 window.pv_launchSlideshow = async function(){
   if(window.SS_openShow){ await window.SS_openShow('private'); return; }
-  const btn = document.getElementById('privateSlideshowBtn') || document.getElementById('openBtn');
-  if(btn) btn.click();
+  /* 🔧 HD1.9.1: slideshow.js not loaded yet (deferred scripts) — wait a
+     moment and retry instead of silently doing nothing after unlock. */
+  let tries = 0;
+  const retry = () => {
+    if(window.SS_openShow){ window.SS_openShow('private'); return; }
+    if(++tries < 20){ setTimeout(retry, 150); return; }
+    const btn = document.getElementById('privateSlideshowBtn') || document.getElementById('openBtn');
+    if(btn) btn.click();
+  };
+  setTimeout(retry, 150);
 };
 
 /* ---------- High-security viewer: hide non-essential controls ---------- */
@@ -340,11 +382,28 @@ function pvApplyViewerSecurity(){
      private slideshow. */
   const pb = document.getElementById('privateSlideshowBtn');
   if(pb){
+    /* 🔧 HD1.9.1: state.media is often EMPTY at this moment (the viewer
+       loads media rows asynchronously AFTER the card opens, and the old
+       build hid the button until then — so "Our Private Memory" simply
+       never appeared / felt broken). Fix: keep the button visible while
+       we don't know yet, and re-run this refresh once media arrives. */
+    const mediaLoaded = !!(S.CURR && Array.isArray(S.CURR.media) && S.CURR.media.length);
     const hasPrivScenes = ((S.CURR && S.CURR.media) || [])
       .some(m => window.mediaIsPrivateRow && window.mediaIsPrivateRow(m));
-    pb.style.display = (priv || hasPrivScenes) ? '' : 'none';
+    if(!mediaLoaded && !priv){
+      /* unknown yet → show optimistically; async check confirms below */
+      pb.style.display = '';
+      window.lcHasPrivateScenesAsync(S.CURRENT_PERSON).then(has => {
+        if(has){ pb.style.display = ''; }
+        else if(!window.lcCardIsPrivate()){ pb.style.display = 'none'; }
+        pvApplyViewerSecurity(); /* settle label + final visibility */
+      }).catch(()=>{});
+    } else {
+      pb.style.display = (priv || hasPrivScenes) ? '' : 'none';
+    }
     const lbl = document.getElementById('privateSlideshowBtnTextEl');
-    if(lbl && S.PRIVATE_OK) lbl.textContent = '🔓 Our Private Memory (unlocked)';
+    const st = window.__PAGE_STATE__ || S;
+    if(lbl && (st.PRIVATE_OK || S.PRIVATE_OK)) lbl.textContent = '🔓 Our Private Memory (unlocked)';
     else if(lbl) lbl.textContent = 'Our Private Memory';
   }
 }
@@ -352,6 +411,10 @@ window.pvRefreshViewerSecurity = pvApplyViewerSecurity;
 document.addEventListener('DOMContentLoaded', () => {
   pvApplyViewerSecurity();
 });
+/* 🔧 HD1.9.1: every time a card finishes loading its content into the
+   shared state, re-evaluate the private button (viewer.js calls this
+   hook after __loadPersonIntoState__ fills S.CURR.media). */
+document.addEventListener('lc-card-loaded', () => { try{ pvApplyViewerSecurity(); }catch(e){} });
 
 /* Hook: every time the slideshow overlay opens while private, ensure shield */
 document.addEventListener('DOMContentLoaded', () => {
@@ -375,15 +438,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }).observe(ov, { attributes: true, attributeFilter: ['class'] });
   }
 
-  const c2 = document.getElementById('pgOtpBtn');
-  if(c2) c2.onclick = (e) => { e.preventDefault(); window.pgCheckOtp(); };
-  const cc = document.getElementById('pgCancel');
-  if(cc) cc.onclick = (e) => {
-    e.preventDefault();
-    window.hide(document.getElementById('privateGateModal'));
-  };
-  const ot = document.getElementById('pgOtp');
-  if(ot) ot.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); window.pgCheckOtp(); } });
+  const privBtn = document.getElementById('privateSlideshowBtn');
+  if(privBtn){
+    /* 🔧 HD1.9.1: safety-net click handler. privateview.js loads BEFORE
+       slideshow.js, but slideshow.js assigns privBtn.onclick afterwards —
+       an onclick assignment does NOT cancel addEventListener listeners,
+       so BOTH would fire on one tap. Guarded with a short debounce flag
+       so the gate can never open twice; when slideshow.js is present and
+       healthy its onclick does the real work and this listener idles out.
+       Also force-shows the button at load (pvApplyViewerSecurity runs
+       before media rows are loaded, which otherwise hides it). */
+    privBtn.style.display = '';
+    let BUSY = false;
+    privBtn.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if(BUSY) return;
+      setTimeout(() => { BUSY = false; }, 700);
+      BUSY = true;
+      try{
+        const st = window.__PAGE_STATE__ || S;
+        if(st.PRIVATE_OK || S.PRIVATE_OK) return; /* slideshow.js handles unlocked taps */
+        const p = S.CURRENT_PERSON || st.CURRENT_PERSON;
+        if(!p){ __showToast('🔒 Unlock the card first.', false); return; }
+        const hasPriv = await window.lcHasPrivateScenesAsync(p);
+        if(!hasPriv){
+          __showToast('🔒 No private memories yet — the sender must add photos in the 🔒 Private Media tab of the edit panel.', false);
+          return;
+        }
+      }catch(err){ console.warn('[privateview] pre-gate check failed:', err); }
+      try{ window.openPrivateGate(); }
+      catch(err){ console.error('[privateview] gate open failed:', err); __showToast('❌ Could not open the private lock.', false); }
+    });
+  }
+
+  /* 🔧 HD1.9.1: gate modal handlers bound on demand as well (they were
+     previously bound only at DOMContentLoaded — now openPrivateGate()
+     binds them itself, so early calls work too). */
+  pvBindGateHandlers();
 });
 
 })();
