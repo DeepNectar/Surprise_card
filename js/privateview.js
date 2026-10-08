@@ -215,25 +215,56 @@ window.lcCardIsPrivate = function(){
   return window.lcPrivateIsOn(S.CURRENT_PERSON);
 };
 
-/* Open the private verification modal (name + phone step first) */
+/* Does this card have ANY media flagged Private? Async — reads the media
+   table straight from the cloud/queue so it works even before the viewer
+   state (S.CURR.media) has been populated. Used by js/home.js to decide
+   whether a correct password/PIN on a NON-private card should still be
+   routed through the OTP gate (private scenes must never leak). */
+window.lcHasPrivateScenesAsync = async function(p){
+  p = p || (S && S.CURRENT_PERSON);
+  if(!p || !p.id) return false;
+  /* fast path: state already loaded */
+  try{
+    const rows = (S.CURR && S.CURR.media) || [];
+    if(rows.length && rows.some(m => window.mediaIsPrivateRow && window.mediaIsPrivateRow(m))) return true;
+    if(rows.length) return false;
+  }catch(e){}
+  /* slow path: query the media table directly */
+  try{
+    if(window.sb && window.T_MEDIA){
+      const rows = await window.sb.rows(window.T_MEDIA, p.id);
+      return (rows || []).some(m => window.mediaIsPrivateRow && window.mediaIsPrivateRow(m));
+    }
+  }catch(e){}
+  return false;
+};
+
+/* Open the private verification modal.
+   🔓 HD1.9: name + phone identity verification is NO LONGER required —
+   the only gate for "Our Private Memory" is the 6-digit OTP minted by
+   the requester. Step 1 (pgStep1 / pgName / pgPhone) stays in the DOM
+   for backwards compatibility but is never shown. */
 window.openPrivateGate = function(){
   const m = document.getElementById('privateGateModal');
   if(!m) return;
-  const p = S.CURRENT_PERSON;
   const t = document.getElementById('privateGateTitle');
-  if(t) t.textContent = '🔒 Private Memories — Verified Access Only';
+  if(t) t.textContent = '🔒 Private Memories — One-Time Code Required';
   const sub = document.getElementById('privateGateSub');
   if(sub) sub.innerHTML = 'This gallery is locked with <strong>maximum security</strong>.<br>' +
-    'Confirm your <strong>name</strong> and <strong>phone number</strong>, then enter the one-time code the sender generated for you.';
-  document.getElementById('pgStep1').style.display = 'block';
-  document.getElementById('pgStep2').style.display = 'none';
-  document.getElementById('pgName').value = '';
-  document.getElementById('pgPhone').value = '';
-  document.getElementById('pgOtp').value = '';
+    'Enter the <strong>6-digit one-time code</strong> the sender generated for you.';
+  const s1 = document.getElementById('pgStep1');
+  if(s1) s1.style.display = 'none';
+  const s2 = document.getElementById('pgStep2');
+  if(s2) s2.style.display = 'block';
+  const s2sub = document.getElementById('pgStep2Sub');
+  if(s2sub) s2sub.textContent = 'Ask the sender to generate a fresh one-time code from their edit panel and enter it below (valid ~10 minutes, usable once).';
+  const gN = document.getElementById('pgName'); if(gN) gN.value = '';
+  const gP = document.getElementById('pgPhone'); if(gP) gP.value = '';
+  const gO = document.getElementById('pgOtp'); if(gO) gO.value = '';
   const err = document.getElementById('pgError');
   err.classList.remove('show'); err.textContent = '';
   window.show(m);
-  setTimeout(() => { const n = document.getElementById('pgName'); if(n) n.focus(); }, 120);
+  setTimeout(() => { const o = document.getElementById('pgOtp'); if(o) o.focus(); }, 120);
 };
 
 async function pgFail(msg){
@@ -319,9 +350,10 @@ function pvApplyViewerSecurity(){
   if(pill) pill.style.display = priv ? 'inline-block' : 'none';
 
   /* 🔒 OUR PRIVATE MEMORY button — sits right next to "Our Memories".
-     It appears when the card is flagged Private OR when at least one
-     photo/video was uploaded as a Private scene in the edit panel.
-     One tap → name+phone verification → OTP → private slideshow only. */
+     It appears whenever at least one photo/video was uploaded as a
+     Private scene in the edit panel (or the card is flagged private).
+     One tap → OTP code only (🔓 HD1.9: no name/phone verification) →
+     private slideshow. */
   const pb = document.getElementById('privateSlideshowBtn');
   if(pb){
     const hasPrivScenes = ((S.CURR && S.CURR.media) || [])

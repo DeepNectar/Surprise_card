@@ -692,22 +692,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   /* 🔒 OUR PRIVATE MEMORY — separate slideshow fed ONLY by media rows
-     flagged "Private". Routed through the name+phone → OTP gate first;
-     after unlock it launches SS_openShow('private'), which plays ONLY
-     the private rows. "Our Memories" (openBtn) plays ONLY public rows. */
+     flagged "Private". Routed through the OTP gate first (🔓 HD1.9:
+     name + phone verification is no longer required — only the 6-digit
+     one-time code); after unlock it launches SS_openShow('private'),
+     which plays ONLY the private rows. "Our Memories" (openBtn) plays
+     ONLY public rows. */
   const privBtn = $('privateSlideshowBtn');
   if(privBtn) privBtn.onclick = async (e) => {
     if(e && e.preventDefault) e.preventDefault();
     if(e && e.stopPropagation) e.stopPropagation();
-    if(window.lcCardIsPrivate && window.lcCardIsPrivate()){
-      if(S.PRIVATE_OK){ await SS_openShow('private'); }
-      else if(window.openPrivateGate){ window.openPrivateGate(); }
-    } else {
-      /* card not flagged private yet — still allow a gated peek at the
-         private-scene list so uploaded private photos are previewable */
-      if(S.PRIVATE_OK){ await SS_openShow('private'); }
-      else if(window.openPrivateGate){ window.openPrivateGate(); }
-    }
+    if(S.PRIVATE_OK){ await SS_openShow('private'); }
+    else if(window.openPrivateGate){ window.openPrivateGate(); }
     return false;
   };
 
