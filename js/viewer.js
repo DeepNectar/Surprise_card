@@ -6,36 +6,56 @@
 const S = window.__PAGE_STATE__;
 
 /* ---------- Seen counter ---------- */
+/* PERF FIX: localStorage reads/writes were synchronous inside the card-open
+   click path. Values are now memoized in memory; the write is deferred to
+   requestIdleCallback (falls back to setTimeout) so taps stay snappy. */
+const _seenCache = Object.create(null);
 function seenKeyFor(p){ return 'seen_' + (p && p.slug ? p.slug : 'anon'); }
+function deferWrite(fn){
+  if(window.requestIdleCallback) requestIdleCallback(fn, {timeout:500});
+  else setTimeout(fn, 200);
+}
 function recordSeen(p){
   if(!p) return 0;
-  let n = 0;
   try{
     const k = seenKeyFor(p);
-    n = parseInt(localStorage.getItem(k) || '0', 10) || 0;
+    let n = _seenCache[k];
+    if(n === undefined){
+      n = parseInt(localStorage.getItem(k) || '0', 10) || 0;
+    }
     n += 1;
-    localStorage.setItem(k, String(n));
-  }catch(e){}
-  return n;
+    _seenCache[k] = n;
+    deferWrite(() => { try{ localStorage.setItem(k, String(n)); }catch(e){} });
+    return n;
+  }catch(e){ return 0; }
 }
 
 /* ---------- Reactions ---------- */
+/* PERF FIX: same memoization treatment — reaction taps previously did a full
+   JSON parse+stringify round-trip against localStorage on every press. */
+const _reactCache = Object.create(null);
 function reactionKeyFor(p){ return 'react_' + (p && p.slug ? p.slug : 'anon'); }
 function loadReactions(p){
+  const k = reactionKeyFor(p);
+  if(_reactCache[k]) return Object.assign({}, _reactCache[k]);
   try{
-    const raw = localStorage.getItem(reactionKeyFor(p));
+    const raw = localStorage.getItem(k);
     if(!raw) return {heart:0, love:0, cry:0, party:0};
     const obj = JSON.parse(raw);
-    return {
+    const norm = {
       heart: obj.heart || 0,
       love:  obj.love  || 0,
       cry:   obj.cry   || 0,
       party: obj.party || 0
     };
+    _reactCache[k] = norm;
+    return Object.assign({}, norm);
   }catch(e){ return {heart:0, love:0, cry:0, party:0}; }
 }
 function saveReactions(p, obj){
-  try{ localStorage.setItem(reactionKeyFor(p), JSON.stringify(obj)); }catch(e){}
+  const k = reactionKeyFor(p);
+  _reactCache[k] = Object.assign({}, obj);
+  deferWrite(() => { try{ localStorage.setItem(k, JSON.stringify(obj)); }catch(e){} });
 }
 window.paintReactions = function(){
   const r = S.REACTIONS || {heart:0, love:0, cry:0, party:0};

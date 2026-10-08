@@ -10,6 +10,19 @@ const CONF_COLORS = ['#ffd700','#ffed4e','#ff4d6d','#c41e3a','#2a5fd1','#9d4edd'
 
 const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* Cached enableFireworks flag — refreshed at most every 2s instead of being
+   re-read from page state inside per-event handlers (click/mousemove). */
+let _fwEnabledCache = 'true';
+let _fwEnabledAt = 0;
+function fwEnabled(){
+  const now = Date.now();
+  if(now - _fwEnabledAt > 2000){
+    _fwEnabledAt = now;
+    try{ _fwEnabledCache = getShared('enableFireworks', 'true'); }catch(e){}
+  }
+  return _fwEnabledCache === 'true';
+}
+
 /* ---------- single shared canvas overlay ---------- */
 let cv = null, ctx = null, rafId = null;
 const parts = [];               // active particles (capped)
@@ -74,7 +87,7 @@ function step(t){
 }
 
 window.fireworksBurst = function(x, y){
-  if(getShared('enableFireworks', 'true') !== 'true') return;
+  if(!fwEnabled()) return;
   if(reducedMotion()) return;
   if(!ensureCanvas()) return;
   for(let i = 0; i < 26; i++){
@@ -105,10 +118,27 @@ window.confettiCannon = function(originX, originY, count){
 };
 
 /* ---------- Global click fireworks ---------- */
+/* PERF FIX: a global document 'click' listener runs on EVERY tap anywhere in
+   the app (before any button handler). It used to do an e.target.closest()
+   DOM walk synchronously inside the click path — measurable input latency on
+   low-end phones. Now the check + burst is deferred one frame, so the tap
+   itself returns immediately and the browser can paint/process other
+   handlers first. */
+let _fwClickQueued = false;
 document.addEventListener('click', e => {
+  if(_fwClickQueued) return;
+  const x = e.clientX, y = e.clientY;
   const t = e.target;
-  if(t.closest('button, a, input, textarea, select, .gift-box, .modal, .panel-modal, .pw-modal, .lock-screen, .opening-screen, .cake-clickable, .home-screen, .info-modal, .slideshow-overlay, .lang-mini-tabs, .person-card')) return;
-  fireworksBurst(e.clientX, e.clientY);
+  _fwClickQueued = true;
+  const run = () => {
+    _fwClickQueued = false;
+    try{
+      if(!t.isConnected) return; /* element gone by next frame — skip safely */
+      if(t.closest('button, a, input, textarea, select, .gift-box, .modal, .panel-modal, .pw-modal, .lock-screen, .opening-screen, .cake-clickable, .home-screen, .info-modal, .slideshow-overlay, .lang-mini-tabs, .person-card')) return;
+      fireworksBurst(x, y);
+    }catch(err){}
+  };
+  if(window.requestAnimationFrame) requestAnimationFrame(run); else setTimeout(run, 0);
 }, {passive: true});
 
 /* ---------- Cursor sparkles (desktop only, throttled, canvas) ---------- */
@@ -117,10 +147,13 @@ document.addEventListener('click', e => {
   if(isTouch || reducedMotion()) return;
   let last = 0;
   document.addEventListener('mousemove', e => {
+    /* PERF FIX: mousemove fires ~60-120x/sec. Even cheap work here adds up,
+       so bail out FIRST on the throttle clock (zero-cost), and cache the
+       enableFireworks flag instead of re-reading shared state per move. */
     const now = performance.now();
-    if(now - last < 120) return;           // throttle harder: was 70ms of DOM churn
-    if(!getShared('enableFireworks', 'true')) return;
+    if(now - last < 140) return;           // throttle harder: was 70ms of DOM churn
     last = now;
+    if(!fwEnabled()) return;
     if(!ensureCanvas()) return;
     const life = 0.9;
     spawn({ x: e.clientX - 7 + Math.random()*14, y: e.clientY - 7,
