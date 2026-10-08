@@ -636,9 +636,18 @@ window.tryPersonPw = async function(){
   }
 
   const editPw = getEditPasswordForPerson(p);
-  const isRequester = editPw && pw === editPw;
+  /* ✏️ REQUESTER EDIT PASSWORD — case-insensitive on purpose: this secret is
+     auto-generated (Name-EDIT-1234-slug) and shown read-only in the admin
+     panel / submission form, so it must never fail because of a stray shift
+     key. It matches ONLY the edit password — never the viewer password. */
+  const normPw   = String(pw || '').trim().toLowerCase();
+  const normEdit = String(editPw || '').trim().toLowerCase();
+  const isRequester = !!(normEdit && normPw === normEdit);
   const expected = p.password || '';
-  const isViewer = expected && pw === expected;
+  /* Viewer secrets (card password / PIN) stay EXACT — they may be typed
+     from a message and are compared as-is, but never confused with the
+     requester edit secret. */
+  const isViewer = !isRequester && !!expected && pw === expected;
   /* PIN unlock is decided below */
   let pinUnlocked = false;
 
@@ -662,28 +671,51 @@ window.tryPersonPw = async function(){
     return;
   }
   window.lcThrottleReset(pinId);
-  try{ if(window.trackCardView) window.trackCardView(p, isRequester ? 'preview' : 'password'); }catch(e){}
+
+  hide($('personLoginModal'));
+  S.REQUESTER_MODE = isRequester;
+  S.PREVIEW_MODE = false;
+  await window.__loadPersonIntoState__(p);
+
+  /* ✏️✏️ REQUESTER EDIT PASSWORD — THE EDIT CARD ONLY.
+     When the secret typed here is the requester EDIT password, this is NOT
+     a viewing session: the viewer card / opening cake / lock countdown /
+     private-OTP gate must never run, and no "card view" is counted. We go
+     straight to the "✏️ Edit Your Card" panel (requesterEditModal). The
+     ✏️ Edit Card button inside the viewer stays reserved for people who
+     unlocked with the card password and want to switch into edit mode. */
+  if(isRequester){
+    try{
+      if(window.SS_clearSession) window.SS_clearSession();
+      if(window.setDarkMode) window.setDarkMode(false);
+      ['viewerScreen', 'openingScreen', 'lockScreen'].forEach(id => {
+        const el = $(id); if(el){ el.classList.add('hidden'); el.classList.remove('active'); }
+      });
+      $('homeScreen').classList.add('hidden');
+      if(window.openRequesterEditor) await window.openRequesterEditor();
+      else __showToast('✏️ Requester editor unavailable on this build.', false);
+    }catch(err){
+      console.error('Requester editor failed to open:', err);
+      __showToast('❌ Could not open the edit card: ' + (err && err.message ? err.message : err), false);
+    }
+    return;
+  }
+
+  try{ if(window.trackCardView) window.trackCardView(p, 'password'); }catch(e){}
 
   /* 🔒 PRIVATE VIEWER: a password/PIN alone NEVER opens a private card's
-     media slideshow — not even for the requester or an admin preview.
-     The only way in is the name+phone → OTP gate (js/privateview.js). */
+     media slideshow. The only way in is the name+phone → OTP gate
+     (js/privateview.js). */
   const pvGate = window.openPrivateGate && window.lcPrivateIsOn
               && window.lcPrivateIsOn(p);
   if(pvGate){
-    hide($('personLoginModal'));
     S.CURRENT_PERSON = p;
-    S.PREVIEW_MODE = false;
     await window.__loadPersonIntoState__(p);
     $('homeScreen').classList.add('hidden');
     await window.showViewerFor(p, false);
     setTimeout(() => { try{ window.openPrivateGate(); }catch(err){ console.error(err); } }, 350);
     return;
   }
-
-  hide($('personLoginModal'));
-  S.REQUESTER_MODE = isRequester;
-  S.PREVIEW_MODE = false;
-  await window.__loadPersonIntoState__(p);
 
   const s = S.CURR.shared || {};
   const unlockIso = s.unlockDateISO || '';
