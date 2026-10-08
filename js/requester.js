@@ -332,6 +332,16 @@ async function openRequesterEditor(){
   const p = S.CURRENT_PERSON;
   if(!p){ alert('No person.'); return; }
 
+  /* ✏️ OTP generation and the 🔒 Private tab are guarded by REQUESTER_MODE
+     (js/privateview.js). Entering the edit panel always claims that mode —
+     whether we arrived from the EDIT password or from the viewer's
+     "✏️ Edit Card" button. */
+  S.REQUESTER_MODE = true;
+
+  /* Make sure the freshest cloud copy is loaded before the form is built,
+     otherwise a stale prefetch snapshot can wipe unsaved server changes. */
+  try{ await window.__loadPersonIntoState__(p, {fresh:true}); }catch(e){}
+
   const set = S.CURRENT_SETTINGS || {};
 
   const byLang = {en:{}, gu:{}, hi:{}};
