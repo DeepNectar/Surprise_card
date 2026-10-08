@@ -1,0 +1,74 @@
+/* ============================================================
+   opening.css — Opening cake screen
+   ============================================================ */
+.opening-screen{
+  position:fixed;inset:0;
+  background:var(--c-hero-grad);z-index:5000;
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:1.5rem;text-align:center;
+  transition:opacity .8s ease,transform .8s ease;
+  overflow:hidden;
+}
+.opening-screen.active{display:flex}
+.opening-screen.hidden{
+  opacity:0;transform:scale(1.1);pointer-events:none;
+}
+.opening-screen::before{
+  content:'';position:absolute;inset:-30%;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 40% 35% at 30% 30%,rgba(255,215,0,.30),transparent 60%),
+    radial-gradient(ellipse 45% 40% at 70% 60%,rgba(255,105,180,.25),transparent 60%);
+  animation:auroraDrift 16s ease-in-out infinite alternate;
+  filter:blur(38px);
+}
+.opening-content{
+  position:relative;z-index:2;
+  display:flex;flex-direction:column;align-items:center;gap:.6rem;
+  max-width:620px;
+}
+.opening-line-1{
+  font-size:clamp(1.4rem,5vw,2.2rem);font-weight:800;
+  color:#fff;letter-spacing:2px;font-style:italic;
+  text-shadow:0 3px 8px rgba(0,0,0,.7);
+  font-family:var(--font-display);
+  animation:fadeInDown .8s ease-out both;
+}
+.opening-line-2{
+  font-size:clamp(2.2rem,9vw,3.6rem);font-weight:900;
+  letter-spacing:2px;line-height:1.15;font-style:italic;
+  color:var(--c-accent);
+  text-shadow:0 3px 8px rgba(0,0,0,.85);
+  font-family:var(--font-display);
+  animation:fadeInDown .8s ease-out .15s both;
+}
+@keyframes fadeInDown{
+  0%{opacity:0;transform:translateY(-14px)}
+  100%{opacity:1;transform:translateY(0)}
+}
+.cake-clickable{
+  cursor:pointer;
+  font-size:clamp(6rem,20vw,10rem);
+  line-height:1;margin:1.4rem 0 1rem 0;
+  filter:drop-shadow(0 15px 25px rgba(0,0,0,.6));
+  -webkit-tap-highlight-color:transparent;
+  animation:cakeFloat 3s ease-in-out infinite;
+  transition:transform .15s ease;
+}
+.cake-clickable:hover{transform:scale(1.05)}
+.cake-clickable:active{transform:scale(.92)}
+@keyframes cakeFloat{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-10px)}
+}
+.cake-tap-hint{
+  font-size:1.05rem;font-weight:800;color:var(--c-deep);
+  background:var(--c-accent);padding:.7rem 1.6rem;
+  border-radius:50px;border:2px solid #fff8f0;font-style:italic;
+  box-shadow:0 10px 24px -10px rgba(0,0,0,.55);
+  animation:hintPulse 1.8s ease-in-out infinite;
+}
+@keyframes hintPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.04)}
+}

@@ -1,0 +1,279 @@
+/* ============================================================
+   config.js — Global constants and shared state
+   ============================================================ */
+(function(){
+'use strict';
+
+/* v1.0 SECURITY: credentials come from js/env.js (window.__LC_ENV__)
+   so they can be rotated per-deployment without touching app code. */
+const __ENV__ = window.__LC_ENV__ || {};
+window.SUPABASE_URL = __ENV__.SUPABASE_URL || 'https://ueuxnkrvvnvldfwgiyqy.supabase.co';
+window.SUPABASE_ANON_KEY = __ENV__.SUPABASE_ANON_KEY || '';
+/* Optional Web-Push VAPID public key (set in env.js / deployment) */
+window.__LC_VAPID_PUBLIC__ = __ENV__.VAPID_PUBLIC_KEY || '';
+
+/* ---------- Cloud schema-cache guard (shared flag) ----------
+   null  = unknown yet (first people.pin_hash probe pending)
+   true  = PostgREST's schema cache serves the optional PIN mirror
+           columns (pin_hash/pin_salt/pin_plain) on `people`
+   false = the columns are NOT visible → app code must never send a
+           PATCH mentioning them (that is what produced the recurring
+           "⚠️ PATCH 400 — Could not find the 'otp_list' column of
+            'people' in the schema cache" home-screen error. The OTP
+            feature was revived in HD 1.7 as the 🔒 Private Photo Viewer
+            (js/privateview.js) — otp_list writes there are optional and
+            schema-guarded, so they never surface that error either.
+   js/offline.js owns the probe/heal logic; this is just the initial
+   declaration so every module sees the same variable.                  */
+window.lcPeopleMirrorColsOk = null;
+
+/* ---------- Table names ---------- */
+window.T_PEOPLE   = 'people';
+window.T_SETTINGS = 'settings';
+window.T_MEDIA    = 'media';
+window.T_GIFTS    = 'gifts';
+window.T_STORY    = 'story_pages';
+window.T_EVENTS   = 'event_countdowns';
+window.T_VOICE    = 'voice_messages';
+window.T_VIDEO    = 'video_messages';
+window.T_PINS     = 'map_pins';
+window.T_GUEST    = 'guest_submissions';
+window.T_UPLOADS  = 'uploads';
+window.T_REVIEWS  = 'reviews';
+
+/* ---------- Deployment / update system ----------
+   ⚠️ DEPLOY CHECKLIST: every time you ship a new version —
+     1. Bump APP_VERSION below (integer, e.g. 23 → 24) AND RELEASE_DATE,
+     2. Put 1–3 short highlight lines in CHANGELOG_LIVE,
+     3. Mirror the SAME values into /version.json.
+   Open tabs compare themselves against /version.json and pop up an
+   "upgrade" modal pointing at the latest deployed version; the home
+   screen ("✨ What's new") and admin panel always show what is LIVE. */
+/* ⚠️ SINGLE SOURCE OF TRUTH for the version shown on the home screen,
+   inside the upgrade popup and in the admin panel. Every deploy MUST
+   keep these values identical to /version.json (see checklist above). */
+window.APP_VERSION   = '1.8';
+window.RELEASE_DATE  = '2026-10-08';
+window.CHANGELOG_LIVE = [
+  '🔒 HD1.8 — Private slideshow fully wired end-to-end: the 🔒 Private checkbox on every photo/video row in the edit panel now SAVES (media.is_private + media.otp_code persist to the cloud), so private scenes stay out of the public "Our Memories" show permanently.',
+  '🎟️ After a correct password/PIN on a private card the viewer now sees ONLY the 🔒 gate + Our Private Memory button instantly (viewer security refresh runs on every card open); share/upload/guest controls hidden, and the OTP unlock is revoked as soon as the show closes or you go home — one code, one viewing.',
+  '🛡 Schema self-heal: sb.optionalBatch() retries saves without the new columns if the DB has not migrated yet (no more red "Could not find the is_private column" error pill). Run setup/private_media.sql once in Supabase to enable per-row privacy; FULL_GO_LIVE.sql and ensure_private_schema() now create the columns automatically for fresh installs.',
+  '🔒 NEW — Private Photo Viewer: requesters can flag their card as Private from the ✏️ Edit Your Card panel. A private photo & video slideshow NEVER opens on a normal password entry — it is hard-blocked until the viewer passes a two-step high-security gate.',
+  '🪪 Verified access gate: the viewer must first confirm their name + phone number exactly as recorded by the sender, then enter a 6-digit one-time code (OTP). Wrong identity or wrong/expired code = no slideshow, ever. Brute-force attempts are throttled per device.',
+  '🎟️ OTPs are generated ONLY from the requester edit panel (new 🔒 Private tab → Generate OTP). Admins and viewers have no way to mint codes; each code is salted-hashed, single-use and time-boxed (default 10 minutes), and is consumed the moment it unlocks the slideshow.',
+  '🛡 Anti-leak shield while the private show plays: right-click / save-as / copy / drag blocked, screenshot keys suppressed, content auto-blurs when the tab loses focus or goes to print — nobody can quietly capture the gallery.',
+  '✨ Home screen "What\'s new" now ALWAYS shows the exact same version number as the deployed site (config APP_VERSION mirrors /version.json 1:1, mirrored in the admin panel too) — no more mismatch between the badge, the popup and the changelog list.',
+  '✅ Auto-wipe flow update — when a card\'s scheduled wipe runs, it now waits in the admin ✅ Completed tab marked in amber (🕔 auto-wiped · awaiting finish). Move it to 💐 Finished there, and only then does it appear on the home screen\'s finished section.',
+  '🔐 Admin access secured — the admin passphrase now always has a guaranteed default fallback, so you can never be locked out of your own site.',
+  '🛡 Wrong-password lockouts are now private to each person\'s own browser session — failed attempts on one login never affect other visitors or other cards, and the default admin passphrase opens the door even during a cooldown.',
+  '🔄 Cloud sync self-heals — the app probes the cloud schema at startup and heals it automatically in the background (ensure_sync_schema), and never shows an error pill for optional PIN mirror writes — they stay safely on this device until the cloud is ready.',
+  '⚡ Faster site — stylesheets and startup scripts now download in parallel the instant the page opens (preloaded), plus font/CDN connections are warmed up ahead of time. First paint is noticeably quicker on slow networks.',
+  '⚙️ Update check tuned — the offline app shell refreshes itself in the background every 5 minutes, so installed (PWA) users get new versions without opening the site first.'
+];
+/* Alias used by js/update.js */
+window.CHANGELOG = window.CHANGELOG_LIVE;
+
+/* ---------- App-wide constants ---------- */
+/* v1.2: fallback admin passphrase — env injection wins, otherwise the
+   hard-coded default below is ALWAYS available as a last-resort login. */
+window.FALLBACK_ADMIN_PW = (window.__LC_ENV__ && window.__LC_ENV__.ADMIN_PW) || 'Deepnectar@@1617@@';
+/* Canonical PRODUCTION URL — every link sent to guests points here. */
+window.PUBLIC_CARD_LINK_DEFAULT = 'https://surprise-card-v2.vercel.app';
+
+/* ---------- Share link resolver ----------
+   The link sent to guests is simply the CURRENT URL open in the browser —
+   whatever site you are viewing when you press Share (or approve/resend a
+   guest card), that exact origin is what the guest receives. Only when no
+   real page URL exists (file://, blank context) do we fall back to the
+   canonical production URL above.                                */
+
+window.getShareBaseUrl = function(){
+  var o = location.origin || '';
+  /* file:// and other non-http contexts report 'null'/'' origins. */
+  if(o && o.indexOf('http') === 0){
+    return o.replace(/\/+$/, '');
+  }
+  return window.PUBLIC_CARD_LINK_DEFAULT;
+};
+
+window.resolveCardLink = function(slug){
+  var base = window.getShareBaseUrl();
+  return slug ? (base + '/?person=' + encodeURIComponent(slug)) : (base + '/');
+};
+
+window.repointShareLink = function(storedLink, slug){
+  /* Prefer the current browser URL; only borrow the path/query shape of a
+     stored link when it carries something meaningful beyond /?person=slug. */
+  try{
+    var cur = new URL(window.getShareBaseUrl() + '/');
+    var u   = new URL(storedLink || '', cur);
+    if(u.protocol === 'http:' || u.protocol === 'https:'){
+      /* Re-host onto the current origin so old links stored with stale
+         tunnels/preview hosts still open on the site you're using now. */
+      u.protocol = cur.protocol;
+      u.host     = cur.host;
+      if(slug){
+        u.pathname = '/';
+        u.search   = '?person=' + encodeURIComponent(slug);
+        u.hash     = '';
+      }
+      return u.href;
+    }
+  }catch(e){}
+  return window.resolveCardLink(slug);
+};
+
+window.PUBLIC_CARD_LINK  = window.resolveCardLink('');
+window.DEFAULT_TZ        = 'Asia/Dubai';
+window.MODAL_IMG_DURATION_MS = 10000;
+
+/* ---------- Cloud storage bucket for the finished-people ledger ---------- */
+window.FINISHED_BUCKET   = 'site-ledger';
+
+/* ---------- Network timeout budgets (very short — fail fast, never hang) ----------
+   sbGet : read queries that render the home screen — guests must see cards ASAP.
+   sbMut : writes (login checks, approvals, saves) — a hair more generous.
+   These only cap how LONG we wait; they never change WHAT is requested or how
+   results are processed, so all rules and behavior stay identical.            */
+window.SB_TIMEOUT_GET_MS = 2500;   /* ~2.5 s max for loading data on screen */
+window.SB_TIMEOUT_MUT_MS = 4500;   /* ~4.5 s max for saving data            */
+
+/* ---------- Timezones ---------- */
+window.TZ_OPTIONS = [
+  {v:'Asia/Dubai',l:'🇦🇪 Dubai / UAE (UTC+4) — default'},
+  {v:'Asia/Kolkata',l:'🇮🇳 India (UTC+5:30)'},
+  {v:'Asia/Karachi',l:'🇵🇰 Pakistan (UTC+5)'},
+  {v:'Asia/Dhaka',l:'🇧🇩 Bangladesh (UTC+6)'},
+  {v:'Asia/Kathmandu',l:'🇳🇵 Nepal (UTC+5:45)'},
+  {v:'Asia/Colombo',l:'🇱🇰 Sri Lanka (UTC+5:30)'},
+  {v:'Asia/Riyadh',l:'🇸🇦 Riyadh (UTC+3)'},
+  {v:'Asia/Qatar',l:'🇶🇦 Qatar (UTC+3)'},
+  {v:'Asia/Kuwait',l:'🇰🇼 Kuwait (UTC+3)'},
+  {v:'Asia/Istanbul',l:'🇹🇷 Istanbul (UTC+3)'},
+  {v:'Asia/Singapore',l:'🇸🇬 Singapore (UTC+8)'},
+  {v:'Asia/Kuala_Lumpur',l:'🇲🇾 Kuala Lumpur (UTC+8)'},
+  {v:'Asia/Shanghai',l:'🇨🇳 China (UTC+8)'},
+  {v:'Asia/Hong_Kong',l:'🇭🇰 Hong Kong (UTC+8)'},
+  {v:'Asia/Tokyo',l:'🇯🇵 Tokyo (UTC+9)'},
+  {v:'Asia/Seoul',l:'🇰🇷 Seoul (UTC+9)'},
+  {v:'Asia/Bangkok',l:'🇹🇭 Bangkok (UTC+7)'},
+  {v:'Asia/Jakarta',l:'🇮🇩 Jakarta (UTC+7)'},
+  {v:'Asia/Manila',l:'🇵🇭 Manila (UTC+8)'},
+  {v:'Australia/Sydney',l:'🇦🇺 Sydney (UTC+10/+11)'},
+  {v:'Australia/Perth',l:'🇦🇺 Perth (UTC+8)'},
+  {v:'Pacific/Auckland',l:'🇳🇿 Auckland (UTC+12/+13)'},
+  {v:'Europe/London',l:'🇬🇧 London (UTC+0/+1)'},
+  {v:'Europe/Paris',l:'🇫🇷 Paris / Berlin (UTC+1/+2)'},
+  {v:'Europe/Moscow',l:'🇷🇺 Moscow (UTC+3)'},
+  {v:'Europe/Athens',l:'🇬🇷 Athens (UTC+2/+3)'},
+  {v:'Africa/Cairo',l:'🇪🇬 Cairo (UTC+2)'},
+  {v:'Africa/Nairobi',l:'🇰🇪 Nairobi (UTC+3)'},
+  {v:'Africa/Johannesburg',l:'🇿🇦 Johannesburg (UTC+2)'},
+  {v:'America/New_York',l:'🇺🇸 New York (UTC-5/-4)'},
+  {v:'America/Chicago',l:'🇺🇸 Chicago (UTC-6/-5)'},
+  {v:'America/Denver',l:'🇺🇸 Denver (UTC-7/-6)'},
+  {v:'America/Los_Angeles',l:'🇺🇸 Los Angeles (UTC-8/-7)'},
+  {v:'America/Toronto',l:'🇨🇦 Toronto (UTC-5/-4)'},
+  {v:'America/Sao_Paulo',l:'🇧🇷 São Paulo (UTC-3)'},
+  {v:'UTC',l:'🌐 UTC (no offset)'}
+];
+
+/* ---------- Central page state ---------- */
+const S = window.__PAGE_STATE__ = window.__PAGE_STATE__ || {};
+S.PEOPLE = S.PEOPLE || [];
+S.CURR = S.CURR || {
+  texts: {},
+  textsByLang: {en:{}, gu:{}, hi:{}},
+  shared: {},
+  gifts: [], story: [], events: [],
+  voice: [], video: [], pins: [], media: []
+};
+S.CURRENT_PERSON      = S.CURRENT_PERSON      || null;
+S.ADMIN_MODE          = S.ADMIN_MODE          || false;
+S.PREVIEW_MODE        = S.PREVIEW_MODE        || false;
+S.CURRENT_SETTINGS    = S.CURRENT_SETTINGS    || {};
+S.ADMIN_EDIT_PERSON_ID = S.ADMIN_EDIT_PERSON_ID || null;
+S.CURR_LANG           = S.CURR_LANG           || 'en';
+S.LOGIN_TARGET        = S.LOGIN_TARGET        || null;
+S.ADMIN_EDIT_LANG     = 'en';
+S.GUEST_TEXTS         = S.GUEST_TEXTS         || {en:{}, gu:{}, hi:{}};
+S.GUEST_EDIT_LANG     = 'en';
+S.CARD_STARTED        = false;
+S.REVIEWS             = S.REVIEWS             || [];
+S.HOME_REVIEW_LIMIT   = S.HOME_REVIEW_LIMIT   || 10;
+S.REVIEW_STARS        = 0;
+S.EXPANDED_PEOPLE     = S.EXPANDED_PEOPLE     || new Set();
+S.REQUESTER_MODE      = S.REQUESTER_MODE      || false;
+S.REACTIONS           = S.REACTIONS           || {heart:0, love:0, cry:0, party:0};
+S.DARK_MODE           = S.DARK_MODE           || false;
+S.REVIEWS_COLLAPSED   = true;
+/* Ticked rows in the admin Completed tab → moved to 💐 Finished */
+S.GUEST_COMPLETED_SEL = S.GUEST_COMPLETED_SEL || new Set();
+
+/* ---------- Guest editor state ---------- */
+window.GE = {
+  person: {display_name:'', slug:'', birthday:''},
+  guest:  {name:'', whatsapp:'', relation:'', occasion:'', note:''},
+  password: '',
+  texts: {en:{}, gu:{}, hi:{}},
+  lang: 'en',
+  theme: '',
+  counters: {},
+  gifts: [], story: [], events: [],
+  voice: [], video: [], pins: [], media: [],
+  guestRow: null
+};
+
+/* ---------- Requester editor state ---------- */
+window.RE = {
+  lang: 'en',
+  texts: {en:{}, gu:{}, hi:{}},
+  shared: {},
+  theme: '',
+  counters: {},
+  gifts: [], story: [], events: [],
+  voice: [], video: [], pins: [], media: []
+};
+
+/* ---------- Counter definitions ---------- */
+window.COUNTERS = [
+  {id:'ct1', icon:'💬',
+    labelKey:'ct1_label', dtKey:'ct1_datetime', tzKey:'ct1_datetime_tz',
+    dispKey:'ct1_dispdate', showKey:'ct1_show',
+    mainLabel:'ctMain1_label', mainDate:'ctMain1_date', mainRow:'ctMain1'},
+  {id:'ct2', icon:'💕',
+    labelKey:'ct2_label', dtKey:'ct2_datetime', tzKey:'ct2_datetime_tz',
+    dispKey:'ct2_dispdate', showKey:'ct2_show',
+    mainLabel:'ctMain2_label', mainDate:'ctMain2_date', mainRow:'ctMain2'},
+  {id:'ct3', icon:'💍',
+    labelKey:'ct3_label', dtKey:'ct3_datetime', tzKey:'ct3_datetime_tz',
+    dispKey:'ct3_dispdate', showKey:'ct3_show',
+    mainLabel:'ctMain3_label', mainDate:'ctMain3_date', mainRow:'ctMain3'}
+];
+
+/* ---------- Optional (self-healing) table columns -------------------
+   Columns that belong to newer features and may not exist in every
+   deployment's PostgREST schema cache yet.  sb.optionalBatch() writes a
+   batch WITHOUT them, then tries the variants WITH them one column at a
+   time, so a stale schema cache can never throw the
+   "⚠️ insert media 400 — Could not find the 'is_private' column of 'media'"
+   pill.  The 🔒 Private Photo Slideshow needs media.is_private +
+   media.otp_code; when they are missing the app falls back to the
+   card-level private_mode flag (js/privateview.js).                       */
+window.LC_OPTIONAL_COLS = {
+  media: ['is_private', 'otp_code']
+};
+
+/* ---------- Text fields schema ---------- */
+window.TEXT_FIELDS = [
+  'pageTitle','mainHeadline','subhead1','subhead2','greeting','msg1','msg2','msg3','msg4','msg5',
+  'signoff','namesBadge','fromLabel','countersTitle','ct1_label','ct2_label','ct3_label',
+  'openMemoriesBtn','storyBtnText','mapBtnText','uploadBtnText','voiceBtnText','videoBtnText',
+  'giftSectionTitle','eventSectionTitle',
+  'openLine1','openLine2','cakeHint',
+  'lockTitle','lockSubtitle','lockDateText','countdownLabel',
+  'daysLabel','hoursLabel','minsLabel','secsLabel','openEarlyText','pwError','pwLockedMsg',
+  'closeTitle','close1','close2','close3','close4','closeSignoff','closeBtn'
+];
+
+})();

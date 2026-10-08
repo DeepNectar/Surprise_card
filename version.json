@@ -1,0 +1,14 @@
+{
+  "version": "1.8",
+  "date": "2026-10-08",
+  "changes": [
+    "🔒 HD1.8 — Private slideshow fully wired end-to-end: the 🔒 Private checkbox on every photo/video row in the edit panel now SAVES (media.is_private + media.otp_code persist to the cloud), so private scenes stay out of the public \"Our Memories\" show permanently.",
+    "🎟️ After a correct password/PIN on a private card the viewer now sees ONLY the 🔒 gate + Our Private Memory button instantly (viewer security refresh runs on every card open); share/upload/guest controls hidden, and the OTP unlock is revoked as soon as the show closes or you go home — one code, one viewing.",
+    "🛡 Schema self-heal: sb.optionalBatch() retries saves without the new columns if the DB has not migrated yet (no more red \"Could not find the is_private column\" error pill). Run setup/private_media.sql once in Supabase to enable per-row privacy; FULL_GO_LIVE.sql and ensure_private_schema() now create the columns automatically for fresh installs.",
+    "🔒 NEW — Private Photo Viewer: requesters can flag their card as Private from the ✏️ Edit Your Card panel. A private photo & video slideshow NEVER opens on a normal password entry — it is hard-blocked until the viewer passes a two-step high-security gate.",
+    "🪪 Verified access gate: the viewer must first confirm their name + phone number exactly as recorded by the sender, then enter a 6-digit one-time code (OTP). Wrong identity or wrong/expired code = no slideshow, ever. Brute-force attempts are throttled per device.",
+    "🎟️ OTPs are generated ONLY from the requester edit panel (new 🔒 Private tab → Generate OTP). Admins and viewers have no way to mint codes; each code is salted-hashed, single-use and time-boxed (default 10 minutes), and is consumed the moment it unlocks the slideshow.",
+    "🛡 Anti-leak shield while the private show plays: right-click / save-as / copy / drag blocked, screenshot keys suppressed, content auto-blurs when the tab loses focus or goes to print — nobody can quietly capture the gallery.",
+    "✨ Home screen \"What's new\" now ALWAYS shows the exact same version number as the deployed site (config APP_VERSION mirrors /version.json 1:1, mirrored in the admin panel too) — no more mismatch between the badge, the popup and the changelog list."
+  ]
+}

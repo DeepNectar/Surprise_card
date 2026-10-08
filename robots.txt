@@ -1,0 +1,9 @@
+# LoveCards — allow every search engine & AI crawler to index the whole site
+User-agent: *
+Allow: /
+
+# Keep these out of the index (not pages, just assets)
+Disallow: /js/
+Disallow: /css/
+
+Sitemap: https://surprise-card-v2.vercel.app/sitemap.xml

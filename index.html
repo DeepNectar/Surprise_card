@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#8b0028">
+<meta name="description" content="LoveCards — create beautiful personalised surprise cards with messages, photos, videos, countdowns & memories. Free digital love greeting cards for birthdays, anniversaries & proposals. Open on any phone or laptop, installable as an app.">
+<meta name="keywords" content="love card, surprise card, digital greeting card, personalised card, online love letter, birthday surprise card, anniversary card, virtual gift card, e-card, romantic message card">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="author" content="LoveCards">
+<link rel="canonical" href="https://surprise-card-v2.vercel.app/">
+<title>LoveCards 💕 — Personalised Surprise Cards with Photos, Videos &amp; Messages</title>
+
+<!-- Structured data so Google understands the site (rich results + Ads landing page quality) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "LoveCards",
+  "url": "https://surprise-card-v2.vercel.app/",
+  "applicationCategory": "LifestyleApplication",
+  "operatingSystem": "Any (web, iOS, Android, Windows, macOS)",
+  "description": "Create beautiful personalised surprise cards with messages, photos, videos, countdowns and memories. Free to use, installable as an app on phone or laptop.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "featureList": ["Personalised surprise cards", "Photo & video memories", "Countdown timers", "Guestbook & reviews", "Installable PWA"]
+}
+</script>
+
+<!-- Social preview shown when the card link is shared on WhatsApp etc. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="LoveCards">
+<meta property="og:title" content="LoveCards 💕 — Personalised Surprise Cards with Photos, Videos & Messages">
+<meta property="og:description" content="Create beautiful personalised surprise cards — messages, photos, videos, countdowns & memories. Free to use on any phone or laptop, installable as an app.">
+<meta property="og:image" content="https://surprise-card-v2.vercel.app/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<!-- og:url is filled at runtime with the CURRENT page URL (see boot.js) so previews match wherever the card is hosted. -->
+<meta property="og:url" id="ogUrlMeta" content="">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="LoveCards 💕 — Personalised Surprise Cards">
+<meta name="twitter:description" content="Create beautiful surprise cards with messages, photos, videos & memories. Free on any phone or laptop.">
+<meta name="twitter:image" content="https://surprise-card-v2.vercel.app/icon-512.png">
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://lh3.googleusercontent.com">
+<link rel="preconnect" href="https://drive.google.com">
+<link rel="preconnect" href="https://ueuxnkrvvnvldfwgiyqy.supabase.co">
+<link rel="dns-prefetch" href="https://wa.me">
+<link rel="preconnect" href="https://wa.me">
+<!-- Fetch the first scripts immediately, in parallel with HTML parsing -->
+<link rel="modulepreload" as="script" href="js/config.js">
+<link rel="preload" as="script" href="js/utils.js">
+<link rel="preload" as="script" href="js/supabase.js">
+<!-- v1.2 PERF: preload env.js too — it is render-blocking and used by config.js -->
+<link rel="preload" as="script" href="js/env.js">
+<!-- v1.2 PERF: warm up the Google-Fonts CDN (used by later font requests) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- v1.2 PERF: preload every stylesheet so all CSS downloads start in parallel
+     with HTML parsing instead of one blocking request at a time -->
+<link rel="preload" as="style" href="css/variables.css">
+<link rel="preload" as="style" href="css/base.css">
+<link rel="preload" as="style" href="css/home.css">
+<link rel="preload" as="style" href="css/polish.css">
+
+<!-- Inline SVG favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23c41e3a'/%3E%3Cstop offset='1' stop-color='%234a0016'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M32 50c-9-6.5-17-13-17-21a8.6 8.6 0 0 1 17-2.6A8.6 8.6 0 0 1 49 29c0 8-8 14.5-17 21z' fill='%23ffd700'/%3E%3C/svg%3E">
+
+<link rel="stylesheet" href="css/variables.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/home.css">
+<link rel="stylesheet" href="css/lock.css">
+<link rel="stylesheet" href="css/opening.css">
+<link rel="stylesheet" href="css/modals.css">
+<link rel="stylesheet" href="css/panels.css">
+<link rel="stylesheet" href="css/viewer.css">
+<link rel="stylesheet" href="css/slideshow.css">
+<link rel="stylesheet" href="css/videomaker.css">
+<link rel="stylesheet" href="css/responsive.css">
+<!-- Polish layer: professional refinements only. Uses system fonts (Georgia stack),
+     CSS custom properties from variables.css, and never overrides storage or logic. -->
+<link rel="stylesheet" href="css/polish.css">
+
+<!-- ============ PWA: installable on phone AND laptop ============ -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Surprise 💕">
+</head>
+<body data-theme="romantic">
+
+<!-- ============ HOME SCREEN ============ -->
+<div class="home-screen" id="homeScreen">
+  <div class="home-floaters" id="homeFloaters"></div>
+  <div class="home-inner">
+    <div class="home-hero-card">
+      <div class="home-emoji" id="homeEmoji" title="🎂💕">🎂💕</div>
+      <div class="home-title">A surprise awaits…</div>
+      <div class="home-sub">Pick who you are to continue 💖</div>
+
+      <div class="home-stats-bar" id="homeStatsBar" style="display:none;"></div>
+
+      <div class="home-intro" id="homeIntro">
+        <div class="hi-title">✨ What is this?</div>
+        <div class="hi-lead">A personalised surprise card 💌 — filled with messages, photos, videos, countdowns, and memories — made just for someone special.</div>
+        <div class="hi-steps">
+          <div class="hi-step">
+            <div class="hi-num">1</div>
+            <div class="hi-body">
+              <div class="hi-h">Pick who you are</div>
+              <div class="hi-p">Tap the button with your name below, or tap <strong>Guest</strong> if you want to create a surprise for someone.</div>
+            </div>
+          </div>
+          <div class="hi-step">
+            <div class="hi-num">2</div>
+            <div class="hi-body">
+              <div class="hi-h">Enter your password</div>
+              <div class="hi-p">Use the <strong>Card Password</strong> to view the surprise, or the <strong>EDIT password</strong> if you're the person who made it and want to change something.</div>
+            </div>
+          </div>
+          <div class="hi-step">
+            <div class="hi-num">3</div>
+            <div class="hi-body">
+              <div class="hi-h">Tap the cake 🎂</div>
+              <div class="hi-p">The surprise opens with a personal message, live counters, gift boxes, memories slideshow, story, map, and more.</div>
+            </div>
+          </div>
+          <div class="hi-step">
+            <div class="hi-num">4</div>
+            <div class="hi-body">
+              <div class="hi-h">Leave a review 💛</div>
+              <div class="hi-p">After watching, you can rate your experience and leave a nice message — it appears on the home screen for everyone.</div>
+            </div>
+          </div>
+          <div class="hi-step">
+            <div class="hi-num">🔒</div>
+            <div class="hi-body">
+              <div class="hi-h">Private photo slideshow 🎟️ (high security)</div>
+              <div class="hi-p"><strong>How to make one:</strong> open your card with the <strong>EDIT password</strong> → tab <strong>🔒 Private</strong> → switch <strong>ON “Make this card’s photos private”</strong> → upload/keep your photos &amp; videos in the <strong>📸 Photos</strong> tab (same as always) → tap <strong>🎟️ Generate OTP</strong> and send the 6-digit code to your viewer. Codes are ONLY generated here — never by admins or viewers.<br>
+              <strong>How to watch one:</strong> open the card with its normal password/PIN, then tap the 🔒 <strong>Private Memories</strong> button (shown next to “Our Memories” on private cards). Confirm your <strong>name + phone number</strong> exactly as the sender saved them, enter the fresh <strong>OTP</strong> (valid ~10 minutes, single use) — and the photo &amp; video slideshow opens under an anti-screenshot shield.</div>
+            </div>
+          </div>
+        </div>
+        <div class="hi-foot">💡 Want to create your own surprise? Tap <strong>Guest ✍️</strong> below to download the template, fill it, and submit it for approval.</div>
+        <div class="hi-toggle">
+          <button type="button" id="homeIntroToggle">Hide 👆 / Show 👇</button>
+        </div>
+      </div>
+
+      <div class="home-grid" id="homeGrid"><div class="home-loading">Loading…</div></div>
+      <div class="home-finished collapsed" id="homeFinished" style="display:none;">
+        <div class="hf-head" id="homeFinishedHead">
+          <span class="hf-title">💐 Finished</span>
+          <span class="hf-count" id="homeFinishedCount">0</span>
+          <span class="hf-chev">▼</span>
+        </div>
+        <div class="home-finished-body" id="homeFinishedList"></div>
+      </div>
+    </div>
+
+    <div class="home-footer">Guests can download the Excel template, fill it, and submit it for admin approval.</div>
+
+        <div class="home-changelog collapsed" id="homeChangelog">
+      <div class="hcl-head" id="homeChangelogHead">
+        <span class="hcl-title">✨ What's new</span>
+        <span class="hcl-badge"></span>
+        <span class="hcl-chev">▼</span>
+      </div>
+      <div class="hcl-body">
+        <!-- Rolling deployment history ONLY — max 5 latest deployments.
+             Every entry is generated at runtime by js/update.js from
+             /version.json (group title = "🆕 New in HD x.y (deployed on …)").
+             When a NEW deployment arrives, a new group is added on top and
+             the OLDEST one is removed automatically. Nothing is hardcoded
+             here anymore, so this tab is always up to date. -->
+        <div id="hclDeploys"></div>
+      </div>
+    </div>
+
+    <div class="home-reviews collapsed" id="homeReviews" style="display:none;">
+      <div class="hr-collapse-head" id="homeReviewsHead">
+        <span class="hr-title" style="margin:0;">⭐ Reviews</span>
+        <span class="hr-chev">▼</span>
+      </div>
+      <div class="hr-body">
+        <div class="hr-list" id="homeReviewsList"></div>
+        <div class="hr-more" id="homeReviewsMore" style="display:none;">
+          <button type="button" id="homeReviewsMoreBtn">Show more ⬇</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LOCK SCREEN ============ -->
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-content">
+    <div class="lock-icon">🔒</div>
+    <div class="lock-title" id="lockTitleEl"></div>
+    <div class="lock-subtitle" id="lockSubtitleEl"></div>
+    <div class="countdown-label" id="countdownLabelEl"></div>
+    <div class="countdown">
+      <div class="cd-box"><div class="cd-num" id="cdDays">00</div><div class="cd-label" id="cdDaysLabel">Days</div></div>
+      <div class="cd-box"><div class="cd-num" id="cdHours">00</div><div class="cd-label" id="cdHoursLabel">Hours</div></div>
+      <div class="cd-box"><div class="cd-num" id="cdMins">00</div><div class="cd-label" id="cdMinsLabel">Mins</div></div>
+      <div class="cd-box"><div class="cd-num" id="cdSecs">00</div><div class="cd-label" id="cdSecsLabel">Secs</div></div>
+    </div>
+    <button type="button" class="open-early-btn" id="openEarlyBtn"><span>🔓</span><span id="openEarlyTextEl">Open Early</span></button>
+    <div class="lock-hearts">❤️ 💕 🌹 ✨ 💖</div>
+  </div>
+</div>
+
+<!-- ============ OPENING SCREEN ============ -->
+<div class="opening-screen" id="openingScreen">
+  <div class="opening-content">
+    <div class="opening-line-1" id="openLine1El"></div>
+    <div class="opening-line-2" id="openLine2El"></div>
+    <div class="cake-clickable" id="cakeClickable" role="button" tabindex="0">🎂</div>
+    <div class="cake-tap-hint" id="cakeHintEl"></div>
+  </div>
+</div>
+
+<!-- ============ VIEWER SCREEN ============ -->
+<div class="viewer-screen" id="viewerScreen" data-theme="romantic" data-darkmode="false">
+  <div class="viewer-topbar">
+    <button type="button" class="viewer-back" id="viewerBackBtn">← Home</button>
+    <span class="viewer-preview-tag" id="viewerPreviewTag">👁️ PREVIEW</span>
+    <span class="viewer-seen-pill" id="viewerSeenPill" style="display:none;">👁️ Opened</span>
+    <button type="button" class="viewer-share-btn" id="viewerShareBtn" title="Share via WhatsApp">📲 Share</button>
+    <button type="button" class="viewer-darkmode-btn" id="viewerDarkBtn" title="Toggle dark mode">🌙</button>
+    <button type="button" class="viewer-edit-card-btn" id="viewerEditCardBtn">✏️ Edit Card</button>
+  </div>
+  <div class="wrapper">
+    <div class="card" id="mainCard">
+      <div class="cake-emoji">🎂💕</div>
+      <h1 class="card-title" id="mainHeadlineEl"></h1>
+      <div class="subhead" id="subheadEl"></div>
+      <div class="message">
+        <p class="greeting" id="typeGreeting"></p>
+        <p class="type-para" data-text=""></p>
+        <p class="type-para" data-text=""></p>
+        <p class="type-para" data-text=""></p>
+        <p class="type-para" data-text=""></p>
+        <p class="type-para" data-text=""></p>
+        <p class="type-para type-sign" data-text=""></p>
+      </div>
+
+      <div id="giftSection" style="display:none;">
+        <div class="counters-title" id="giftSectionTitleEl" style="margin-top:1.4rem;"></div>
+        <div class="gift-row" id="giftRow"></div>
+      </div>
+
+      <div id="eventSection" style="display:none;">
+        <div class="counters-title" id="eventSectionTitleEl" style="margin-top:1.4rem;"></div>
+        <div class="event-countdowns" id="eventRow"></div>
+      </div>
+
+      <div class="voice-row" id="voiceRow" style="display:none;">
+        <button type="button" class="extra-btn" id="voicePlayBtn">
+          <span>▶️</span><span id="voiceBtnTextEl">Play Voice Message</span>
+        </button>
+      </div>
+
+      <div class="voice-row" id="videoMsgRow" style="display:none;">
+        <button type="button" class="extra-btn" id="videoMsgBtn">
+          <span>🎬</span><span id="videoBtnTextEl">Play Video Message</span>
+        </button>
+      </div>
+
+      <div class="counters-box" id="countersMain">
+        <div class="counters-title" id="countersMainTitle"></div>
+        <div class="counter-item" id="ctMain1">
+          <div class="counter-icon">💬</div>
+          <div class="counter-body">
+            <div class="counter-label" id="ctMain1_label"></div>
+            <div class="counter-time" id="counterTalkMain">…</div>
+            <div class="counter-date" id="ctMain1_date"></div>
+          </div>
+        </div>
+        <div class="counter-item" id="ctMain2">
+          <div class="counter-icon">💕</div>
+          <div class="counter-body">
+            <div class="counter-label" id="ctMain2_label"></div>
+            <div class="counter-time" id="counterYesMain">…</div>
+            <div class="counter-date" id="ctMain2_date"></div>
+          </div>
+        </div>
+        <div class="counter-item" id="ctMain3">
+          <div class="counter-icon">💍</div>
+          <div class="counter-body">
+            <div class="counter-label" id="ctMain3_label"></div>
+            <div class="counter-time" id="counterEngagedMain">…</div>
+            <div class="counter-date" id="ctMain3_date"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="from">
+        <span id="fromLabel"></span>
+        <div class="names" id="namesBadgeEl"></div>
+      </div>
+
+      <div class="heart-row">
+        <span>❤️</span><span>💛</span><span>💕</span><span>🌹</span><span>✨</span>
+      </div>
+
+      <div class="reaction-bar" id="reactionBar">
+        <div class="reaction-bar-title">Tap to react</div>
+        <button type="button" class="reaction-btn" data-react="heart" data-emoji="❤️"><span>❤️</span><span class="rb-count" id="rbCountHeart">0</span></button>
+        <button type="button" class="reaction-btn" data-react="love"  data-emoji="😍"><span>😍</span><span class="rb-count" id="rbCountLove">0</span></button>
+        <button type="button" class="reaction-btn" data-react="cry"   data-emoji="🥹"><span>🥹</span><span class="rb-count" id="rbCountCry">0</span></button>
+        <button type="button" class="reaction-btn" data-react="party" data-emoji="🎉"><span>🎉</span><span class="rb-count" id="rbCountParty">0</span></button>
+      </div>
+
+      <button type="button" class="open-btn" id="openBtn"><span>📸</span><span id="openMemoriesBtnTextEl">Open Memories</span></button>
+
+      <!-- 🔒 PRIVATE MEMORIES — same button as "Our Memories", but for
+           private cards it routes through the name+phone → OTP gate.
+           Shown only when the card is flagged Private (js/privateview.js). -->
+      <button type="button" class="open-btn private-open-btn" id="privateSlideshowBtn" style="display:none;"><span>🔒</span><span id="privateSlideshowBtnTextEl">Our Private Memory</span></button>
+
+      <div class="pill" id="privateModePill" style="display:none;">🔒 PRIVATE — verified OTP required to view</div>
+
+      <div class="extra-btns" id="extraBtns">
+        <button type="button" class="extra-btn" id="storyBtn" style="display:none;"><span>📖</span><span id="storyBtnTextEl">Our Story</span></button>
+        <button type="button" class="extra-btn" id="mapBtn" style="display:none;"><span>🗺️</span><span id="mapBtnTextEl">Map of Memories</span></button>
+        <button type="button" class="extra-btn" id="uploadBtn" style="display:none;"><span>📤</span><span id="uploadBtnTextEl">Share Photo</span></button>
+        <button type="button" class="extra-btn" id="videoMakerBtn"><span>🎥</span><span>Make a Video</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 🎥 MAKE A VIDEO MODAL (recipient) ============ -->
+<div class="video-maker-modal" id="videoMakerModal">
+  <div class="vm-panel">
+    <div class="vm-title">🎥 Make a Video of this Card</div>
+    <div class="vm-sub" style="text-align:center;margin:-4px 0 8px;opacity:.75;font-size:13px;">HD vertical video · about 2 minutes long</div>
+    <div class="vm-help" id="vmHelp">
+      <strong>How to use:</strong>
+      <ul>
+        <li>Tap 🎬 <b>Start</b> — the video renders right here in your browser (about 1 minute).</li>
+        <li>Watch the live preview and progress bar while it's made.</li>
+        <li>Toggle 🎵 Music on/off before starting.</li>
+        <li>When it's ready, use ⬇️ <b>Download</b> or 💬 <b>Share</b> (WhatsApp, etc.).</li>
+        <li>Tip: include photos in your card — they become the slideshow scenes.</li>
+      </ul>
+    </div>
+    <button type="button" class="vm-btn primary" id="vmStartBtn" style="display:none;">🎬 Start</button>
+    <div class="vm-stage" id="vmStage">⏳ Preparing your video…</div>
+    <div class="vm-bar"><div class="vm-bar-fill" id="vmBarFill"></div></div>
+    <canvas id="vmPreview" width="1080" height="1920"></canvas>
+    <div id="vmResult">
+      <video id="vmResultVideo" controls playsinline muted></video>
+      <div class="vm-size" id="vmSizeEl"></div>
+    </div>
+    <div class="vm-actions">
+      <button type="button" class="vm-btn on" id="vmMusicBtn" style="display:none;">🎵 Music: ON</div>
+      <button type="button" class="vm-btn primary" id="vmDownloadBtn" style="display:none;">⬇️ Download</button>
+      <button type="button" class="vm-btn" id="vmShareBtn" style="display:none;">💬 Share</button>
+      <button type="button" class="vm-btn" id="vmAgainBtn" style="display:none;">🔁 Again</button>
+      <button type="button" class="vm-btn" id="vmCancelBtn">✖ Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PERSON LOGIN MODAL ============ -->
+<div class="pw-modal" id="personLoginModal">
+  <div class="pw-content">
+    <div class="pw-icon">🔐</div>
+    <div class="pw-title" id="personLoginTitle">Enter your password</div>
+    <div class="pw-sub" id="personLoginSub"></div>
+    <input type="password" class="pw-input" id="personPwInput" placeholder="Password" autocomplete="current-password">
+    <div class="pw-error" id="personPwError">❌ Incorrect password.</div>
+    <div class="pw-buttons">
+      <button type="button" class="pw-btn cancel" id="personPwCancel">Cancel</button>
+      <button type="button" class="pw-btn confirm" id="personPwConfirm">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN LOGIN MODAL ============ -->
+<div class="pw-modal" id="adminLoginModal">
+  <div class="pw-content">
+    <div class="pw-icon">⚙️</div>
+    <div class="pw-title">Admin Access</div>
+    <div class="pw-sub">Enter the admin password.</div>
+    <input type="password" class="pw-input" id="adminPwInput" placeholder="Admin password" autocomplete="current-password">
+    <div class="pw-error" id="adminPwError">❌ Incorrect password.</div>
+    <div class="pw-buttons">
+      <button type="button" class="pw-btn cancel" id="adminPwCancel">Cancel</button>
+      <button type="button" class="pw-btn confirm" id="adminPwConfirm">Enter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CLOSING MODAL ============ -->
+<div class="info-modal" id="closingModal">
+  <div class="info-content" style="max-width:560px;">
+    <button type="button" class="info-close" id="closingClose">✕</button>
+    <div class="info-title" id="closingTitleEl">💖 With Love</div>
+    <div id="closingBody" style="font-size:1rem;line-height:1.75;color:var(--c-text);"></div>
+    <div id="closingSignoff" style="text-align:right;font-style:italic;font-weight:800;color:var(--c-primary);margin-top:1rem;font-size:1.05rem;"></div>
+    <div style="display:flex;justify-content:center;margin-top:1.4rem;">
+      <button type="button" class="panel-btn save" id="closingDoneBtn" style="min-width:180px;">💛 Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADD PERSON MODAL ============ -->
+<div class="panel-modal" id="addPersonModal">
+  <div class="panel-content" style="max-width:520px;">
+    <button type="button" class="panel-close" id="addPersonClose">✕</button>
+    <div class="panel-title">➕ Add New Person</div>
+    <div class="panel-sub">Fill the basics. You can add theme, texts, gifts, etc. later by expanding the person's row.</div>
+    <div class="panel-field"><label class="panel-label">Display Name <span style="color:#c41e3a;">*required</span></label><input type="text" class="panel-input" id="ap_name" placeholder="e.g. Vrunda"></div>
+    <div class="panel-field"><label class="panel-label">Login ID / Slug <span style="color:#c41e3a;">*required</span></label><input type="text" class="panel-input" id="ap_slug" placeholder="e.g. vrunda (lowercase, no spaces)"></div>
+    <div class="panel-field"><label class="panel-label">Card Password (viewer)</label><input type="text" class="panel-input" id="ap_password" placeholder="Leave blank for auto 6-letter (name + birthday), or click 🎲"></div>
+    <div class="panel-field"><label class="panel-label">Birthday</label><input type="date" class="panel-input" id="ap_birthday"></div>
+    <div class="panel-field"><label class="panel-label">Requester name (shown on reviews)</label><input type="text" class="panel-input" id="ap_requester" placeholder="e.g. Deep Patel"></div>
+    <div class="panel-field"><label class="panel-label">Requester relation (to the person — saved privately)</label><input type="text" class="panel-input" id="ap_requester_relation" placeholder="e.g. Husband, Best friend, Sister"></div>
+    <div class="panel-field"><label class="panel-label">Requester WhatsApp (used for edit password)</label><input type="tel" class="panel-input" id="ap_requester_wa" placeholder="e.g. +971 55 348 8512"></div>
+
+    <div class="panel-field" style="padding:.55rem;background:#eef3ff;border:1px dashed #1a3d8f;border-radius:.6rem;">
+      <label class="panel-label" style="color:#1a3d8f;">✏️ Requester EDIT password (auto-generated)</label>
+      <input type="text" class="panel-input" id="ap_editpw_preview" readonly style="background:#f4f8ff;font-family:monospace;font-weight:800;color:#1a3d8f;" placeholder="(requires Requester name + WhatsApp + Slug)">
+      <div style="font-size:.7rem;color:#1a3d8f;font-style:italic;margin-top:.35rem;">Format: <code>{FirstName}-EDIT-{last4digits}-{slug}</code></div>
+    </div>
+
+    <div class="panel-field" style="padding:.55rem;background:#fff0f0;border:1px dashed #8b0028;border-radius:.6rem;">
+      <label class="panel-label" style="color:#8b0028;">🗓️ Auto-wipe this person on (optional)</label>
+      <div class="tz-row">
+        <input type="datetime-local" class="panel-input" id="ap_wipe_local">
+        <select class="panel-select tz-select" id="ap_wipe_tz"></select>
+      </div>
+      <div style="font-size:.7rem;color:#8b0028;font-style:italic;margin-top:.35rem;">Reviews survive wipe.</div>
+    </div>
+
+    <div class="panel-field" style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">
+      <button type="button" class="panel-btn save" id="ap_generatePw" style="min-width:0;background:#2a5fd1;flex:0 0 auto;">🎲 Generate Viewer Password</button>
+    </div>
+
+    <div class="panel-actions" style="margin-top:.6rem;">
+      <button type="button" class="panel-btn save" id="ap_saveClose">✓ Save &amp; Close</button>
+      <button type="button" class="panel-btn save" id="ap_saveNew" style="background:linear-gradient(135deg,#0a7a3d,#0f8f48);">➕ Save &amp; New</button>
+      <button type="button" class="panel-btn cancel" id="ap_cancel">Cancel</button>
+    </div>
+    <div class="panel-status" id="ap_status"></div>
+  </div>
+</div>
+
+<!-- ============ REVIEW MODAL ============ -->
+<div class="info-modal" id="reviewModal">
+  <div class="info-content" style="max-width:520px;">
+    <div class="info-title">⭐ Leave Your Review</div>
+    <div style="font-size:.85rem;color:var(--c-text-muted);text-align:center;font-style:italic;margin-bottom:1rem;" id="reviewForWho"></div>
+    <div class="star-row" id="reviewStars">
+      <span class="star" data-v="1">★</span><span class="star" data-v="2">★</span>
+      <span class="star" data-v="3">★</span><span class="star" data-v="4">★</span>
+      <span class="star" data-v="5">★</span>
+    </div>
+    <div style="text-align:center;font-size:.8rem;color:var(--c-primary-2);margin-bottom:.6rem;" id="reviewStarHint">Tap a star to rate</div>
+    <div class="panel-field"><label class="panel-label">Your review <span style="color:#c41e3a;">*required</span></label><textarea class="panel-textarea" id="reviewMessage" placeholder="Tell us what you loved…" rows="4"></textarea></div>
+    <div class="panel-field"><label class="panel-label">Your email (optional)</label><input type="email" class="panel-input" id="reviewEmail" placeholder="you@example.com"></div>
+    <div style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap;justify-content:center;">
+      <button type="button" class="panel-btn save" id="reviewSubmit" style="min-width:220px;">💛 Submit review</button>
+    </div>
+    <div class="panel-status" id="reviewStatus"></div>
+  </div>
+</div>
+
+<!-- ============ GUEST EDIT MODAL ============ -->
+<div class="panel-modal" id="guestEditModal">
+  <div class="panel-content" style="max-width:820px;">
+    <button type="button" class="panel-close" id="guestEditClose">✕</button>
+    <div class="panel-title">✏️ Edit Guest Submission</div>
+    <div class="panel-sub" id="guestEditSub">Edit any detail before approving.</div>
+    <div class="panel-tabs">
+      <button type="button" class="panel-tab active" data-ge-pane="ge-pane-person">👤 Person</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-text">📝 Text</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-theme">🎨 Theme</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-counters">💕 Counters</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-gifts">🎁 Gifts</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-story">📖 Story</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-events">📅 Events</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-voice">🔊 Voice</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-video">🎬 Video</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-pins">🗺️ Pins</button>
+      <button type="button" class="panel-tab" data-ge-pane="ge-pane-media">📸 Photos</button>
+    </div>
+    <div class="panel-pane active" id="ge-pane-person">
+      <div class="panel-section">
+        <div class="panel-section-title">👤 Person proposal</div>
+        <div class="panel-field"><label class="panel-label">Display Name *</label><input type="text" class="panel-input ge-person" data-gp="display_name"></div>
+        <div class="panel-field"><label class="panel-label">Login ID / Slug *</label><input type="text" class="panel-input ge-person" data-gp="slug"></div>
+        <div class="panel-field"><label class="panel-label">Birthday *</label><input type="date" class="panel-input ge-person" data-gp="birthday"></div>
+      </div>
+      <div class="panel-section" style="background:linear-gradient(135deg,#e8f5f0,#d3ede1);border:2px solid #0d5c4a;">
+        <div class="panel-section-title" style="color:#0d5c4a;">👥 Requester info</div>
+        <div class="panel-field"><label class="panel-label">Requester name</label><input type="text" class="panel-input ge-guest" data-gg="name"></div>
+        <div class="panel-field"><label class="panel-label">WhatsApp</label><input type="tel" class="panel-input ge-guest" data-gg="whatsapp"></div>
+        <div class="panel-field"><label class="panel-label">Relation</label><input type="text" class="panel-input ge-guest" data-gg="relation"></div>
+        <div class="panel-field"><label class="panel-label">Occasion</label><input type="text" class="panel-input ge-guest" data-gg="occasion"></div>
+        <div class="panel-field"><label class="panel-label">Note</label><textarea class="panel-textarea ge-guest" data-gg="note"></textarea></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">🔑 Passwords</div>
+        <div class="panel-field"><label class="panel-label">Card password (viewer)</label><input type="text" class="panel-input" id="ge_password" placeholder="Leave blank to auto-generate a unique 6-letter code (name + birthday)"></div>
+        <div class="panel-field" style="padding:.5rem;background:#eef3ff;border:1px dashed #1a3d8f;border-radius:.6rem;">
+          <label class="panel-label" style="color:#1a3d8f;">✏️ Requester EDIT password (auto)</label>
+          <input type="text" class="panel-input" id="ge_editpw_preview" readonly style="background:#f4f8ff;font-family:monospace;font-weight:800;color:#1a3d8f;">
+        </div>
+      </div>
+    </div>
+    <div class="panel-pane" id="ge-pane-text">
+      <div class="lang-mini-tabs" id="geLangTabs">
+        <button type="button" class="active" data-ge-lang="en">🇬🇧 EN</button>
+        <button type="button" data-ge-lang="gu">🇮🇳 ગુજરાતી</button>
+        <button type="button" data-ge-lang="hi">🇮🇳 हिन्दी</button>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">💌 Main Card Text</div>
+        <div id="geTextFields"></div>
+      </div>
+    </div>
+    <div class="panel-pane" id="ge-pane-theme">
+      <div class="panel-section">
+        <div class="panel-section-title">🎨 Theme</div>
+        <div class="theme-grid" id="geThemeGrid">
+          <button type="button" class="theme-swatch romantic"     data-ge-theme="romantic">Romantic 💕</button>
+          <button type="button" class="theme-swatch family"       data-ge-theme="family">Family 👨‍👩‍👧</button>
+          <button type="button" class="theme-swatch friend"       data-ge-theme="friend">Friend 🤝</button>
+          <button type="button" class="theme-swatch birthday"     data-ge-theme="birthday">Birthday 🎂</button>
+          <button type="button" class="theme-swatch elegant"      data-ge-theme="elegant">Elegant ✨</button>
+          <button type="button" class="theme-swatch festive"      data-ge-theme="festive">Festive 🎉</button>
+          <button type="button" class="theme-swatch anniversary"  data-ge-theme="anniversary">Anniversary 💍</button>
+          <button type="button" class="theme-swatch wedding"      data-ge-theme="wedding">Wedding 👰</button>
+          <button type="button" class="theme-swatch baby"         data-ge-theme="baby">Baby 👶</button>
+          <button type="button" class="theme-swatch sunset"       data-ge-theme="sunset">Sunset 🌅</button>
+          <button type="button" class="theme-swatch ocean"        data-ge-theme="ocean">Ocean 🌊</button>
+          <button type="button" class="theme-swatch royal"        data-ge-theme="royal">Royal 👑</button>
+          <button type="button" class="theme-swatch vintage"      data-ge-theme="vintage">Vintage 📜</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-pane" id="ge-pane-counters">
+      <div class="panel-section">
+        <div class="panel-section-title">💕 Counters</div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💬</span><span>Counter 1</span><label><input type="checkbox" id="ge_ct1_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input ge-ctr" data-gc="ct1_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input ge-ctr" data-gc="ct1_datetime"><select class="panel-select tz-select ge-ctr-tz" data-gc="ct1_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input ge-ctr" data-gc="ct1_dispdate"></div>
+        </div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💕</span><span>Counter 2</span><label><input type="checkbox" id="ge_ct2_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input ge-ctr" data-gc="ct2_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input ge-ctr" data-gc="ct2_datetime"><select class="panel-select tz-select ge-ctr-tz" data-gc="ct2_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input ge-ctr" data-gc="ct2_dispdate"></div>
+        </div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💍</span><span>Counter 3</span><label><input type="checkbox" id="ge_ct3_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input ge-ctr" data-gc="ct3_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input ge-ctr" data-gc="ct3_datetime"><select class="panel-select tz-select ge-ctr-tz" data-gc="ct3_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input ge-ctr" data-gc="ct3_dispdate"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-pane" id="ge-pane-gifts"><div class="panel-section"><div class="panel-section-title">🎁 Gift Boxes</div><div id="geGiftsRepeater"></div><button type="button" class="repeat-add" id="geAddGiftRow">➕ Add Gift Box</button></div></div>
+    <div class="panel-pane" id="ge-pane-story"><div class="panel-section"><div class="panel-section-title">📖 Story Pages</div><div id="geStoryRepeater"></div><button type="button" class="repeat-add" id="geAddStoryRow">➕ Add Story Page</button></div></div>
+    <div class="panel-pane" id="ge-pane-events"><div class="panel-section"><div class="panel-section-title">📅 Event Countdowns</div><div id="geEventsRepeater"></div><button type="button" class="repeat-add" id="geAddEventRow">➕ Add Event</button></div></div>
+    <div class="panel-pane" id="ge-pane-voice"><div class="panel-section"><div class="panel-section-title">🔊 Voice Messages</div><div id="geVoiceRepeater"></div><button type="button" class="repeat-add" id="geAddVoiceRow">➕ Add Voice</button></div></div>
+    <div class="panel-pane" id="ge-pane-video"><div class="panel-section"><div class="panel-section-title">🎬 Video Messages</div><div id="geVideoRepeater"></div><button type="button" class="repeat-add" id="geAddVideoRow">➕ Add Video</button></div></div>
+    <div class="panel-pane" id="ge-pane-pins"><div class="panel-section"><div class="panel-section-title">🗺️ Map Pins</div><div id="gePinsRepeater"></div><button type="button" class="repeat-add" id="geAddPinRow">➕ Add Pin</button></div></div>
+    <div class="panel-pane" id="ge-pane-media">
+      <div class="panel-section">
+        <div class="panel-section-title">📸 Slideshow Photos &amp; Videos</div>
+        <div id="geMediaRepeater"></div>
+        <button type="button" class="repeat-add" id="geAddMediaRow">➕ Add Photo/Video Row</button>
+        <div class="panel-field" style="margin-top:.4rem;"><label class="panel-label">Bulk paste Drive IDs (comma separated)</label><textarea class="panel-textarea" id="ge_bulkMediaIds" placeholder="id1, id2, id3"></textarea></div>
+        <button type="button" class="repeat-add" id="geBulkAddMedia" style="background:#2a5fd1;">📥 Add all IDs above</button>
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button type="button" class="panel-btn save" id="geApprove">✓ Save Edits &amp; Approve</button>
+      <button type="button" class="panel-btn edit" id="geSaveDraft">💾 Save Edits (keep pending)</button>
+      <button type="button" class="panel-btn cancel" id="geCancel">Cancel</button>
+    </div>
+    <div class="panel-status" id="geStatus"></div>
+  </div>
+</div>
+
+<!-- ============ REQUESTER EDIT MODAL ============ -->
+<div class="panel-modal" id="requesterEditModal">
+  <div class="panel-content" style="max-width:820px;">
+    <button type="button" class="panel-close" id="requesterEditClose">✕</button>
+    <div class="panel-title">✏️ Edit Your Card</div>
+    <div class="panel-sub" id="requesterEditSub"></div>
+    <div class="panel-tabs">
+      <button type="button" class="panel-tab active" data-re-pane="re-pane-text">📝 Text</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-theme">🎨 Theme</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-counters">💕 Counters</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-gifts">🎁 Gifts</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-story">📖 Story</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-events">📅 Events</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-voice">🔊 Voice</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-video">🎬 Video</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-pins">🗺️ Pins</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-media">📸 Photos</button>
+      <button type="button" class="panel-tab" data-re-pane="re-pane-private">🔒 Private</button>
+    </div>
+    <div class="panel-pane active" id="re-pane-text">
+      <div class="lang-mini-tabs" id="reLangTabs">
+        <button type="button" class="active" data-re-lang="en">🇬🇧 EN</button>
+        <button type="button" data-re-lang="gu">🇮🇳 ગુજરાતી</button>
+        <button type="button" data-re-lang="hi">🇮🇳 हिन्दी</button>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">💌 Main Card Text</div>
+        <div id="reTextFields"></div>
+      </div>
+    </div>
+    <div class="panel-pane" id="re-pane-theme">
+      <div class="panel-section">
+        <div class="panel-section-title">🎨 Theme</div>
+        <div class="theme-grid" id="reThemeGrid">
+          <button type="button" class="theme-swatch romantic"     data-re-theme="romantic">Romantic 💕</button>
+          <button type="button" class="theme-swatch family"       data-re-theme="family">Family 👨‍👩‍👧</button>
+          <button type="button" class="theme-swatch friend"       data-re-theme="friend">Friend 🤝</button>
+          <button type="button" class="theme-swatch birthday"     data-re-theme="birthday">Birthday 🎂</button>
+          <button type="button" class="theme-swatch elegant"      data-re-theme="elegant">Elegant ✨</button>
+          <button type="button" class="theme-swatch festive"      data-re-theme="festive">Festive 🎉</button>
+          <button type="button" class="theme-swatch anniversary"  data-re-theme="anniversary">Anniversary 💍</button>
+          <button type="button" class="theme-swatch wedding"      data-re-theme="wedding">Wedding 👰</button>
+          <button type="button" class="theme-swatch baby"         data-re-theme="baby">Baby 👶</button>
+          <button type="button" class="theme-swatch sunset"       data-re-theme="sunset">Sunset 🌅</button>
+          <button type="button" class="theme-swatch ocean"        data-re-theme="ocean">Ocean 🌊</button>
+          <button type="button" class="theme-swatch royal"        data-re-theme="royal">Royal 👑</button>
+          <button type="button" class="theme-swatch vintage"      data-re-theme="vintage">Vintage 📜</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-pane" id="re-pane-counters">
+      <div class="panel-section">
+        <div class="panel-section-title">💕 Counters</div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💬</span><span>Counter 1</span><label><input type="checkbox" id="re_ct1_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input re-ctr" data-rc="ct1_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input re-ctr" data-rc="ct1_datetime"><select class="panel-select tz-select re-ctr-tz" data-rc="ct1_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input re-ctr" data-rc="ct1_dispdate"></div>
+        </div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💕</span><span>Counter 2</span><label><input type="checkbox" id="re_ct2_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input re-ctr" data-rc="ct2_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input re-ctr" data-rc="ct2_datetime"><select class="panel-select tz-select re-ctr-tz" data-rc="ct2_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input re-ctr" data-rc="ct2_dispdate"></div>
+        </div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💍</span><span>Counter 3</span><label><input type="checkbox" id="re_ct3_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input re-ctr" data-rc="ct3_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input re-ctr" data-rc="ct3_datetime"><select class="panel-select tz-select re-ctr-tz" data-rc="ct3_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input re-ctr" data-rc="ct3_dispdate"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-pane" id="re-pane-gifts"><div class="panel-section"><div class="panel-section-title">🎁 Gift Boxes</div><div id="reGiftsRepeater"></div><button type="button" class="repeat-add" id="reAddGiftRow">➕ Add Gift Box</button></div></div>
+    <div class="panel-pane" id="re-pane-story"><div class="panel-section"><div class="panel-section-title">📖 Story Pages</div><div id="reStoryRepeater"></div><button type="button" class="repeat-add" id="reAddStoryRow">➕ Add Story Page</button></div></div>
+    <div class="panel-pane" id="re-pane-events"><div class="panel-section"><div class="panel-section-title">📅 Event Countdowns</div><div id="reEventsRepeater"></div><button type="button" class="repeat-add" id="reAddEventRow">➕ Add Event</button></div></div>
+    <div class="panel-pane" id="re-pane-voice"><div class="panel-section"><div class="panel-section-title">🔊 Voice Messages</div><div id="reVoiceRepeater"></div><button type="button" class="repeat-add" id="reAddVoiceRow">➕ Add Voice</button></div></div>
+    <div class="panel-pane" id="re-pane-video"><div class="panel-section"><div class="panel-section-title">🎬 Video Messages</div><div id="reVideoRepeater"></div><button type="button" class="repeat-add" id="reAddVideoRow">➕ Add Video</button></div></div>
+    <div class="panel-pane" id="re-pane-pins"><div class="panel-section"><div class="panel-section-title">🗺️ Map Pins</div><div id="rePinsRepeater"></div><button type="button" class="repeat-add" id="reAddPinRow">➕ Add Pin</button></div></div>
+    <div class="panel-pane" id="re-pane-media">
+      <div class="panel-section">
+        <div class="panel-section-title">📸 Slideshow Photos &amp; Videos</div>
+        <div id="reMediaRepeater"></div>
+        <button type="button" class="repeat-add" id="reAddMediaRow">➕ Add Photo/Video Row</button>
+        <div class="panel-field" style="margin-top:.4rem;"><label class="panel-label">Bulk paste Drive IDs (comma separated)</label><textarea class="panel-textarea" id="re_bulkMediaIds" placeholder="id1, id2, id3"></textarea></div>
+        <button type="button" class="repeat-add" id="reBulkAddMedia" style="background:#2a5fd1;">📥 Add all IDs above</button>
+      </div>
+    </div>
+
+    <!-- 🔒 PRIVATE PHOTO VIEWER pane — the ONLY place in the whole site
+         where OTP codes can be generated (js/requester.js + privateview.js). -->
+    <div class="panel-pane" id="re-pane-private">
+      <div class="panel-section">
+        <div class="panel-section-title">🔒 Private Photo Slideshow (high security)</div>
+        <label style="display:flex;align-items:center;gap:.5rem;font-size:.92rem;padding:.4rem 0;">
+          <input type="checkbox" id="rePrivateModeToggle" style="width:1.15rem;height:1.15rem;">
+          <span>Make this card&rsquo;s photo &amp; video slideshow <strong>private</strong> — nobody can open it without verifying name + phone and entering a one-time code.</span>
+        </label>
+        <div class="pv-help" style="font-size:.85rem;line-height:1.5;background:#fff5f7;border:1px dashed rgba(196,30,58,.35);border-radius:.6rem;padding:.6rem .7rem;margin:.5rem 0;">
+          <strong>How it works:</strong><br>
+          1️⃣ Upload your photos &amp; videos in the 📸 Photos tab (unchanged — they become the slideshow).<br>
+          2️⃣ Turn the switch ON above and press 💾 Save My Card.<br>
+          3️⃣ Press 🎟️ Generate OTP below and send the 6-digit code to your viewer (valid ~10 minutes, usable once).<br>
+          4️⃣ Viewer opens the card with its normal password/PIN → taps 🔒 Private Memories → confirms their <em>name + phone number</em> (exactly as you saved them) → enters the OTP → slideshow plays under an anti-screenshot shield.<br>
+          ⚠️ Codes can ONLY be minted from this panel — admins and viewers have no generator anywhere.
+        </div>
+        <div class="panel-field"><label class="panel-label">Requester identity used for verification</label>
+          <div id="rePrivateIdentity" style="font-size:.88rem;color:#5a2233;">Name / phone are taken from the fields you already fill when submitting the card.</div>
+        </div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem;">
+          <button type="button" class="panel-btn save" id="reGenOtpBtn" style="min-width:0;background:linear-gradient(135deg,#c41e3a,#8f0f26);">🎟️ Generate OTP</button>
+          <button type="button" class="panel-btn edit" id="reRevokeOtpsBtn" style="min-width:0;background:linear-gradient(135deg,#555,#333);">🧹 Revoke all codes</button>
+        </div>
+        <div id="reOtpResult" style="display:none;margin-top:.6rem;padding:.7rem;border:2px solid #c41e3a;border-radius:.7rem;background:#fff;text-align:center;">
+          <div style="font-size:.8rem;opacity:.75;">Share this ONE-TIME code with your viewer — it is shown only here, once:</div>
+          <div id="reOtpCode" style="font-size:2rem;font-weight:800;letter-spacing:.35rem;color:#c41e3a;margin:.3rem 0;">••••••</div>
+          <div id="reOtpTtl" style="font-size:.8rem;"></div>
+          <button type="button" class="panel-btn" id="reOtpCopyBtn" style="min-width:0;margin-top:.4rem;">📋 Copy code + WhatsApp message</button>
+        </div>
+        <div id="reOtpActiveInfo" style="font-size:.82rem;margin-top:.5rem;opacity:.8;"></div>
+      </div>
+    </div>
+        <div class="panel-actions">
+      <button type="button" class="panel-btn save" id="reSave">💾 Save My Card</button>
+      <button type="button" class="panel-btn edit" id="reExportBtn" style="background:linear-gradient(135deg,#0a7a3d,#0f8f48);">📤 Export My Data</button>
+      <button type="button" class="panel-btn edit" id="reImportBtn" style="background:linear-gradient(135deg,#2a5fd1,#1a3d8f);">📥 Import My Data</button>
+      <button type="button" class="panel-btn cancel" id="reCancel">Cancel</button>
+    </div>
+    <input type="file" id="reImportInput" accept=".xlsx,.xls" style="display:none">
+    <div class="panel-status" id="reStatus"></div>
+  </div>
+</div>
+
+<!-- ============ ADMIN PANEL ============ -->
+<div class="panel-modal" id="adminPanel">
+  <div class="panel-content">
+    <button type="button" class="panel-close" id="adminPanelClose">✕</button>
+    <div class="panel-title">⚙️ Admin Panel</div>
+    <div class="panel-sub">Full control — edit any person, approve guest submissions.</div>
+
+    <!-- 🚀 Latest deployed version (filled by js/update.js from /version.json) -->
+    <div id="adminDeployedBox" style="display:none;"></div>
+
+    <div class="panel-section" style="padding:.6rem .7rem;background:linear-gradient(135deg,#fff5e0,#ffe8f0);border:2px solid var(--c-primary-2);">
+      <div class="panel-field" style="margin:0;">
+        <label class="panel-label">👤 Editing person</label>
+        <select class="panel-select" id="adminPersonSelect"></select>
+      </div>
+      <div class="panel-field" style="margin:.5rem 0 0 0;display:flex;gap:.4rem;flex-wrap:wrap;">
+        <button type="button" class="panel-btn save" id="adminSavePreviewBtn" style="min-width:0;background:linear-gradient(135deg,#0a7a3d,#0f8f48);">💾👁️ Save &amp; Preview</button>
+        <button type="button" class="panel-btn save" id="adminPreviewBtn" style="min-width:0;background:linear-gradient(135deg,#2a5fd1,#1a3d8f);">👁️ Preview (unsaved)</button>
+      </div>
+    </div>
+
+    <div class="panel-tabs">
+      <button type="button" class="panel-tab active" data-pane="pane-text">📝 Text</button>
+      <button type="button" class="panel-tab" data-pane="pane-theme">🎨 Theme</button>
+      <button type="button" class="panel-tab" data-pane="pane-people">👥 People</button>
+      <button type="button" class="panel-tab" data-pane="pane-lock">🔓 Lock</button>
+      <button type="button" class="panel-tab" data-pane="pane-extras">🎁 Extras</button>
+      <button type="button" class="panel-tab" data-pane="pane-slideshow">🗺️ Slideshows</button>
+      <button type="button" class="panel-tab" data-pane="pane-reviews">⭐ Reviews</button>
+      <button type="button" class="panel-tab" data-pane="pane-analytics">📈 Insights</button>
+      <button type="button" class="panel-tab" data-pane="pane-backup">📊 Backup</button>
+      <button type="button" class="panel-tab" data-pane="pane-bulkshare">💌 Bulk Share</button>
+      <button type="button" class="panel-tab" data-pane="pane-guests">✍️ Guest Approvals</button>
+      <button type="button" class="panel-tab" data-pane="pane-security">🔐 Security</button>
+    </div>
+
+    <div class="panel-pane active" id="pane-text">
+      <div class="lang-mini-tabs" id="adminLangTabs">
+        <button type="button" class="active" data-admin-lang="en">🇬🇧 EN</button>
+        <button type="button" data-admin-lang="gu">🇮🇳 ગુજરાતી</button>
+        <button type="button" data-admin-lang="hi">🇮🇳 हिन्दी</button>
+      </div>
+
+      <div class="panel-section" style="background:linear-gradient(135deg,#e8f5f0,#d3ede1);border:2px solid #0d5c4a;">
+        <div class="panel-section-title" style="color:#0d5c4a;">🌐 Default language for this person</div>
+        <div class="panel-field" style="margin:0;">
+          <select class="panel-select" id="f_defaultLang">
+            <option value="en">🇬🇧 English</option>
+            <option value="gu">🇮🇳 ગુજરાતી (Gujarati)</option>
+            <option value="hi">🇮🇳 हिन्दी (Hindi)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel-section"><div class="panel-section-title">📄 Page Title</div><div class="panel-field"><label class="panel-label">Browser tab title</label><input type="text" class="panel-input" id="f_pageTitle"></div></div>
+
+      <div class="panel-section">
+        <div class="panel-section-title">💌 Main Card Text</div>
+        <div class="panel-field"><label class="panel-label">Headline</label><input type="text" class="panel-input" id="f_mainHeadline"></div>
+        <div class="panel-field"><label class="panel-label">Subhead Line 1</label><input type="text" class="panel-input" id="f_subhead1"></div>
+        <div class="panel-field"><label class="panel-label">Subhead Line 2</label><input type="text" class="panel-input" id="f_subhead2"></div>
+        <div class="panel-field"><label class="panel-label">Greeting (Dear …)</label><input type="text" class="panel-input" id="f_greeting"></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 1</label><textarea class="panel-textarea" id="f_msg1"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 2</label><textarea class="panel-textarea" id="f_msg2"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 3</label><textarea class="panel-textarea" id="f_msg3"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 4</label><textarea class="panel-textarea" id="f_msg4"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 5</label><textarea class="panel-textarea" id="f_msg5"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Sign-off</label><input type="text" class="panel-input" id="f_signoff"></div>
+        <div class="panel-field"><label class="panel-label">Names badge</label><input type="text" class="panel-input" id="f_namesBadge"></div>
+        <div class="panel-field"><label class="panel-label">From label</label><input type="text" class="panel-input" id="f_fromLabel"></div>
+        <div class="panel-field"><label class="panel-label">Counters title</label><input type="text" class="panel-input" id="f_countersTitle"></div>
+        <div class="panel-field"><label class="panel-label">Counter 1 label</label><input type="text" class="panel-input" id="f_ct1_label"></div>
+        <div class="panel-field"><label class="panel-label">Counter 2 label</label><input type="text" class="panel-input" id="f_ct2_label"></div>
+        <div class="panel-field"><label class="panel-label">Counter 3 label</label><input type="text" class="panel-input" id="f_ct3_label"></div>
+        <div class="panel-field"><label class="panel-label">"Open Memories" button</label><input type="text" class="panel-input" id="f_openMemoriesBtn"></div>
+        <div class="panel-field"><label class="panel-label">Story button</label><input type="text" class="panel-input" id="f_storyBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Map button</label><input type="text" class="panel-input" id="f_mapBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Upload button</label><input type="text" class="panel-input" id="f_uploadBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Voice button</label><input type="text" class="panel-input" id="f_voiceBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Video button</label><input type="text" class="panel-input" id="f_videoBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Gift section title</label><input type="text" class="panel-input" id="f_giftSectionTitle"></div>
+        <div class="panel-field"><label class="panel-label">Event section title</label><input type="text" class="panel-input" id="f_eventSectionTitle"></div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-section-title">🎂 Opening / Cake / Lock</div>
+        <div class="panel-field"><label class="panel-label">Opening line 1</label><input type="text" class="panel-input" id="f_openLine1"></div>
+        <div class="panel-field"><label class="panel-label">Opening line 2</label><input type="text" class="panel-input" id="f_openLine2"></div>
+        <div class="panel-field"><label class="panel-label">Cake tap hint</label><input type="text" class="panel-input" id="f_cakeHint"></div>
+        <div class="panel-field"><label class="panel-label">Lock title</label><input type="text" class="panel-input" id="f_lockTitle"></div>
+        <div class="panel-field"><label class="panel-label">Lock subtitle</label><input type="text" class="panel-input" id="f_lockSubtitle"></div>
+        <div class="panel-field"><label class="panel-label">Lock date text</label><input type="text" class="panel-input" id="f_lockDateText"></div>
+        <div class="panel-field"><label class="panel-label">Countdown label</label><input type="text" class="panel-input" id="f_countdownLabel"></div>
+        <div class="panel-field"><label class="panel-label">Days label</label><input type="text" class="panel-input" id="f_daysLabel"></div>
+        <div class="panel-field"><label class="panel-label">Hours label</label><input type="text" class="panel-input" id="f_hoursLabel"></div>
+        <div class="panel-field"><label class="panel-label">Mins label</label><input type="text" class="panel-input" id="f_minsLabel"></div>
+        <div class="panel-field"><label class="panel-label">Secs label</label><input type="text" class="panel-input" id="f_secsLabel"></div>
+        <div class="panel-field"><label class="panel-label">Open Early button</label><input type="text" class="panel-input" id="f_openEarlyText"></div>
+        <div class="panel-field"><label class="panel-label">Wrong-password message</label><input type="text" class="panel-input" id="f_pwError"></div>
+        <div class="panel-field"><label class="panel-label">Locked-until message (use {date})</label><input type="text" class="panel-input" id="f_pwLockedMsg"></div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-section-title">💖 Closing Modal</div>
+        <div class="panel-field"><label class="panel-label">Closing title</label><input type="text" class="panel-input" id="f_closeTitle"></div>
+        <div class="panel-field"><label class="panel-label">Closing paragraph 1</label><textarea class="panel-textarea" id="f_close1"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Closing paragraph 2</label><textarea class="panel-textarea" id="f_close2"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Closing paragraph 3</label><textarea class="panel-textarea" id="f_close3"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Closing paragraph 4</label><textarea class="panel-textarea" id="f_close4"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Closing sign-off</label><input type="text" class="panel-input" id="f_closeSignoff"></div>
+        <div class="panel-field"><label class="panel-label">Closing button</label><input type="text" class="panel-input" id="f_closeBtn"></div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-theme">
+      <div class="panel-section">
+        <div class="panel-section-title">🎨 Theme</div>
+        <div class="theme-grid" id="themeGrid">
+          <button type="button" class="theme-swatch romantic"    data-theme-pick="romantic">Romantic 💕</button>
+          <button type="button" class="theme-swatch family"      data-theme-pick="family">Family 👨‍👩‍👧</button>
+          <button type="button" class="theme-swatch friend"      data-theme-pick="friend">Friend 🤝</button>
+          <button type="button" class="theme-swatch birthday"    data-theme-pick="birthday">Birthday 🎂</button>
+          <button type="button" class="theme-swatch elegant"     data-theme-pick="elegant">Elegant ✨</button>
+          <button type="button" class="theme-swatch festive"     data-theme-pick="festive">Festive 🎉</button>
+          <button type="button" class="theme-swatch anniversary" data-theme-pick="anniversary">Anniversary 💍</button>
+          <button type="button" class="theme-swatch wedding"     data-theme-pick="wedding">Wedding 👰</button>
+          <button type="button" class="theme-swatch baby"        data-theme-pick="baby">Baby 👶</button>
+          <button type="button" class="theme-swatch sunset"      data-theme-pick="sunset">Sunset 🌅</button>
+          <button type="button" class="theme-swatch ocean"       data-theme-pick="ocean">Ocean 🌊</button>
+          <button type="button" class="theme-swatch royal"       data-theme-pick="royal">Royal 👑</button>
+          <button type="button" class="theme-swatch vintage"     data-theme-pick="vintage">Vintage 📜</button>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">🎁 Features On / Off</div>
+        <div class="toggle-box" style="margin-bottom:.5rem;"><label><input type="checkbox" id="f_enableFireworks"> 🎆 Fireworks</label></div>
+        <div class="toggle-box" style="margin-bottom:.5rem;"><label><input type="checkbox" id="f_enableGiftBox"> 🎁 Gift Boxes</label></div>
+        <div class="toggle-box" style="margin-bottom:.5rem;"><label><input type="checkbox" id="f_enableVoiceMsg"> 🔊 Voice Message</label></div>
+        <div class="toggle-box" style="margin-bottom:.5rem;"><label><input type="checkbox" id="f_enableVideoMsg"> 🎬 Video Message</label></div>
+        <div class="toggle-box" style="margin-bottom:.5rem;"><label><input type="checkbox" id="f_enableEventCount"> 📅 Event Countdowns</label></div>
+        <div class="toggle-box" style="margin-bottom:.5rem;"><label><input type="checkbox" id="f_enableStory"> 📖 Story Mode</label></div>
+        <div class="toggle-box" style="margin-bottom:.5rem;"><label><input type="checkbox" id="f_enableMap"> 🗺️ Map of Memories</label></div>
+        <div class="toggle-box" style="margin-bottom:.5rem;"><label><input type="checkbox" id="f_enableUpload"> 📤 Guest Photo Upload</label></div>
+        <div class="toggle-box"><label><input type="checkbox" id="f_showLockScreen"> 🔒 Show Lock Screen</label></div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-people">
+      <div class="panel-section">
+        <div class="panel-section-title">👥 People — Complete List</div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.6rem;">Click a person to expand and edit. Set requester name + WhatsApp to enable the edit password.</div>
+        <button type="button" class="add-person-btn" id="openAddPersonBtn"><span class="apb-emoji">➕</span><span>Add New Person</span></button>
+        <div class="people-toolbar">
+          <div class="pt-info" id="peopleCountInfo"></div>
+          <button type="button" class="pt-btn" id="peopleToggleAll">▼ Expand all</button>
+        </div>
+        <div id="peopleRepeater"></div>
+        <button type="button" class="repeat-add" id="addPersonRow">➕ Add Person (inline)</button>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-lock">
+      <div class="panel-section">
+        <div class="panel-section-title">💕 Counters</div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💬</span><span>Counter 1</span><label><input type="checkbox" id="f_ct1_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input" id="f_ct1_label2"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input" id="f_ct1_datetime"><select class="panel-select tz-select" id="f_ct1_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input" id="f_ct1_dispdate"></div>
+        </div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💕</span><span>Counter 2</span><label><input type="checkbox" id="f_ct2_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input" id="f_ct2_label2"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input" id="f_ct2_datetime"><select class="panel-select tz-select" id="f_ct2_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input" id="f_ct2_dispdate"></div>
+        </div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💍</span><span>Counter 3</span><label><input type="checkbox" id="f_ct3_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input" id="f_ct3_label2"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input" id="f_ct3_datetime"><select class="panel-select tz-select" id="f_ct3_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input" id="f_ct3_dispdate"></div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">🔓 Unlock</div>
+        <div class="panel-field"><label class="panel-label">Unlock date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input" id="f_unlockDateISO"><select class="panel-select tz-select" id="f_unlockDateISO_tz"></select></div></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">🎵 Music</div>
+        <div class="panel-field"><label class="panel-label">Where to play</label><div style="display:flex;gap:1rem;flex-wrap:wrap;">
+          <label style="display:inline-flex;align-items:center;gap:.35rem;font-size:.88rem;"><input type="radio" name="music_mode" value="both"> Both</label>
+          <label style="display:inline-flex;align-items:center;gap:.35rem;font-size:.88rem;"><input type="radio" name="music_mode" value="card"> Card</label>
+          <label style="display:inline-flex;align-items:center;gap:.35rem;font-size:.88rem;"><input type="radio" name="music_mode" value="slideshow"> Slideshow</label>
+        </div></div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:.4rem;align-items:center;padding:.55rem .5rem;border:1px dashed rgba(196,30,58,.25);border-radius:.7rem;margin-bottom:.5rem;background:#fffdf8;"><input type="checkbox" id="f_song1_on"><input type="text" class="panel-input" id="f_song1_url" placeholder="https://... .mp3"><select class="panel-select" id="f_song1_where"><option value="both">Both</option><option value="card">Card</option><option value="slideshow">Slideshow</option></select></div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:.4rem;align-items:center;padding:.55rem .5rem;border:1px dashed rgba(196,30,58,.25);border-radius:.7rem;margin-bottom:.5rem;background:#fffdf8;"><input type="checkbox" id="f_song2_on"><input type="text" class="panel-input" id="f_song2_url" placeholder="https://... .mp3"><select class="panel-select" id="f_song2_where"><option value="both">Both</option><option value="card">Card</option><option value="slideshow">Slideshow</option></select></div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:.4rem;align-items:center;padding:.55rem .5rem;border:1px dashed rgba(196,30,58,.25);border-radius:.7rem;margin-bottom:.5rem;background:#fffdf8;"><input type="checkbox" id="f_song3_on"><input type="text" class="panel-input" id="f_song3_url" placeholder="https://... .mp3"><select class="panel-select" id="f_song3_where"><option value="both">Both</option><option value="card">Card</option><option value="slideshow">Slideshow</option></select></div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:.4rem;align-items:center;padding:.55rem .5rem;border:1px dashed rgba(196,30,58,.25);border-radius:.7rem;margin-bottom:.5rem;background:#fffdf8;"><input type="checkbox" id="f_song4_on"><input type="text" class="panel-input" id="f_song4_url" placeholder="https://... .mp3"><select class="panel-select" id="f_song4_where"><option value="both">Both</option><option value="card">Card</option><option value="slideshow">Slideshow</option></select></div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:.4rem;align-items:center;padding:.55rem .5rem;border:1px dashed rgba(196,30,58,.25);border-radius:.7rem;margin-bottom:.5rem;background:#fffdf8;"><input type="checkbox" id="f_song5_on"><input type="text" class="panel-input" id="f_song5_url" placeholder="https://... .mp3"><select class="panel-select" id="f_song5_where"><option value="both">Both</option><option value="card">Card</option><option value="slideshow">Slideshow</option></select></div>
+        <div class="slider-row"><label>Card volume</label><input type="range" id="f_vol_card" min="0" max="1" step="0.05" value="0.45"><span class="slider-val" id="f_vol_card_val">0.45</span></div>
+        <div class="slider-row"><label>Slideshow volume</label><input type="range" id="f_vol_slide" min="0" max="1" step="0.05" value="0.85"><span class="slider-val" id="f_vol_slide_val">0.85</span></div>
+        <div class="slider-row"><label>Video volume</label><input type="range" id="f_vol_video" min="0" max="1" step="0.05" value="1.0"><span class="slider-val" id="f_vol_video_val">1.00</span></div>
+        <div class="toggle-box" style="margin-top:.7rem;margin-bottom:.5rem;">
+          <label><input type="checkbox" id="f_musicDuringVideo"> 🎵 Keep background music playing during video slides</label>
+        </div>
+        <div class="slider-row"><label>Music volume during video</label><input type="range" id="f_vol_video_music" min="0" max="1" step="0.05" value="0.35"><span class="slider-val" id="f_vol_video_music_val">0.35</span></div>
+        <div style="font-size:.75rem;color:var(--c-text-muted);font-style:italic;line-height:1.5;margin-top:.35rem;">
+          When ON, music plays under video at the volume set above (instead of ducking to 40%). When OFF, music ducks softly while a video is showing.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-extras">
+      <div class="panel-section"><div class="panel-section-title">🎁 Gift Boxes</div><div id="giftsRepeater"></div><button type="button" class="repeat-add" id="addGiftRow">➕ Add Gift Box</button></div>
+      <div class="panel-section"><div class="panel-section-title">📖 Story Pages</div><div id="storyRepeater"></div><button type="button" class="repeat-add" id="addStoryRow">➕ Add Story Page</button></div>
+      <div class="panel-section"><div class="panel-section-title">📅 Event Countdowns</div><div id="eventsRepeater"></div><button type="button" class="repeat-add" id="addEventRow">➕ Add Event</button></div>
+      <div class="panel-section"><div class="panel-section-title">🔊 Voice Messages</div><div id="voiceRepeater"></div><button type="button" class="repeat-add" id="addVoiceRow">➕ Add Voice</button></div>
+      <div class="panel-section"><div class="panel-section-title">🎬 Video Messages</div><div id="videoRepeater"></div><button type="button" class="repeat-add" id="addVideoRow">➕ Add Video</button></div>
+      <div class="panel-section"><div class="panel-section-title">🗺️ Map Pins</div><div id="pinsRepeater"></div><button type="button" class="repeat-add" id="addPinRow">➕ Add Pin</button></div>
+      <div class="panel-section"><div class="panel-section-title">📸 Slideshow Photos</div>
+        <div id="mediaRepeater"></div>
+        <button type="button" class="repeat-add" id="addMediaRow">➕ Add Photo Row</button>
+        <div style="margin-top:.6rem;font-size:.78rem;color:var(--c-text-muted);font-style:italic;">Duplicate Drive IDs are removed automatically on Save.</div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-slideshow">
+      <div class="panel-section">
+        <div class="panel-section-title">📸 Slideshow Playback</div>
+        <div class="panel-field"><label class="panel-label">Photo duration (seconds)</label>
+          <input type="number" class="panel-input" id="f_photoDurationSec" min="1" max="60" step="0.5" value="5">
+        </div>
+        <div class="toggle-box" style="margin-top:.9rem;"><label><input type="checkbox" id="f_shuffleMusicOn"> 🔀 Shuffle music playlist when saving</label></div>
+        <div class="toggle-box"><label><input type="checkbox" id="f_shuffleMediaOn"> 🔀 Shuffle media (photos/videos) when saving</label></div>
+        <div class="panel-section-title" style="margin-top:.7rem;">🎨 Palette customizer (optional)</div>
+        <div class="toggle-box"><label><input type="checkbox" id="f_paletteOn"> ✨ Use custom accent colors for this card</label></div>
+        <div class="palette-row">
+          <label class="pal-lbl">Accent 1 <input type="color" id="f_paletteA" value="#e11d48"></label>
+          <label class="pal-lbl">Accent 2 <input type="color" id="f_paletteB" value="#7c3aed"></label>
+          <span class="pal-prev-wrap">Preview <span id="palettePreview" class="palette-preview"></span></span>
+        </div>
+        <div style="font-size:.78rem;color:var(--c-text-muted);font-style:italic;line-height:1.6;margin-top:.5rem;">
+          The shuffled order is generated once at Save time and stored per-person.
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">✨ Effects</div>
+        <div class="toggle-box" style="margin-bottom:.9rem;"><label><input type="checkbox" id="f_slideEffectsEnabled"> ✨ Enable random slide effects (photo & video)</label></div>
+        <div class="slider-row"><label>Effects intensity</label><input type="range" id="f_effectsIntensity" min="0.5" max="1.6" step="0.1" value="1"><span class="slider-val" id="f_effectsIntensity_val">1.0</span></div>
+        <div style="font-size:.78rem;color:var(--c-text-muted);font-style:italic;line-height:1.6;">0.5 = subtle · 1.0 = normal · 1.6 = dramatic</div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">💖 Floating Emoji Over Slideshow</div>
+        <div class="toggle-box" style="margin-bottom:.9rem;"><label><input type="checkbox" id="f_floatersEnabled"> 💖 Enable floating emoji</label></div>
+        <div class="slider-row"><label>Floater density</label><input type="range" id="f_floaterDensity" min="0" max="2" step="1" value="1"><span class="slider-val" id="f_floaterDensity_val">1</span></div>
+        <div style="font-size:.78rem;color:var(--c-text-muted);font-style:italic;line-height:1.6;">0 = slow · 1 = normal · 2 = fast</div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">🗺️ Map Pin Slideshow</div>
+        <div class="toggle-box" style="margin-bottom:.9rem;"><label><input type="checkbox" id="f_pinSlideshowEnabled"> ▶️ Auto-play on Map open</label></div>
+        <div class="slider-row"><label>Photo duration (sec)</label><input type="range" id="f_pinSlideDuration" min="1" max="15" step="0.5" value="4"><span class="slider-val" id="f_pinSlideDuration_val">4</span></div>
+        <div class="panel-field"><label class="panel-label">Default duration</label><input type="number" class="panel-input" id="f_pinSlideDefaultSec" min="1" max="30" step="0.5" value="10"></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">📖 Story Slideshow</div>
+        <div class="toggle-box" style="margin-bottom:.9rem;"><label><input type="checkbox" id="f_storySlideshowEnabled"> ▶️ Auto-play on Story open</label></div>
+        <div class="slider-row"><label>Page duration (sec)</label><input type="range" id="f_storySlideDuration" min="1" max="15" step="0.5" value="10"><span class="slider-val" id="f_storySlideDuration_val">10</span></div>
+        <div class="panel-field"><label class="panel-label">Default duration</label><input type="number" class="panel-input" id="f_storySlideDefaultSec" min="1" max="30" step="0.5" value="10"></div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-reviews">
+      <div class="panel-section">
+        <div class="panel-section-title">⭐ All Reviews</div>
+        <div id="adminReviewsList">Loading…</div>
+        <button type="button" class="repeat-add" id="adminRefreshReviews" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-analytics">
+      <div class="panel-section">
+        <div class="panel-section-title">📈 Analytics Dashboard</div>
+        <div class="ana-grid" id="anaStats"></div>
+        <div class="panel-section-title" style="margin-top:.8rem;">🏆 Top performing cards</div>
+        <div id="anaTopCards"><em style="color:var(--c-text-muted);font-size:.8rem;">Loading…</em></div>
+        <button type="button" class="repeat-add" id="anaRefreshBtn" style="margin-top:.6rem;">🔄 Refresh insights</button>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-bulkshare">
+      <div class="panel-section">
+        <div class="panel-section-title">💌 Bulk WhatsApp Sharing</div>
+        <div style="font-size:.82rem;color:var(--c-text-muted);margin-bottom:.5rem;">
+          Tick approved cards and send each guest their credentials in one flow. Opens WhatsApp per contact (tap Send each time).
+        </div>
+        <div id="bulkShareList"><em style="font-size:.8rem;color:var(--c-text-muted);">Loading approved cards…</em></div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem;">
+          <button type="button" class="repeat-add" id="bulkRefreshBtn">🔄 Refresh list</button>
+          <button type="button" class="repeat-add" id="bulkSelectAllBtn">☑️ Select all</button>
+          <button type="button" class="repeat-add" id="bulkSendBtn" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;">🚀 Send to selected</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-backup">
+      <div class="panel-section">
+        <div class="panel-section-title">📊 Complete Excel Backup</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button type="button" class="panel-btn save" id="adminExportBtn">📤 Export Everything</button>
+          <button type="button" class="panel-btn reset" id="adminImportBtn">📥 Import Everything</button>
+        </div>
+        <input type="file" id="adminExcelInput" accept=".xlsx,.xls" style="display:none">
+        <div class="panel-status" id="adminDataStatus"></div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-guests">
+      <div class="panel-tabs" id="guestStatusTabs" style="margin-bottom:.8rem;">
+        <button type="button" class="panel-tab active" data-guest-status="pending">⏳ Pending</button>
+        <button type="button" class="panel-tab" data-guest-status="approved">✅ Completed</button>
+        <button type="button" class="panel-tab" data-guest-status="finished">💐 Finished <span class="reminder-badge" id="finishedBadge" style="display:none;background:#8e44ad;">0</span></button>
+        <button type="button" class="panel-tab" data-guest-status="rejected">🗑️ Rejected</button>
+        <button type="button" class="panel-tab" data-guest-status="reminders">🔔 Reminders <span class="reminder-badge" id="reminderBadge" style="display:none;">0</span></button>
+      </div>
+      <div class="panel-section" id="guestPendingSection">
+        <div class="panel-section-title">✍️ Pending Guest Submissions</div>
+        <div id="pendingGuestsList">Loading…</div>
+        <button type="button" class="repeat-add" id="refreshGuests" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+      <div class="panel-section" id="guestCompletedSection" style="display:none;">
+        <div class="panel-section-title">📜 Guest Submissions History (Approved / Completed)</div>
+        <div class="guest-select-bar" id="completedSelectBar">
+          <label class="guest-select-all"><input type="checkbox" id="selectAllCompleted"> Select all</label>
+          <span class="guest-sel-count" id="completedSelCount">0 selected</span>
+          <button type="button" class="repeat-add" id="moveSelectedToFinished" style="background:#8e44ad;min-width:0;padding:.45rem .9rem;">💐 Move selected to Finished</button>
+          <button type="button" class="repeat-add" id="deleteSelectedFromDb" style="background:#c0392b;min-width:0;padding:.45rem .9rem;">🗑️ Delete selected from database</button>
+        </div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Tick a completed submission and press “Move selected to Finished” — it moves out of ✅ Completed into the 💐 Finished tab here AND appears on the home screen for EVERY visitor, on every domain. Or press “🗑️ Delete selected from database” to permanently remove the ticked rows from the database.</div>
+        <div id="guestHistoryList">Loading…</div>
+        <button type="button" class="repeat-add" id="refreshGuestHistory" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+      <div class="panel-section" id="guestFinishedSection" style="display:none;">
+        <div class="panel-section-title">💐 Finished People (shown on the home screen)</div>
+        <div class="guest-select-bar" id="finishedSelectedActions" style="display:none;">
+          <span class="guest-sel-count" id="finishedSelCount"></span>
+          <button type="button" class="repeat-add" id="removeSelectedFromFinished" style="background:#c0392b;min-width:0;padding:.45rem .9rem;">🗑️ Remove from home screen</button>
+        </div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Everyone moved here from ✅ Completed (or auto-wiped after review) shows up in the 💐 Finished tab on the home screen for all visitors, stamped with the exact date &amp; time their data was wiped. Requester details stay private for 🔔 Reminders. Use ↩️ Undo to bring someone back into ✅ Completed, or 🗑️ “Remove from home screen” (per row, or tick several rows) to delete them from the home screen for everyone — they stay safe in the 🗑️ Wiped Out archive and can be restored anytime.</div>
+        <div id="adminFinishedList">Loading…</div>
+        <button type="button" class="repeat-add" id="refreshAdminFinished" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+      <div class="panel-section" id="guestRejectedSection" style="display:none;">
+        <div class="panel-section-title">🗑️ Rejected Submissions</div>
+        <div id="guestRejectedList">Loading…</div>
+        <button type="button" class="repeat-add" id="refreshGuestRejected" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+      <div class="panel-section" id="guestRemindersSection" style="display:none;">
+        <div class="panel-section-title">🔔 Birthday Reminders — next 30 days</div>
+        <div class="panel-sub" style="text-align:left;margin-bottom:.4rem;">Upcoming birthdays of everyone you have surprised. Message the requester 10–15 days before the date to plan the next card. Requester WhatsApp numbers are kept privately here.</div>
+        <div id="guestRemindersList">Loading…</div>
+        <button type="button" class="repeat-add" id="refreshGuestReminders" style="margin-top:.6rem;">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="pane-security">
+      <div class="panel-section">
+        <div class="panel-section-title">🔐 Admin Login Gate</div>
+        <div class="panel-sub" style="text-align:left;">Control whether the admin login is reachable via triple-clicking the 🎂💕 emoji on the home screen.</div>
+        <div class="toggle-box" style="margin-bottom:.9rem;"><label><input type="checkbox" id="f_adminLoginEnabled"> ☑ Enable admin login (triple-click 🎂💕 on home)</label></div>
+        <div style="font-size:.78rem;color:var(--c-text-muted);font-style:italic;line-height:1.6;">
+          ⚠️ If you disable this and forget the password, edit <code>shared__adminLoginEnabled</code> in Supabase.
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">🔑 Admin Password</div>
+        <div class="panel-field"><label class="panel-label">Current admin password</label><input type="text" class="panel-input" id="f_adminPassword"></div>
+        <div class="panel-field"><label class="panel-label">🛡️ v1.0 Secure hash (recommended — stores NO plaintext)</label>
+          <div style="display:flex;gap:.4rem;align-items:center;">
+            <input type="password" class="panel-input" id="f_adminPwHashInput" placeholder="New passphrase → click Hash & Save" style="flex:1;">
+            <button type="button" class="panel-btn" id="f_adminPwHashBtn" style="min-width:0;flex:0 0 auto;padding:.4rem .8rem;font-size:.8rem;">🔐 Hash &amp; Save</button>
+          </div>
+          <div id="f_adminPwHashState" style="font-size:.72rem;color:var(--c-text-muted);margin-top:.3rem;"></div>
+        </div>
+        <div class="panel-field" style="font-size:.75rem;color:var(--c-text-muted);font-style:italic;">v1.0: once a secure hash is saved, prefer removing the plaintext fallback from js/env.js. Wrong-password attempts are throttled (5 tries → timed lockout).</div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">✨ AI Message Writer</div>
+        <div class="panel-field" style="font-size:.78rem;color:var(--c-text-muted);">The ✨ button next to every message box drafts romantic text. Works fully offline; connect an OpenAI-compatible key for real AI. Key stays in THIS browser only.</div>
+        <div class="panel-field"><label class="panel-label">Mode</label><select class="panel-select" id="f_aiMode"><option value="offline">✉️ Offline template engine (default)</option><option value="online">🤖 Online AI (OpenAI-compatible)</option></select></div>
+        <div class="panel-field"><label class="panel-label">API key</label><input type="password" class="panel-input" id="f_aiKey" placeholder="sk-..."></div>
+        <div class="panel-field"><label class="panel-label">Base URL</label><input type="text" class="panel-input" id="f_aiBase" placeholder="https://api.openai.com/v1"></div>
+        <div class="panel-field"><label class="panel-label">Model</label><input type="text" class="panel-input" id="f_aiModel" placeholder="gpt-4o-mini"></div>
+        <div><button type="button" class="panel-btn" id="f_aiSaveBtn" style="min-width:0;padding:.4rem .9rem;font-size:.8rem;">💾 Save AI settings</button></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">🔒 Private Photo Slideshow — Admin Guide</div>
+        <div class="pv-help" style="font-size:.85rem;line-height:1.6;background:#fff5f7;border:1px dashed rgba(196,30,58,.35);border-radius:.6rem;padding:.6rem .7rem;margin:.2rem 0 .5rem;">
+          <strong>How the private slideshow works (high security):</strong><br>
+          1️⃣ The <strong>requester</strong> opens their card with the <strong>EDIT password</strong> → tab <strong>🔒 Private</strong> → switches ON “Make this card's photos private”.<br>
+          2️⃣ Photos &amp; videos are uploaded in the requester's <strong>📸 Photos</strong> tab exactly as before — they become the slideshow scenes.<br>
+          3️⃣ The OTP is generated <strong>ONLY from that requester edit panel</strong> (🎟️ Generate OTP). There is no admin button, API, or shortcut to mint a code — by design.<br>
+          4️⃣ The viewer opens the card with its normal password/PIN, taps the 🔒 <strong>Private Memories</strong> button (shown next to “Our Memories”), confirms <strong>name + phone number</strong>, then enters the OTP. Only then does the photo &amp; video slideshow play, under an anti-screenshot shield.<br>
+          <strong>Admins can:</strong> see which cards are 🔒 Private (badge in 👥 People), and revoke access by asking the requester to toggle Private off / regenerate a code. Admins CANNOT view a private slideshow or generate OTPs.
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">🔔 Push Notifications</div>
+        <div class="panel-field" style="font-size:.78rem;color:var(--c-text-muted);" id="pushStatusLine">Checking support…</div>
+        <div><button type="button" class="panel-btn" id="pushEnableBtn" style="min-width:0;padding:.4rem .9rem;font-size:.8rem;">🔔 Enable unlock reminders</button>
+        <button type="button" class="panel-btn danger" id="pushDisableBtn" style="min-width:0;padding:.4rem .9rem;font-size:.8rem;">🔕 Disable</button></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">⚠️ Danger Zone</div>
+        <div class="panel-field"><label class="panel-label">Cloud expiry (soft) + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input" id="f_hardExpiryISO"><select class="panel-select tz-select" id="f_hardExpiryISO_tz"></select></div></div>
+      </div>
+    </div>
+
+    <div class="panel-actions">
+      <button type="button" class="panel-btn save" id="adminSave">💾 Save</button>
+      <button type="button" class="panel-btn reset" id="adminReset">🧹 Clear All</button>
+      <button type="button" class="panel-btn cancel" id="adminCancel">Cancel</button>
+    </div>
+    <div class="panel-status" id="adminStatus"></div>
+  </div>
+</div>
+
+<!-- ============ GUEST PANEL ============ -->
+<div class="panel-modal" id="guestPanel">
+  <div class="panel-content">
+    <button type="button" class="panel-close" id="guestPanelClose">✕</button>
+    <div class="panel-title">✍️ Guest Contributor Panel</div>
+    <div class="panel-sub">Download the template → fill it → import → submit for approval.</div>
+
+    <div class="guest-contact-box">
+      <div class="title">📩 WhatsApp for Approval</div>
+      <div class="guest-contact-name">Deep Patel</div>
+      <div class="wa-row">
+        <a href="https://wa.me/message/HHIB5V2N7WHBJ1" target="_blank" rel="noopener noreferrer" class="wa-btn">💬 WhatsApp (Direct)</a>
+        <a href="https://wa.me/971553488512" target="_blank" rel="noopener noreferrer" class="wa-btn">💬 Chat +971 55 348 8512</a>
+      </div>
+      <div class="contact-row">
+        <a href="https://wa.me/971553488512" target="_blank" rel="noopener noreferrer" class="contact-pill">📱 +971 55 348 8512</a>
+        <a href="https://wa.me/918401245555" target="_blank" rel="noopener noreferrer" class="contact-pill">📱 +91 84012 45555</a>
+        <a href="mailto:deep2810p@gmail.com" class="contact-pill">✉️ deep2810p@gmail.com</a>
+      </div>
+    </div>
+
+    <div class="panel-section" style="padding:.8rem;background:linear-gradient(135deg,#fff5e0,#ffe8f0);border:2px solid var(--c-primary-2);">
+      <div class="panel-section-title" style="color:var(--c-primary);">📊 Excel Template</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <button type="button" class="panel-btn save" id="guestExportBtn">📤 Download Excel Template</button>
+        <button type="button" class="panel-btn reset" id="guestImportBtn">📥 Import Excel</button>
+      </div>
+      <input type="file" id="guestExcelInput" accept=".xlsx,.xls" style="display:none">
+      <div class="panel-status" id="guestExcelStatus"></div>
+    </div>
+
+    <div class="panel-section" style="padding:.8rem;background:linear-gradient(135deg,#fff5e0,#ffe8f0);border:2px solid var(--c-primary-2);">
+      <div class="panel-section-title" style="color:var(--c-primary);">🎯 Person you're requesting <span style="color:#c41e3a;">*all fields required</span></div>
+      <div class="panel-field"><label class="panel-label">Person's Display Name *</label><input type="text" class="panel-input" id="newPersonName"></div>
+      <div class="panel-field"><label class="panel-label">Person's Slug / Username *</label><input type="text" class="panel-input" id="newPersonSlug"></div>
+      <div class="panel-field"><label class="panel-label">Person's Birthday *</label><input type="date" class="panel-input" id="newPersonBirthday"></div>
+    </div>
+
+    <div class="panel-section" style="padding:.75rem;background:linear-gradient(135deg,#e8f5f0,#d3ede1);border:2px solid #0d5c4a;">
+      <div class="panel-section-title" style="color:#0d5c4a;">👤 About you (the requester) <span style="color:#c41e3a;">*all fields required</span></div>
+      <div class="panel-field"><label class="panel-label">Your name *</label><input type="text" class="panel-input" id="guestName"></div>
+      <div class="panel-field"><label class="panel-label" style="color:#0d5c4a;">Your WhatsApp number *</label><input type="tel" class="panel-input" id="guestWhatsapp"></div>
+      <div class="panel-field"><label class="panel-label">Your relation to them *</label>
+        <select class="panel-select" id="guestRelation"><option value="">— Select —</option><option value="Friend">Friend</option><option value="Family">Family</option><option value="Partner">Partner</option><option value="Colleague">Colleague</option><option value="Other">Other</option></select>
+      </div>
+      <div class="panel-field"><label class="panel-label">Occasion *</label>
+        <select class="panel-select" id="guestOccasion"><option value="">— Select —</option><option value="Birthday">🎂 Birthday</option><option value="Anniversary">💍 Anniversary</option><option value="Wedding">💒 Wedding</option><option value="Just Because">💕 Just Because</option><option value="Other">✨ Other</option></select>
+      </div>
+      <div class="panel-field"><label class="panel-label">Message to admin (optional)</label><textarea class="panel-textarea" id="guestNote"></textarea></div>
+    </div>
+
+    <div class="panel-tabs">
+      <button type="button" class="panel-tab active" data-pane="gpane-text">📝 Text</button>
+      <button type="button" class="panel-tab" data-pane="gpane-theme">🎨 Theme</button>
+      <button type="button" class="panel-tab" data-pane="gpane-counters">💕 Counters</button>
+      <button type="button" class="panel-tab" data-pane="gpane-gifts">🎁 Gifts</button>
+      <button type="button" class="panel-tab" data-pane="gpane-story">📖 Story</button>
+      <button type="button" class="panel-tab" data-pane="gpane-events">📅 Events</button>
+      <button type="button" class="panel-tab" data-pane="gpane-voice">🔊 Voice</button>
+      <button type="button" class="panel-tab" data-pane="gpane-video">🎬 Video</button>
+      <button type="button" class="panel-tab" data-pane="gpane-pins">🗺️ Pins</button>
+      <button type="button" class="panel-tab" data-pane="gpane-media">📸 Photos</button>
+    </div>
+
+    <div class="panel-pane active" id="gpane-text">
+      <div class="lang-mini-tabs" id="guestLangTabs">
+        <button type="button" class="active" data-guest-lang="en">🇬🇧 EN</button>
+        <button type="button" data-guest-lang="gu">🇮🇳 ગુજરાતી</button>
+        <button type="button" data-guest-lang="hi">🇮🇳 हिन्दी</button>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">💌 Main Card Text</div>
+        <div class="panel-field"><label class="panel-label">Headline</label><input type="text" class="panel-input g-text" data-gt="mainHeadline"></div>
+        <div class="panel-field"><label class="panel-label">Subhead Line 1</label><input type="text" class="panel-input g-text" data-gt="subhead1"></div>
+        <div class="panel-field"><label class="panel-label">Subhead Line 2</label><input type="text" class="panel-input g-text" data-gt="subhead2"></div>
+        <div class="panel-field"><label class="panel-label">Greeting</label><input type="text" class="panel-input g-text" data-gt="greeting"></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 1</label><textarea class="panel-textarea g-text" data-gt="msg1"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 2</label><textarea class="panel-textarea g-text" data-gt="msg2"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 3</label><textarea class="panel-textarea g-text" data-gt="msg3"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 4</label><textarea class="panel-textarea g-text" data-gt="msg4"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Message paragraph 5</label><textarea class="panel-textarea g-text" data-gt="msg5"></textarea></div>
+        <div class="panel-field"><label class="panel-label">Sign-off</label><input type="text" class="panel-input g-text" data-gt="signoff"></div>
+        <div class="panel-field"><label class="panel-label">Names badge</label><input type="text" class="panel-input g-text" data-gt="namesBadge"></div>
+        <div class="panel-field"><label class="panel-label">From label</label><input type="text" class="panel-input g-text" data-gt="fromLabel"></div>
+        <div class="panel-field"><label class="panel-label">Counters title</label><input type="text" class="panel-input g-text" data-gt="countersTitle"></div>
+        <div class="panel-field"><label class="panel-label">Counter 1 label</label><input type="text" class="panel-input g-text" data-gt="ct1_label"></div>
+        <div class="panel-field"><label class="panel-label">Counter 2 label</label><input type="text" class="panel-input g-text" data-gt="ct2_label"></div>
+        <div class="panel-field"><label class="panel-label">Counter 3 label</label><input type="text" class="panel-input g-text" data-gt="ct3_label"></div>
+        <div class="panel-field"><label class="panel-label">"Open Memories" button</label><input type="text" class="panel-input g-text" data-gt="openMemoriesBtn"></div>
+        <div class="panel-field"><label class="panel-label">Story button</label><input type="text" class="panel-input g-text" data-gt="storyBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Map button</label><input type="text" class="panel-input g-text" data-gt="mapBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Upload button</label><input type="text" class="panel-input g-text" data-gt="uploadBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Voice button</label><input type="text" class="panel-input g-text" data-gt="voiceBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Video button</label><input type="text" class="panel-input g-text" data-gt="videoBtnText"></div>
+        <div class="panel-field"><label class="panel-label">Gift section title</label><input type="text" class="panel-input g-text" data-gt="giftSectionTitle"></div>
+        <div class="panel-field"><label class="panel-label">Event section title</label><input type="text" class="panel-input g-text" data-gt="eventSectionTitle"></div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="gpane-theme">
+      <div class="panel-section">
+        <div class="panel-section-title">🎨 Preferred Theme</div>
+        <div class="theme-grid" id="guestThemeGrid">
+          <button type="button" class="theme-swatch romantic"    data-gtheme-pick="romantic">Romantic 💕</button>
+          <button type="button" class="theme-swatch family"      data-gtheme-pick="family">Family 👨‍👩‍👧</button>
+          <button type="button" class="theme-swatch friend"      data-gtheme-pick="friend">Friend 🤝</button>
+          <button type="button" class="theme-swatch birthday"    data-gtheme-pick="birthday">Birthday 🎂</button>
+          <button type="button" class="theme-swatch elegant"     data-gtheme-pick="elegant">Elegant ✨</button>
+          <button type="button" class="theme-swatch festive"     data-gtheme-pick="festive">Festive 🎉</button>
+          <button type="button" class="theme-swatch anniversary" data-gtheme-pick="anniversary">Anniversary 💍</button>
+          <button type="button" class="theme-swatch wedding"     data-gtheme-pick="wedding">Wedding 👰</button>
+          <button type="button" class="theme-swatch baby"        data-gtheme-pick="baby">Baby 👶</button>
+          <button type="button" class="theme-swatch sunset"      data-gtheme-pick="sunset">Sunset 🌅</button>
+          <button type="button" class="theme-swatch ocean"       data-gtheme-pick="ocean">Ocean 🌊</button>
+          <button type="button" class="theme-swatch royal"       data-gtheme-pick="royal">Royal 👑</button>
+          <button type="button" class="theme-swatch vintage"     data-gtheme-pick="vintage">Vintage 📜</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="gpane-counters">
+      <div class="panel-section">
+        <div class="panel-section-title">💕 Counters</div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💬</span><span>Counter 1</span><label><input type="checkbox" id="g_ct1_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input g-ctr" data-gc="ct1_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input g-ctr" data-gc="ct1_datetime"><select class="panel-select tz-select g-ctr-tz" data-gc="ct1_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input g-ctr" data-gc="ct1_dispdate"></div>
+        </div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💕</span><span>Counter 2</span><label><input type="checkbox" id="g_ct2_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input g-ctr" data-gc="ct2_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input g-ctr" data-gc="ct2_datetime"><select class="panel-select tz-select g-ctr-tz" data-gc="ct2_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input g-ctr" data-gc="ct2_dispdate"></div>
+        </div>
+        <div class="counter-edit-card"><div class="head"><span class="icon">💍</span><span>Counter 3</span><label><input type="checkbox" id="g_ct3_show"> Show</label></div>
+          <div class="panel-field"><label class="panel-label">Label</label><input type="text" class="panel-input g-ctr" data-gc="ct3_label"></div>
+          <div class="panel-field"><label class="panel-label">Start date &amp; time + timezone</label><div class="tz-row"><input type="datetime-local" class="panel-input g-ctr" data-gc="ct3_datetime"><select class="panel-select tz-select g-ctr-tz" data-gc="ct3_datetime_tz"></select></div></div>
+          <div class="panel-field"><label class="panel-label">Display date text</label><input type="text" class="panel-input g-ctr" data-gc="ct3_dispdate"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-pane" id="gpane-gifts"><div class="panel-section"><div class="panel-section-title">🎁 Gift Boxes</div><div id="guestGiftsRepeater"></div><button type="button" class="repeat-add" id="guestAddGiftRow">➕ Add Gift Box</button></div></div>
+    <div class="panel-pane" id="gpane-story"><div class="panel-section"><div class="panel-section-title">📖 Story Pages</div><div id="guestStoryRepeater"></div><button type="button" class="repeat-add" id="guestAddStoryRow">➕ Add Story Page</button></div></div>
+    <div class="panel-pane" id="gpane-events"><div class="panel-section"><div class="panel-section-title">📅 Event Countdowns</div><div id="guestEventsRepeater"></div><button type="button" class="repeat-add" id="guestAddEventRow">➕ Add Event</button></div></div>
+    <div class="panel-pane" id="gpane-voice"><div class="panel-section"><div class="panel-section-title">🔊 Voice Messages</div><div id="guestVoiceRepeater"></div><button type="button" class="repeat-add" id="guestAddVoiceRow">➕ Add Voice</button></div></div>
+    <div class="panel-pane" id="gpane-video"><div class="panel-section"><div class="panel-section-title">🎬 Video Messages</div><div id="guestVideoRepeater"></div><button type="button" class="repeat-add" id="guestAddVideoRow">➕ Add Video</button></div></div>
+    <div class="panel-pane" id="gpane-pins"><div class="panel-section"><div class="panel-section-title">🗺️ Map Pins</div><div id="guestPinsRepeater"></div><button type="button" class="repeat-add" id="guestAddPinRow">➕ Add Pin</button></div></div>
+    <div class="panel-pane" id="gpane-media">
+      <div class="panel-section">
+        <div class="panel-section-title">📸 Slideshow Photos &amp; Videos</div>
+        <div id="guestMediaRepeater"></div>
+        <button type="button" class="repeat-add" id="guestAddMediaRow">➕ Add Photo/Video Row</button>
+        <div style="margin-top:.5rem;font-size:.78rem;color:var(--c-text-muted);font-style:italic;">Or paste many Drive IDs below (comma-separated) to bulk-add.</div>
+        <div class="panel-field" style="margin-top:.4rem;"><textarea class="panel-textarea" id="g_mediaIds" placeholder="id1, id2, id3"></textarea></div>
+        <button type="button" class="repeat-add" id="guestBulkAddMedia" style="background:#2a5fd1;">📥 Add all IDs above</button>
+      </div>
+    </div>
+
+    <div class="panel-actions">
+      <button type="button" class="panel-btn save" id="guestSubmit">📤 Submit for Approval</button>
+      <button type="button" class="panel-btn cancel" id="guestCancel">Cancel</button>
+    </div>
+    <div class="panel-status" id="guestStatus"></div>
+  </div>
+</div>
+
+<!-- ============ PRIVATE GATE MODAL (🔒 high-security viewer) ============ -->
+<div class="pw-modal" id="privateGateModal">
+  <div class="pw-content">
+    <div class="pw-icon">🔒</div>
+    <div class="pw-title" id="privateGateTitle">Private Memories — Verified Access Only</div>
+    <div class="pw-sub" id="privateGateSub"></div>
+
+    <!-- STEP 1: identity verification -->
+    <div id="pgStep1">
+      <input type="text" class="pw-input" id="pgName" placeholder="Your full name (as given by the sender)" autocomplete="off" style="margin-bottom:.5rem;">
+      <input type="tel" class="pw-input" id="pgPhone" placeholder="Your phone number (e.g. +91 98765 43210)" autocomplete="off">
+      <div class="pw-buttons">
+        <button type="button" class="pw-btn cancel" id="pgCancel">Cancel</button>
+        <button type="button" class="pw-btn confirm" id="pgVerifyBtn">✅ Verify Me</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: one-time code -->
+    <div id="pgStep2" style="display:none;">
+      <div class="pw-sub" id="pgStep2Sub" style="margin-bottom:.5rem;"></div>
+      <input type="text" class="pw-input" id="pgOtp" inputmode="numeric" maxlength="6" placeholder="6-digit one-time code" autocomplete="off">
+      <div class="pw-buttons">
+        <button type="button" class="pw-btn cancel" id="pgCancel2" onclick="document.getElementById('pgCancel').click()">Cancel</button>
+        <button type="button" class="pw-btn confirm" id="pgOtpBtn">🎟️ Unlock Slideshow</button>
+      </div>
+    </div>
+
+    <div class="pw-error" id="pgError"></div>
+  </div>
+</div>
+
+<!-- ============ SLIDESHOW OVERLAY ============ -->
+<div class="slideshow-overlay" id="slideshowOverlay">
+  <button type="button" class="slideshow-close" id="slideshowClose">✕</button>
+  <div class="slideshow-container" id="slideshowContainer">
+    <div class="slides-track" id="slidesTrack"></div>
+    <div class="ss-floater-layer" id="ssFloaterLayer"></div>
+    <div class="slideshow-progress" id="slideshowProgress"></div>
+    <div class="slideshow-counter" id="slideshowCounter">0 / 0</div>
+    <button type="button" class="slideshow-nav prev" id="slideshowPrev">❮</button>
+    <button type="button" class="slideshow-nav next" id="slideshowNext">❯</button>
+    <div class="slideshow-dots" id="slideshowDots"></div>
+  </div>
+</div>
+
+<!-- ============ STORY MODAL ============ -->
+<div class="info-modal" id="storyModal">
+  <div class="info-content">
+    <button type="button" class="info-close" id="storyClose">✕</button>
+    <div class="info-title">📖 Our Story</div>
+    <div class="story-slide-wrap">
+      <div class="story-slide-ui" id="storySlideUI">
+        <div class="story-slide-counter" id="storySlideCounter">Page 1 / 1</div>
+        <button type="button" class="story-slide-pause" id="storySlidePause">⏸</button>
+      </div>
+      <div class="story-slide-progress" id="storySlideProgress"></div>
+      <div class="story-viewer" id="storyViewer"></div>
+    </div>
+    <div class="story-nav">
+      <button type="button" id="storyPrev">❮ Prev</button>
+      <span id="storyPageNum" style="font-size:.85rem;color:var(--c-text-muted);font-weight:700;">1 / 1</span>
+      <button type="button" id="storyNext">Next ❯</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAP MODAL ============ -->
+<div class="info-modal" id="mapModal">
+  <div class="info-content">
+    <button type="button" class="info-close" id="mapClose">✕</button>
+    <div class="info-title">🗺️ Our Memories Map</div>
+    <div id="mapSelectedName" style="text-align:center;font-size:1.05rem;font-weight:800;color:var(--c-primary);font-style:italic;margin-bottom:.6rem;min-height:1.4rem;"></div>
+    <div class="map-canvas" id="mapCanvas"></div>
+  </div>
+</div>
+
+<!-- ============ PIN MODAL ============ -->
+<div class="info-modal" id="pinModal">
+  <div class="info-content">
+    <button type="button" class="info-close" id="pinModalClose">✕</button>
+    <div class="info-title" id="pinModalTitle"></div>
+    <div class="story-viewer" id="pinModalViewer"></div>
+  </div>
+</div>
+
+<!-- ============ UPLOAD MODAL ============ -->
+<div class="info-modal" id="uploadModal">
+  <div class="info-content">
+    <button type="button" class="info-close" id="uploadClose">✕</button>
+    <div class="info-title">📤 Share a Photo</div>
+    <div style="display:flex;flex-direction:column;gap:.6rem;">
+      <input type="text" class="panel-input" id="uploadName" placeholder="Your name">
+      <input type="text" class="panel-input" id="uploadDriveId" placeholder="Google Drive Photo ID">
+      <textarea class="panel-input panel-textarea" id="uploadMsg" placeholder="Message (optional)" rows="3"></textarea>
+      <button type="button" class="panel-btn save" id="uploadSubmit">Upload for Approval</button>
+      <div class="panel-status" id="uploadStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PERSON DETAILS MODAL ============ -->
+<div class="info-modal" id="personDetailsModal">
+  <div class="info-content" style="max-width:820px;">
+    <button type="button" class="info-close" id="personDetailsClose">✕</button>
+    <div class="info-title" id="personDetailsTitle">Person Details</div>
+    <div id="personDetailsSub" style="font-size:.82rem;color:var(--c-text-muted);text-align:center;font-style:italic;margin-bottom:1rem;"></div>
+    <div id="personDetailsBody"></div>
+  </div>
+</div>
+
+<!-- ============ SHARE MODAL ============ -->
+<div class="info-modal" id="shareModal">
+  <div class="info-content" style="max-width:560px;">
+    <button type="button" class="info-close" id="shareModalClose">✕</button>
+    <div class="info-title" id="shareModalTitle">📲 Share credentials</div>
+    <div id="shareModalBody"></div>
+  </div>
+</div>
+
+<!-- ============ GLOBAL TOAST & CONTROLS ============ -->
+<div class="toast" id="globalToast" role="status" aria-live="polite"></div>
+<audio id="audioPlayer" preload="none" crossorigin="anonymous"></audio>
+<button type="button" class="music-toggle" id="musicToggle" aria-label="Toggle music">🔊</button>
+<button type="button" class="lang-toggle" id="langToggle" aria-label="Change language" data-state="en">EN</button>
+<button type="button" class="darkmode-toggle" id="darkmodeToggle" aria-label="Toggle dark mode">🌙</button>
+
+<!-- ============ SCRIPTS (order matters!) ============ -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+        integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
+        crossorigin="anonymous" defer></script>
+
+<!-- Core (env.js MUST load before config.js — it injects window.__LC_ENV__
+     with the Supabase URL/anon key; without it every cloud call 401s.) -->
+<script src="js/env.js"></script>
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase.js"></script>
+
+<!-- v1.0 feature modules (were shipped but never linked into the page):
+     security.js = hash-aware admin login + brute-force throttle,
+     analytics.js = view tracking, aiwriter.js = ✨ AI drafts,
+     notify.js = web push reminders. -->
+<script defer src="js/security.js"></script>
+<script defer src="js/privateview.js"></script>
+<script defer src="js/analytics.js"></script>
+<script defer src="js/aiwriter.js"></script>
+<script defer src="js/notify.js"></script>
+
+<!-- ⚡ Perf fix: everything below was render-blocking parser-inserted
+     scripts. They are now ALL deferred: the browser downloads them in
+     parallel while parsing the HTML and executes them in this exact
+     order right before DOMContentLoaded — boot.js (also deferred, last)
+     still sees every global it needs. Faster first paint on every visit. -->
+<script defer src="js/fireworks.js"></script>
+
+<!-- Home & reviews (reviews must execute before home; defer keeps order) -->
+<script defer src="js/reviews.js"></script>
+<script defer src="js/home.js"></script>
+
+<!-- Access flow -->
+<script defer src="js/lock.js"></script>
+<script defer src="js/opening.js"></script>
+
+<!-- Card content (typewriter executes before viewer, which uses it) -->
+<script defer src="js/typewriter.js"></script>
+<script defer src="js/viewer.js"></script>
+
+<!-- Everything below is deferred: downloaded in parallel while the page
+     parses (faster first paint / faster response to taps) and executed in
+     this exact order before DOMContentLoaded — boot.js stays last. -->
+<script defer src="js/counters.js"></script>
+<script defer src="js/gifts.js"></script>
+<script defer src="js/events.js"></script>
+<script defer src="js/voice.js"></script>
+<script defer src="js/video.js"></script>
+<script defer src="js/story.js"></script>
+<script defer src="js/map.js"></script>
+<script defer src="js/upload.js"></script>
+<script defer src="js/music.js"></script>
+<script defer src="js/language.js"></script>
+<script defer src="js/closing.js"></script>
+<script defer src="js/slideshow.js"></script>
+<script defer src="js/videomaker.js"></script>
+
+<!-- V3.0 additive features (purely cosmetic/independent; safe order) -->
+<script defer src="js/sound.js"></script>
+<script defer src="js/tour.js"></script>
+<script defer src="js/v3extras.js"></script>
+<script defer src="js/v3admin.js"></script>
+
+<!-- Admin & guest flows -->
+<script defer src="js/admin.js"></script>
+<script defer src="js/guests.js"></script>
+<script defer src="js/requester.js"></script>
+
+<!-- 🚀 Deployment update checker (popup + "latest deployed" badges) -->
+<script defer src="js/update.js"></script>
+
+<!-- 📲 PWA: service-worker registration + install chip -->
+<script defer src="js/pwa.js"></script>
+
+<!-- HD 1.0 modules (MUST load before boot.js so every global they wrap —
+     tryPersonPw, renderCardFull, buildHome — is hooked in the right order):
+     media.js   = photo compression + signed-style expiring URLs,
+     offline.js = optimistic UI + IndexedDB offline write queue,
+     hd1.js     = short links, QR codes, who-viewed analytics,
+                  auto-birthday themes, music-sync slideshow, PDF export,
+                  timeline view. -->
+<script defer src="js/media.js"></script>
+<script defer src="js/offline.js"></script>
+<script defer src="js/hd1.js"></script>
+
+<!-- 🔐 v1.0 SECURITY & TRUST (MUST load before boot.js, after home.js —
+     securitywire.js re-wraps window.tryPersonPw once it exists):
+     e2ee.js       = client-side AES-256-GCM for messages/photos,
+                     PBKDF2 key derived from the viewer's PIN/password,
+     sharelinks.js = HMAC-signed expiring share links with view limits,
+     e2eeadmin.js  = admin one-tap encrypt/decrypt panel,
+     securitywire.js = glues all of the above into the real login flow. -->
+<script defer src="js/e2ee.js"></script>
+<script defer src="js/sharelinks.js"></script>
+<script defer src="js/e2eeadmin.js"></script>
+<script defer src="js/securitywire.js"></script>
+
+<!-- Boot (must be last; runs after DOM parse + all deferred scripts) -->
+<script defer src="js/boot.js"></script>
+</body>
+</html>

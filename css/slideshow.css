@@ -1,0 +1,294 @@
+/* ============================================================
+   slideshow.css — Full-screen slideshow (compositor-safe)
+   ============================================================ */
+.slideshow-overlay{
+  position:fixed;inset:0;background:#000;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;visibility:hidden;
+  transition:opacity .35s,visibility .35s;overflow:hidden;
+  contain:strict;           /* ✅ isolate compositor tree */
+}
+.slideshow-overlay.active{opacity:1;visibility:visible}
+.slideshow-container{
+  position:relative;width:100%;height:100%;overflow:hidden;
+  contain:layout paint size;
+}
+.slides-track{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  display:flex;
+  transition:transform .6s cubic-bezier(.7,0,.2,1),opacity .5s ease;
+  will-change:transform;
+  backface-visibility:hidden;
+}
+.slides-track.transition-fade{opacity:0}
+.slides-track.transition-scale{transform-origin:center center}
+
+.slide{
+  flex:0 0 100%;width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  background:#000;overflow:hidden;position:relative;
+  contain:layout paint size; /* ✅ each slide is its own box */
+}
+.slide img{
+  max-width:100%;max-height:100%;object-fit:contain;
+  display:block;transform-origin:center center;
+  backface-visibility:hidden;
+  -webkit-user-drag:none;user-select:none;
+}
+.slide img.fx-target{
+  will-change:transform,opacity,filter;
+}
+.slide video{
+  max-width:100%;max-height:100%;object-fit:contain;
+  background:#000;
+  backface-visibility:hidden;
+}
+
+/* Photo effects */
+.slide.fx-ken-in img.fx-target{animation:fxKenIn var(--fx-dur,7000ms) ease-out forwards}
+.slide.fx-ken-out img.fx-target{animation:fxKenOut var(--fx-dur,7000ms) ease-out forwards}
+.slide.fx-pan-lr img.fx-target{animation:fxPanLR var(--fx-dur,7000ms) ease-out forwards}
+.slide.fx-pan-rl img.fx-target{animation:fxPanRL var(--fx-dur,7000ms) ease-out forwards}
+.slide.fx-pan-tb img.fx-target{animation:fxPanTB var(--fx-dur,7000ms) ease-out forwards}
+.slide.fx-rotate img.fx-target{animation:fxRotate var(--fx-dur,7000ms) ease-out forwards}
+.slide.fx-fade img.fx-target{animation:fxFade var(--fx-dur,7000ms) ease-out forwards}
+.slide.fx-blur img.fx-target{animation:fxBlur var(--fx-dur,7000ms) ease-out forwards}
+.slide.fx-scale-down img.fx-target{animation:fxScaleDown var(--fx-dur,7000ms) ease-out forwards}
+
+@keyframes fxKenIn{
+  0%{transform:scale(1) translate(0,0);opacity:0}
+  8%{opacity:1}
+  100%{transform:scale(1.18) translate(-1.5%,-1.5%);opacity:1}
+}
+@keyframes fxKenOut{
+  0%{transform:scale(1.20) translate(1%,1%);opacity:0}
+  8%{opacity:1}
+  100%{transform:scale(1) translate(0,0);opacity:1}
+}
+@keyframes fxPanLR{
+  0%{transform:scale(1.15) translateX(-6%);opacity:0}
+  8%{opacity:1}
+  100%{transform:scale(1.15) translateX(6%);opacity:1}
+}
+@keyframes fxPanRL{
+  0%{transform:scale(1.15) translateX(6%);opacity:0}
+  8%{opacity:1}
+  100%{transform:scale(1.15) translateX(-6%);opacity:1}
+}
+@keyframes fxPanTB{
+  0%{transform:scale(1.15) translateY(-6%);opacity:0}
+  8%{opacity:1}
+  100%{transform:scale(1.15) translateY(6%);opacity:1}
+}
+@keyframes fxRotate{
+  0%{transform:scale(1.10) rotate(-4deg);opacity:0}
+  8%{opacity:1}
+  100%{transform:scale(1.20) rotate(4deg);opacity:1}
+}
+@keyframes fxFade{
+  0%{opacity:0}
+  20%{opacity:1}
+  100%{opacity:1}
+}
+@keyframes fxBlur{
+  0%{filter:blur(14px) brightness(1.1);transform:scale(1.05);opacity:0}
+  25%{opacity:1;filter:blur(6px) brightness(1.05)}
+  100%{filter:blur(0) brightness(1);transform:scale(1.1);opacity:1}
+}
+@keyframes fxScaleDown{
+  0%{transform:scale(1.35);opacity:0}
+  10%{opacity:1}
+  100%{transform:scale(1.05);opacity:1}
+}
+
+/* Video effects */
+.slide.vfx-fade video{animation:vFxFade .8s ease forwards}
+.slide.vfx-zoom video{animation:vFxZoom 1s ease forwards}
+.slide.vfx-slide-right video{animation:vFxSlideRight .9s ease forwards}
+.slide.vfx-blur video{animation:vFxBlur .9s ease forwards}
+@keyframes vFxFade{from{opacity:0}to{opacity:1}}
+@keyframes vFxZoom{from{opacity:0;transform:scale(1.15)}to{opacity:1;transform:scale(1)}}
+@keyframes vFxSlideRight{from{opacity:0;transform:translateX(8%)}to{opacity:1;transform:translateX(0)}}
+@keyframes vFxBlur{from{opacity:0;filter:blur(16px)}to{opacity:1;filter:blur(0)}}
+
+/* Slide title */
+.slide .slide-title{
+  position:absolute;left:50%;bottom:4.2rem;
+  transform:translateX(-50%);max-width:80%;
+  background:linear-gradient(180deg,rgba(0,0,0,.75),rgba(0,0,0,.55));
+  color:#fff;font-size:1rem;font-weight:800;font-style:italic;
+  padding:.55rem 1.2rem;border-radius:40px;
+  border:1.5px solid rgba(255,215,0,.55);
+  box-shadow:0 6px 20px rgba(0,0,0,.5);
+  text-align:center;line-height:1.4;z-index:18;pointer-events:none;
+  opacity:0;
+  animation:slideTitleIn .6s ease-out .25s forwards;
+}
+.slide.video-slide .slide-title{bottom:5.6rem}
+@keyframes slideTitleIn{
+  0%{opacity:0;transform:translateX(-50%) translateY(8px)}
+  100%{opacity:1;transform:translateX(-50%) translateY(0)}
+}
+
+/* Controls */
+.slideshow-close{
+  position:absolute;top:1rem;right:1rem;
+  background:rgba(139,0,40,.75);color:var(--c-accent);
+  border:1.5px solid var(--c-accent);
+  width:2.4rem;height:2.4rem;border-radius:50%;
+  font-size:1.1rem;cursor:pointer;z-index:30;
+  transition:transform .2s ease,background .2s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.slideshow-close:hover{
+  transform:rotate(90deg) scale(1.05);
+  background:rgba(139,0,40,.95);
+}
+.slideshow-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(255,215,0,.25);
+  border:1.5px solid var(--c-accent);
+  color:var(--c-accent);
+  width:3.2rem;height:3.2rem;border-radius:50%;
+  font-size:1.4rem;cursor:pointer;z-index:20;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s ease,transform .2s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.slideshow-nav:hover{
+  background:rgba(255,215,0,.4);
+  transform:translateY(-50%) scale(1.08);
+}
+.slideshow-nav.prev{left:1rem}
+.slideshow-nav.next{right:1rem}
+.slideshow-counter{
+  position:absolute;top:1rem;left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.6);color:#fff;
+  padding:.4rem .95rem;border-radius:40px;
+  font-size:.85rem;font-weight:700;
+  border:1px solid rgba(255,255,255,.4);z-index:20;
+  font-variant-numeric:tabular-nums;
+}
+.slideshow-progress{
+  position:absolute;top:0;left:0;height:3px;width:0;
+  background:linear-gradient(90deg,var(--c-accent),var(--c-accent-2));
+  z-index:25;
+  box-shadow:0 0 10px rgba(255,215,0,.65);
+}
+.slideshow-dots{
+  position:absolute;bottom:1rem;left:50%;
+  transform:translateX(-50%);
+  display:flex;gap:.4rem;z-index:20;
+  padding:.4rem .7rem;background:rgba(0,0,0,.4);border-radius:40px;
+}
+.slideshow-dots .dot{
+  width:.55rem;height:.55rem;border-radius:50%;
+  background:rgba(255,255,255,.4);cursor:pointer;
+  transition:transform .2s,background .2s;
+}
+.slideshow-dots .dot.active{
+  background:var(--c-accent);transform:scale(1.25);
+}
+.slide .unmute-btn{
+  position:absolute;bottom:4.2rem;left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.72);color:#fff;
+  border:1.5px solid var(--c-accent);
+  padding:.55rem 1.1rem;border-radius:40px;
+  font-size:.88rem;font-weight:800;
+  font-family:inherit;font-style:italic;
+  cursor:pointer;z-index:25;display:none;
+  box-shadow:0 4px 14px rgba(0,0,0,.5);
+  -webkit-tap-highlight-color:transparent;
+}
+.slide .unmute-btn.show{display:inline-block}
+
+/* Floaters */
+.ss-floater-layer{
+  position:absolute;inset:0;pointer-events:none;
+  z-index:15;overflow:hidden;
+  contain:strict;      /* ✅ keep floater layer isolated */
+}
+.ss-floater{
+  position:absolute;bottom:-60px;font-size:1.6rem;
+  opacity:0;pointer-events:none;
+  will-change:transform,opacity;
+  animation:ssFloat linear infinite;
+}
+@keyframes ssFloat{
+  0%{transform:translateY(0) rotate(0deg) scale(.8);opacity:0}
+  10%{opacity:.85}
+  50%{transform:translateY(-55vh) rotate(180deg) scale(1.1);opacity:.7}
+  90%{opacity:.55}
+  100%{transform:translateY(-115vh) rotate(360deg) scale(.9);opacity:0}
+}
+
+/* ✅ Reduce motion on small/low-end devices */
+@media (max-width: 480px){
+  .ss-floater{ font-size:1.2rem; }
+  .slide img.fx-target,
+  .slide video{ will-change:auto; }
+}
+@media (prefers-reduced-motion: reduce){
+  .ss-floater{ animation:none; display:none; }
+  .slide img.fx-target,
+  .slide video{ animation:none !important; }
+  .slides-track{ transition:opacity .2s ease !important; }
+}
+/* ===== V3: reel-style vertical media (9:16) — fit without cropping, blurred backdrop fills stage ===== */
+.slide-item[data-reel="true"] .slide-photo{object-fit:contain}
+.slide-item[data-reel="true"]::before{
+  content:"";position:absolute;inset:-8%;z-index:-1;
+  background:var(--reel-bg,transparent) center/cover no-repeat;
+  filter:blur(26px) saturate(1.25);opacity:.55;transform:scale(1.08)}
+
+/* ============ 🔒 PRIVATE SLIDESHOW (v1.7) ============ */
+/* Secondary "Private Memories" button — same look as "Our Memories"
+   but with a lock-red gradient so it is unmistakable. */
+.private-open-btn{
+  background:linear-gradient(135deg,#c41e3a,#8f0f26)!important;
+  color:#fff!important;
+  box-shadow:0 6px 18px rgba(196,30,58,.35);
+}
+.private-open-btn:hover{filter:brightness(1.08)}
+
+/* Pill shown on the viewer screen of a private card */
+#privateModePill{
+  display:none;
+  margin:.4rem auto 0;
+  padding:.3rem .8rem;
+  border-radius:999px;
+  background:#fff0f3;
+  border:1.5px solid #c41e3a;
+  color:#8f0f26;
+  font-size:.78rem;
+  font-weight:800;
+  letter-spacing:.02em;
+}
+
+/* Anti-leak shield: blurred while slideshow overlay loses focus */
+.slideshow-overlay.pv-blur .slideshow-container,
+.slideshow-overlay.pv-blur .slideshow-progress,
+.slideshow-overlay.pv-blur .slideshow-dots{
+  filter:blur(22px)!important;
+  transition:filter .15s ease;
+}
+.slideshow-overlay.pv-blur::after{
+  content:'🔒 Private session paused — return to this tab to continue';
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:800;font-size:1rem;background:rgba(20,0,5,.55);z-index:5;
+}
+/* Block native selection/drag inside the private show */
+.slideshow-overlay.pv-shielded{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.slideshow-overlay.pv-shielded img,
+.slideshow-overlay.pv-shielded video{-webkit-user-drag:none;user-drag:none;pointer-events:auto}
+
+/* Requester edit panel — 🔒 Private tab helpers */
+.pv-help strong{color:#8f0f26}
+.pv-otp-reveal{
+  margin-top:.5rem;padding:.6rem .8rem;border-radius:.7rem;
+  background:#fffbea;border:1.5px dashed #b8860b;text-align:center;
+}
+.pv-otp-code{font-family:monospace;font-size:1.6rem;font-weight:900;letter-spacing:.35em;color:#7a5a00}
+.pv-badge{vertical-align:middle}
