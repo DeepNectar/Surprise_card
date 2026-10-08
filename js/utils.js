@@ -212,6 +212,27 @@ window.getEditPasswordForPerson = function(p){
   );
 };
 
+/* ============================================================
+   PERF: lazy-load the SheetJS library (~900KB) only when an Excel
+   import/export is actually requested. index.html no longer includes a
+   blocking <script> for it, which noticeably speeds up first paint and
+   tap responsiveness on every page view.
+   ============================================================ */
+window.ensureXlsx = function(){
+  if(window.XLSX) return Promise.resolve(true);
+  if(window.__xlsxPromise) return window.__xlsxPromise.then(function(){ return !!window.XLSX; });
+  window.__xlsxPromise = new Promise(function(resolve){
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    sc.crossOrigin = 'anonymous';
+    sc.onload  = function(){ resolve(); };
+    sc.onerror = function(){ window.__xlsxPromise = null; resolve(); }; // let caller show its error
+    document.head.appendChild(sc);
+    setTimeout(function(){ if(!window.XLSX) resolve(); }, 12000); // bounded wait
+  });
+  return window.__xlsxPromise.then(function(){ return !!window.XLSX; });
+};
+
 /* ---------- Misc ---------- */
 window.shuffleArray = function(arr){
   const a = (arr || []).slice();

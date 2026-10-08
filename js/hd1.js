@@ -566,6 +566,8 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(injectAutoThemeTo
    ============================================================ */
 (function(){
   let raf = null, audioEl = null;
+  const hdBeatWatchdogs = [];
+  function clearWatchdogs(){ while(hdBeatWatchdogs.length) clearInterval(hdBeatWatchdogs.pop()); }
   function findAudio(){
     return document.querySelector('#musicPlayer audio') ||
            document.querySelector('audio[data-music]') ||
@@ -595,9 +597,18 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(injectAutoThemeTo
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
+    /* PERF FIX: previously this rAF loop kept running forever once started
+       (MutationObserver only fires on class changes, and the overlay element
+       may be removed entirely). Now we self-stop when the slideshow is gone. */
+    const watchdog = setInterval(() => {
+      const ss = $id('slideshowOverlay');
+      if(!ss || !ss.classList.contains('active')){ stop(); clearInterval(watchdog); }
+    }, 1000);
+    hdBeatWatchdogs.push(watchdog);
   }
   function stop(){
     if(raf){ cancelAnimationFrame(raf); raf = null; }
+    clearWatchdogs();
     const track = $id('slideshowTrack') || document.querySelector('.slideshow-track');
     if(track) track.classList.remove('ss-beat');
   }

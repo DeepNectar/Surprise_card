@@ -262,8 +262,12 @@ async function req(path, opts){
       }catch(e2){ throw e; /* keep the original, clearer error */ }
     }
     /* Reads get ONE fast retry — still bounded by the same short budget.
-       Writes are never retried automatically (keeps rules exactly as before). */
-    if(isGet){
+       Writes are never retried automatically (keeps rules exactly as before).
+       PERF FIX: timeout errors are NOT retried (a retry would stack another
+       full TMO_GET wait ≈ 7s of "stuck" UI), and the single retry now has a
+       short backoff so flaky networks recover instead of hammering. */
+    if(isGet && !/timed out/i.test(String(e && e.message))){
+      await new Promise(res => setTimeout(res, 300));
       try{ return await once(path, opts, ms); }catch(e2){ throw e2; }
     }
     throw e;

@@ -514,7 +514,7 @@ async function exportMyData(){
   if(!p || !p.id){ __showToast('❌ No person', false); return; }
 
   try{
-    if(!window.XLSX) throw new Error('XLSX not loaded');
+    if(!(window.XLSX || await window.ensureXlsx())) throw new Error('XLSX not loaded');
     const wb = XLSX.utils.book_new();
     const pid = p.id;
 
@@ -601,7 +601,7 @@ async function importMyData(file){
   if(!ok) return;
 
   try{
-    if(!window.XLSX) throw new Error('XLSX not loaded');
+    if(!(window.XLSX || await window.ensureXlsx())) throw new Error('XLSX not loaded');
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, {type: 'array'});
     const readSheet = name => wb.Sheets[name]

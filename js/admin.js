@@ -1600,7 +1600,7 @@ async function exportAllBackup(){
   const st = $('adminDataStatus');
   if(st){ st.textContent = '⏳ Building complete backup…'; st.className = 'panel-status'; }
   try{
-    if(!window.XLSX) throw new Error('XLSX not loaded');
+    if(!(window.XLSX || await window.ensureXlsx())) throw new Error('XLSX not loaded');
     const wb = XLSX.utils.book_new();
 
     const peopleRows = S.PEOPLE.map(p => ({
@@ -1741,7 +1741,7 @@ async function importAllBackup(e){
   const st = $('adminDataStatus');
   if(st){ st.textContent = '⏳ Reading full backup…'; st.className = 'panel-status'; }
   try{
-    if(!window.XLSX) throw new Error('XLSX not loaded');
+    if(!(window.XLSX || await window.ensureXlsx())) throw new Error('XLSX not loaded');
     const buf = await f.arrayBuffer();
     const wb = XLSX.read(buf, {type: 'array'});
 
