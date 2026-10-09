@@ -1113,23 +1113,6 @@
       <div class="panel-section">
         <div class="panel-section-title">🔑 Admin Password</div>
         <div class="panel-field"><label class="panel-label">Current admin password</label><input type="text" class="panel-input" id="f_adminPassword"></div>
-        <div class="panel-field"><label class="panel-label">🛡️ v1.0 Secure hash (recommended — stores NO plaintext)</label>
-          <div style="display:flex;gap:.4rem;align-items:center;">
-            <input type="password" class="panel-input" id="f_adminPwHashInput" placeholder="New passphrase → click Hash & Save" style="flex:1;">
-            <button type="button" class="panel-btn" id="f_adminPwHashBtn" style="min-width:0;flex:0 0 auto;padding:.4rem .8rem;font-size:.8rem;">🔐 Hash &amp; Save</button>
-          </div>
-          <div id="f_adminPwHashState" style="font-size:.72rem;color:var(--c-text-muted);margin-top:.3rem;"></div>
-        </div>
-        <div class="panel-field" style="font-size:.75rem;color:var(--c-text-muted);font-style:italic;">v1.0: once a secure hash is saved, prefer removing the plaintext fallback from js/env.js. Wrong-password attempts are throttled (5 tries → timed lockout).</div>
-      </div>
-      <div class="panel-section">
-        <div class="panel-section-title">✨ AI Message Writer</div>
-        <div class="panel-field" style="font-size:.78rem;color:var(--c-text-muted);">The ✨ button next to every message box drafts romantic text. Works fully offline; connect an OpenAI-compatible key for real AI. Key stays in THIS browser only.</div>
-        <div class="panel-field"><label class="panel-label">Mode</label><select class="panel-select" id="f_aiMode"><option value="offline">✉️ Offline template engine (default)</option><option value="online">🤖 Online AI (OpenAI-compatible)</option></select></div>
-        <div class="panel-field"><label class="panel-label">API key</label><input type="password" class="panel-input" id="f_aiKey" placeholder="sk-..."></div>
-        <div class="panel-field"><label class="panel-label">Base URL</label><input type="text" class="panel-input" id="f_aiBase" placeholder="https://api.openai.com/v1"></div>
-        <div class="panel-field"><label class="panel-label">Model</label><input type="text" class="panel-input" id="f_aiModel" placeholder="gpt-4o-mini"></div>
-        <div><button type="button" class="panel-btn" id="f_aiSaveBtn" style="min-width:0;padding:.4rem .9rem;font-size:.8rem;">💾 Save AI settings</button></div>
       </div>
       <div class="panel-section">
         <div class="panel-section-title">🔒 Private Photo Slideshow — Admin Guide</div>
@@ -1460,12 +1443,11 @@
 
 <!-- v1.0 feature modules (were shipped but never linked into the page):
      security.js = hash-aware admin login + brute-force throttle,
-     analytics.js = view tracking, aiwriter.js = ✨ AI drafts,
+     analytics.js = view tracking,
      notify.js = web push reminders. -->
 <script defer src="js/security.js"></script>
 <script defer src="js/privateview.js"></script>
 <script defer src="js/analytics.js"></script>
-<script defer src="js/aiwriter.js"></script>
 <script defer src="js/notify.js"></script>
 
 <!-- ⚡ Perf fix: everything below was render-blocking parser-inserted
@@ -1537,11 +1519,9 @@
      e2ee.js       = client-side AES-256-GCM for messages/photos,
                      PBKDF2 key derived from the viewer's PIN/password,
      sharelinks.js = HMAC-signed expiring share links with view limits,
-     e2eeadmin.js  = admin one-tap encrypt/decrypt panel,
      securitywire.js = glues all of the above into the real login flow. -->
 <script defer src="js/e2ee.js"></script>
 <script defer src="js/sharelinks.js"></script>
-<script defer src="js/e2eeadmin.js"></script>
 <script defer src="js/securitywire.js"></script>
 
 <!-- Boot (must be last; runs after DOM parse + all deferred scripts) -->
