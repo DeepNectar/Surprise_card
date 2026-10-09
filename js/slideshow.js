@@ -720,17 +720,22 @@ async function SS_openShow(mode){
 }
 window.SS_openShow = SS_openShow; /* used by the 🔒 private gate after OTP unlock */
 
-/* ============================================================
-   BINDINGS
-   ============================================================ */
-document.addEventListener('DOMContentLoaded', () => {
+/* ---------- bindings (installed IMMEDIATELY, not only on
+   DOMContentLoaded — slideshow.js is deferred, so a very fast tap used to
+   reach the buttons before any handler existed; now every tap works) ------ */
+function SS_bindOpenBtn(){
   const openBtn = $('openBtn');
-  if(openBtn) openBtn.onclick = async (e) => {
-    if(e && e.preventDefault) e.preventDefault();
-    if(e && e.stopPropagation) e.stopPropagation();
-    await SS_openShow();
-    return false;
-  };
+  if(openBtn && !openBtn._ssBound){
+    openBtn._ssBound = true;
+    openBtn.onclick = async (e) => {
+      if(e && e.preventDefault) e.preventDefault();
+      if(e && e.stopPropagation) e.stopPropagation();
+      /* 📸 NORMAL "Our Memories" — opens instantly, NO OTP ever. */
+      try{ await SS_openShow('public'); }
+      catch(err){ console.error('SS_openShow(public):', err); }
+      return false;
+    };
+  }
 
   /* 🔒 OUR PRIVATE MEMORY — separate slideshow fed ONLY by media rows
      flagged "Private". Routed through the OTP gate first (🔓 HD1.9:
@@ -739,14 +744,23 @@ document.addEventListener('DOMContentLoaded', () => {
      which plays ONLY the private rows. "Our Memories" (openBtn) plays
      ONLY public rows. */
   const privBtn = $('privateSlideshowBtn');
-  if(privBtn) privBtn.onclick = async (e) => {
-    if(e && e.preventDefault) e.preventDefault();
-    if(e && e.stopPropagation) e.stopPropagation();
-    if(S.PRIVATE_OK){ await SS_openShow('private'); }
-    else if(window.openPrivateGate){ window.openPrivateGate(); }
-    return false;
-  };
+  if(privBtn && !privBtn._ssBound){
+    privBtn._ssBound = true;
+    privBtn.onclick = async (e) => {
+      if(e && e.preventDefault) e.preventDefault();
+      if(e && e.stopPropagation) e.stopPropagation();
+      try{
+        if(S.PRIVATE_OK){ await SS_openShow('private'); }
+        else if(window.openPrivateGate){ window.openPrivateGate(); }
+      }catch(err){ console.error('SS_openShow(private):', err); }
+      return false;
+    };
+  }
+}
+SS_bindOpenBtn(); /* early bind — buttons already exist in the parsed DOM */
 
+/* ---------- rest of the slideshow chrome bindings ---------- */
+function SS_bindChrome(){
   const prevBtn = $('slideshowPrev');
   if(prevBtn) prevBtn.onclick = (e) => { if(e && e.preventDefault) e.preventDefault(); SS_prev(); };
   const nextBtn = $('slideshowNext');

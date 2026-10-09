@@ -243,10 +243,55 @@ window.lcHasPrivateScenesAsync = async function(p){
    🔓 HD1.9: name + phone identity verification is NO LONGER required —
    the only gate for "Our Private Memory" is the 6-digit OTP minted by
    the requester. Step 1 (pgStep1 / pgName / pgPhone) has been removed
-   from the markup entirely. */
+   from the markup entirely.
+   ⚡ HD1.9.2 ROBUSTNESS: privateview.js is loaded with `defer`, so a fast
+   tap on the 🔒 button can reach this function BEFORE our own DOMContentLoaded
+   bindings have run. Previously the buttons had no click handlers yet and the
+   modal never opened — the exact "site gets stuck / nothing happens" symptom.
+   Now we bind lazily right here, and if the modal markup is missing entirely
+   we fall back to an inline prompt so the flow NEVER dead-ends. */
+let PG_BOUND = false;
+function pgEnsureBound(){
+  if(PG_BOUND) return;
+  PG_BOUND = true;
+  const c2 = document.getElementById('pgOtpBtn');
+  if(c2 && !c2.onclick) c2.onclick = (e) => { e.preventDefault(); window.pgCheckOtp(); };
+  const cc = document.getElementById('pgCancel');
+  if(cc && !cc.onclick) cc.onclick = (e) => {
+    e.preventDefault();
+    window.hide(document.getElementById('privateGateModal'));
+  };
+  const ot = document.getElementById('pgOtp');
+  if(ot && !ot._pgKeyBound){
+    ot._pgKeyBound = true;
+    ot.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); window.pgCheckOtp(); } });
+  }
+}
+
+async function pgInlineFallback(){
+  /* Last-resort, non-blocking path when the modal markup is absent. */
+  const p = S.CURRENT_PERSON;
+  if(!p) return;
+  const code = window.prompt('🔒 Enter the 6-digit one-time code the sender generated for you:');
+  if(code == null) return;
+  const r = await window.lcVerifyOtp(p, String(code).trim());
+  if(!r || !r.ok){
+    if(window.__showToast) window.__showToast('❌ Invalid or expired code.', false);
+    return;
+  }
+  S.PRIVATE_OK = true;
+  if(window.__showToast) window.__showToast('🎟️ Code accepted — private memories unlocked');
+  if(window.pv_launchSlideshow) await window.pv_launchSlideshow();
+}
+
 window.openPrivateGate = function(){
   const m = document.getElementById('privateGateModal');
-  if(!m) return;
+  if(!m){
+    if(window.__showToast) window.__showToast('🔒 Opening the private code entry…', false);
+    try{ pgInlineFallback(); }catch(e){ console.error(e); }
+    return;
+  }
+  pgEnsureBound();
   const t = document.getElementById('privateGateTitle');
   if(t) t.textContent = '🔒 Private Memories — One-Time Code Required';
   const sub = document.getElementById('privateGateSub');
@@ -278,28 +323,48 @@ window.pgCheckIdentity = function(){
   if(o) setTimeout(() => o.focus(), 120);
 };
 
-/* Step 2 — OTP check → burns the code and launches the slideshow */
-window.pgCheckOtp = async function(){
+async function pgCheckOtp(){
   const p = S.CURRENT_PERSON;
   if(!p) return;
-  const tid = window.lcOtpThrottleId(p);
-  const th = window.lcThrottleCheck ? window.lcThrottleCheck(tid) : {blocked:false};
-  if(th.blocked){ pgFail('🕒 Too many attempts — try again in ' + Math.ceil(th.secs / 60) + ' min.'); return; }
-  const code = (document.getElementById('pgOtp').value || '').trim();
-  const r = await window.lcVerifyOtp(p, code);
-  if(!r.ok){
-    const secs = window.lcThrottleFail ? window.lcThrottleFail(tid) : 0;
-    pgFail(secs ? ('🕒 Code failed ' + (5 - Math.max(0, 5 - secs)) + '× — locked for ' + Math.ceil(secs / 60) + ' min.') : r.reason);
+  const codeEl = document.getElementById('pgOtp');
+  const btn = document.getElementById('pgOtpBtn');
+  const code = ((codeEl && codeEl.value) || '').trim();
+  if(!/^\d{4,8}$/.test(code)){
+    pgFail('🎟️ Please enter the 6-digit one-time code from the sender.');
     return;
   }
-  if(window.lcThrottleReset) window.lcThrottleReset(tid);
-  window.hide(document.getElementById('privateGateModal'));
-  window.lcPrivateShieldOn(true);
-  __showToast('🎟️ Code accepted — private memories unlocked');
-  /* Grant the slideshow gate exactly once for this unlock. */
-  S.PRIVATE_OK = true;
-  if(window.pv_launchSlideshow) window.pv_launchSlideshow();
-};
+  /* ⚡ HD1.9.2: disable the button while verifying so a double-tap can
+     never fire two cloud checks (the old "tap does nothing / stuck" feel). */
+  if(btn){ btn.disabled = true; btn.dataset.origLabel = btn.textContent; btn.textContent = '⏳ Verifying…'; }
+  let r = null;
+  try{
+    const tid = window.lcOtpThrottleId ? window.lcOtpThrottleId(p) : null;
+    const th = (tid != null && window.lcThrottleCheck) ? window.lcThrottleCheck(tid) : {blocked:false};
+    if(th.blocked){ pgFail('🕒 Too many attempts — try again in ' + Math.ceil(th.secs / 60) + ' min.'); return; }
+    r = await window.lcVerifyOtp(p, code);
+    if(!r || !r.ok){
+      const secs = (tid != null && window.lcThrottleFail) ? window.lcThrottleFail(tid) : 0;
+      pgFail(secs ? ('🕒 Code failed — locked for ' + Math.ceil(secs / 60) + ' min.') : ((r && r.reason) || '❌ Invalid or expired code.'));
+      return;
+    }
+    if(tid != null && window.lcThrottleReset) window.lcThrottleReset(tid);
+    if(window.hide) window.hide(document.getElementById('privateGateModal'));
+    if(window.lcPrivateShieldOn) window.lcPrivateShieldOn(true);
+    if(window.__showToast) window.__showToast('🎟️ Code accepted — private memories unlocked');
+    /* Grant the slideshow gate exactly once for this unlock. */
+    S.PRIVATE_OK = true;
+    if(window.pv_launchSlideshow) await window.pv_launchSlideshow();
+  }catch(e){
+    console.error('OTP verify failed:', e);
+    pgFail('❌ Verification hiccup — please try again.');
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = btn.dataset.origLabel || '🎟️ Unlock Slideshow'; }
+  }
+}
+
+/* Step 2 — OTP check → burns the code and launches the slideshow.
+   Exposed on window (the gate buttons + Enter key call window.pgCheckOtp). */
+window.pgCheckOtp = pgCheckOtp;
 
 /* Launch the standard photo & video slideshow programmatically.
    Calls SS_openShow() directly (js/slideshow.js) — the same code path
@@ -383,7 +448,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.hide(document.getElementById('privateGateModal'));
   };
   const ot = document.getElementById('pgOtp');
-  if(ot) ot.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); window.pgCheckOtp(); } });
+  if(ot && !ot._pgKeyBound){
+    ot._pgKeyBound = true;
+    ot.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); window.pgCheckOtp(); } });
+  }
+  pgEnsureBound(); /* keep the lazy flag in sync */
 });
 
 })();
