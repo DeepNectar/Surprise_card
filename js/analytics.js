@@ -103,20 +103,31 @@ function stopHeartbeat(){
 window.__stopViewTracking__ = stopHeartbeat;
 
 /* minimal fetch (sb.req is private; reuse same endpoint style) */
+/* 🧊 STUCK-FREE: every network call now has a hard 10 s timeout via
+   AbortController. A hanging socket on a flaky mobile connection used to
+   leave awaits pending forever, which made click handlers that awaited it
+   never finish — the browser then reported "Page Unresponsive". */
 async function req2(path, opts){
   opts = opts || {};
-  const r = await fetch(window.SUPABASE_URL + '/rest/v1/' + path, {
-    method: opts.method || 'GET',
-    headers: {
-      'apikey': window.SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-      'Content-Type': 'application/json'
-    },
-    body: opts.body, cache: 'no-store'
-  });
-  if(!r.ok) throw new Error('views ' + r.status);
-  if(r.status === 204) return null;
-  try{ return await r.json(); }catch(e){ return null; }
+  const ctrl = ('AbortController' in window) ? new AbortController() : null;
+  const timer = setTimeout(() => { if(ctrl) ctrl.abort(); }, 10000);
+  try{
+    const r = await fetch(window.SUPABASE_URL + '/rest/v1/' + path, {
+      method: opts.method || 'GET',
+      headers: {
+        'apikey': window.SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: opts.body, cache: 'no-store',
+      signal: ctrl ? ctrl.signal : undefined
+    });
+    if(!r.ok) throw new Error('views ' + r.status);
+    if(r.status === 204) return null;
+    try{ return await r.json(); }catch(e){ return null; }
+  }finally{
+    clearTimeout(timer);
+  }
 }
 
 /* ---------- Local optimistic counters (tile badges) ---------- */
@@ -134,14 +145,19 @@ window.getLocalViewCount = function(slug){ return loadCounts()[slug] || 0; };
 /* Uses PostgREST full-count on a single query per refresh. */
 window.fetchViewStats = async function(){
   try{
-    const r = await fetch(window.SUPABASE_URL + '/rest/v1/' + T_VIEWS
+    const ctrl = ('AbortController' in window) ? new AbortController() : null;
+    const timer = setTimeout(() => { if(ctrl) ctrl.abort(); }, 10000);
+    let r;
+    try{
+      r = await fetch(window.SUPABASE_URL + '/rest/v1/' + T_VIEWS
       + '?select=slug,opened_at,duration_ms,device&order=opened_at.desc&limit=1000',
       { headers: {
           'apikey': window.SUPABASE_ANON_KEY,
           'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
           'Range': '0-999',
           'Prefer': 'count=exact'
-        }, cache: 'no-store' });
+        }, cache: 'no-store', signal: ctrl ? ctrl.signal : undefined });
+    }finally{ clearTimeout(timer); }
     if(!r.ok) return null;
     let total = 0;
     const cr = r.headers.get('content-range') || '';

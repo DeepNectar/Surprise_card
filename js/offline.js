@@ -120,18 +120,24 @@ async function sendNow(item){
   };
   let url = base + item.table;
   if(item.filter) url += '?' + item.filter;
+  /* 🧊 STUCK-FREE: hard 10 s timeout — a hanging flush must never keep an
+     awaited chain alive forever (that is what made the tab "unresponsive"). */
+  const ctrl = ('AbortController' in window) ? new AbortController() : null;
+  const tmo = setTimeout(() => { if(ctrl) ctrl.abort(); }, 10000);
   let r;
   try{
     if(item.method === 'PATCH'){
       headers['Prefer'] = 'return=minimal';
-      r = await fetch(url, { method:'PATCH', headers, body: JSON.stringify(item.body), cache:'no-store' });
+      r = await fetch(url, { method:'PATCH', headers, body: JSON.stringify(item.body), cache:'no-store', signal: ctrl ? ctrl.signal : undefined });
     } else {
       headers['Prefer'] = (item.table === 'push_subs' || item.table === 'reviews')
         ? 'resolution=ignore-duplicates,return=minimal' : 'return=minimal';
-      r = await fetch(url, { method:'POST', headers, body: JSON.stringify(item.body), cache:'no-store' });
+      r = await fetch(url, { method:'POST', headers, body: JSON.stringify(item.body), cache:'no-store', signal: ctrl ? ctrl.signal : undefined });
     }
   }catch(e){
-    throw new Error('network');   /* offline / DNS / CORS — keep queued */
+    throw new Error('network');   /* offline / DNS / CORS / timeout — keep queued */
+  }finally{
+    clearTimeout(tmo);
   }
   if(r.ok) return true;
   /* Read PostgREST's error body so the console tells us WHY it failed
@@ -225,13 +231,19 @@ async function waitForSchemaReload(maxMs){
   const deadline = Date.now() + (maxMs || 10000);
   for(;;){
     try{
-      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=pin_hash&limit=1', {
-        headers: {
-          'apikey': window.SUPABASE_ANON_KEY,
-          'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
-        },
-        cache: 'no-store'
-      });
+      const c1 = ('AbortController' in window) ? new AbortController() : null;
+      const t1 = setTimeout(() => { if(c1) c1.abort(); }, 6000);
+      let r;
+      try{
+        r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=pin_hash&limit=1', {
+          headers: {
+            'apikey': window.SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
+          },
+          cache: 'no-store',
+          signal: c1 ? c1.signal : undefined
+        });
+      } finally { clearTimeout(t1); }
       if(r.ok){                       /* columns visible in the live cache now */
         window.lcPeopleMirrorColsOk = true;
         return true;
@@ -251,16 +263,22 @@ async function healSchemaCache(){
   _schemaHealAt = Date.now();
   _healInFlight = (async () => {
   try{
-    const r = await fetch(window.SUPABASE_URL + '/rest/v1/rpc/ensure_sync_schema', {
-      method: 'POST',
-      headers: {
-        'apikey': window.SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: '{}',
-      cache: 'no-store'
-    });
+    const c2 = ('AbortController' in window) ? new AbortController() : null;
+    const t2 = setTimeout(() => { if(c2) c2.abort(); }, 8000);
+    let r;
+    try{
+      r = await fetch(window.SUPABASE_URL + '/rest/v1/rpc/ensure_sync_schema', {
+        method: 'POST',
+        headers: {
+          'apikey': window.SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: '{}',
+        cache: 'no-store',
+        signal: c2 ? c2.signal : undefined
+      });
+    } finally { clearTimeout(t2); }
     if(!r.ok) return false;
     /* Wait until PostgREST's reloaded cache actually serves the security
        mirror columns — this is what makes the single retry succeed instead
@@ -271,16 +289,21 @@ async function healSchemaCache(){
        (pin_* only): the dedicated Private-Slideshow migration adds
        otp_list + private_mode. Try it once, then wait again. */
     try{
-      await fetch(window.SUPABASE_URL + '/rest/v1/rpc/ensure_private_schema', {
-        method: 'POST',
-        headers: {
-          'apikey': window.SUPABASE_ANON_KEY,
-          'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: '{}',
-        cache: 'no-store'
-      });
+      const c3 = ('AbortController' in window) ? new AbortController() : null;
+      const t3 = setTimeout(() => { if(c3) c3.abort(); }, 8000);
+      try{
+        await fetch(window.SUPABASE_URL + '/rest/v1/rpc/ensure_private_schema', {
+          method: 'POST',
+          headers: {
+            'apikey': window.SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: '{}',
+          cache: 'no-store',
+          signal: c3 ? c3.signal : undefined
+        });
+      } finally { clearTimeout(t3); }
     }catch(e){}
     return await waitForSchemaReload(8000);
   }catch(e){ return false; }
@@ -593,13 +616,19 @@ window.lcProbeMirrorCols = async function(){
     if(window.lcPeopleMirrorColsOk === true) return;
     let visible = false;
     try{
-      const r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=pin_hash,otp_list,private_mode&limit=1', {
-        headers: {
-          'apikey': window.SUPABASE_ANON_KEY,
-          'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
-        },
-        cache: 'no-store'
-      });
+      const c4 = ('AbortController' in window) ? new AbortController() : null;
+      const t4 = setTimeout(() => { if(c4) c4.abort(); }, 8000);
+      let r;
+      try{
+        r = await fetch(window.SUPABASE_URL + '/rest/v1/people?select=pin_hash,otp_list,private_mode&limit=1', {
+          headers: {
+            'apikey': window.SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
+          },
+          cache: 'no-store',
+          signal: c4 ? c4.signal : undefined
+        });
+      } finally { clearTimeout(t4); }
       visible = !!r.ok;
     }catch(e){ return; }            /* offline — leave flag unknown */
     if(visible){
