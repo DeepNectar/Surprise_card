@@ -807,7 +807,8 @@ function SS_bindChrome(){
       if(window.resumeMusic) window.resumeMusic();
     }
   });
-});
+}
+SS_bindChrome();
 
 /* ---------- expose SS_isOpen ---------- */
 try{
