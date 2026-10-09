@@ -124,10 +124,7 @@
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       if (ios) {
         showChip('📲 Install app', function () {
-          alert('To install on iPhone/iPad:\n\n' +
-                '1️⃣  Tap the Share button ⬆︎ (bottom of Safari)\n' +
-                '2️⃣  Choose "Add to Home Screen"\n' +
-                '3️⃣  Tap "Add" — the card appears as an app 💕');
+          window.__showToast('To install on iPhone/iPad: 1️⃣ Tap the Share button ⬆︎ (bottom of Safari) 2️⃣ Choose "Add to Home Screen" 3️⃣ Tap "Add" — the card appears as an app 💕');
         });
       }
       /* Desktop Chrome/Edge without a captured prompt keep their

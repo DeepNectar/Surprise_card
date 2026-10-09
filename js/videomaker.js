@@ -642,9 +642,9 @@ function vmAttachAudio(stream){
 window.openVideoMaker = function(){
   if(VM_BUSY) return;
   const S = ss();
-  if(!S.CURRENT_PERSON){ alert('Open a card first 💕'); return; }
+  if(!S.CURRENT_PERSON){ if(window.__showToast) window.__showToast('Open a card first 💕', false); return; }
   if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){
-    alert('Your browser cannot record videos. Try Chrome or Edge.'); return;
+    if(window.__showToast) window.__showToast('Your browser cannot record videos. Try Chrome or Edge.', false); return;
   }
   const modal = $('videoMakerModal');
   if(!modal) return;
@@ -909,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     /* Fallback: download (WhatsApp can't take webm from most browsers) */
     if(dl_click()) return;
-    alert('Sharing videos directly isn\'t supported here — the video was downloaded instead, attach it in WhatsApp 💬');
+    if(window.__showToast) window.__showToast('Sharing videos directly isn\'t supported here — the video was downloaded instead, attach it in WhatsApp 💬', false);
   };
   function dl_click(){
     const b = $('vmDownloadBtn');

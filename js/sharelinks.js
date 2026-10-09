@@ -209,7 +209,7 @@ function injectPanel(){
       const cp = $id('lcsCopy');
       if(cp) cp.onclick = async () => {
         try{ await navigator.clipboard.writeText(r.url); cp.textContent = '✅ Copied'; }
-        catch(e){ prompt('Copy the secure link:', r.url); }
+        catch(e){ window.__prompt({message: 'Copy the secure link:', okText: 'Done'}, r.url); }
         setTimeout(() => { cp.textContent = '📋 Copy'; }, 1500);
       };
     }catch(e){

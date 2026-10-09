@@ -60,7 +60,7 @@ window.lcShareLinkGate = async function(person){
 function showBlocked(msg){
   const err = $id('personPwError');
   if(err){ err.textContent = msg; err.classList.add('show'); }
-  else alert(msg);
+  else if(window.__showToast) window.__showToast(msg, false);
 }
 
 /* ---------- shared success path (PIN / password) ---------- */

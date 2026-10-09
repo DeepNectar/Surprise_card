@@ -199,7 +199,7 @@ function sendOne(idx){
   const r = bulkRows[idx];
   if(!r) return;
   const wa = String(r.guest_whatsapp || (r.payload && r.payload.guest_info && r.payload.guest_info.whatsapp) || '').replace(/[^0-9]/g,'');
-  if(!wa){ try{ alert('This guest has no WhatsApp number on file.'); }catch(e){} return; }
+  if(!wa){ if(window.__showToast) window.__showToast('This guest has no WhatsApp number on file.', false); return; }
   const url = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(messageFor(r));
   window.open(url, '_blank');
   try{ localStorage.setItem('v3bultsent_' + r.id, String(Date.now())); }catch(e){}

@@ -52,9 +52,11 @@ window.T_REVIEWS  = 'reviews';
 /* ⚠️ SINGLE SOURCE OF TRUTH for the version shown on the home screen,
    inside the upgrade popup and in the admin panel. Every deploy MUST
    keep these values identical to /version.json (see checklist above). */
-window.APP_VERSION   = '1.9';
+window.APP_VERSION   = '1.10';
 window.RELEASE_DATE  = '2026-10-09';
 window.CHANGELOG_LIVE = [
+  '🧊 STUCK-FREE — every remaining blocking dialog (alert/confirm/prompt) has been replaced with non-blocking toasts and in-page dialogs; clicking anything on the site can no longer freeze the tab.',
+  '🧹 Cleanup — removed dead code/files (aiwriter.js, e2eeadmin.js) that were loaded nowhere; service worker cache bumped to v9 and now precaches every module the page actually loads.',
   '🔓 HD1.9 — "Our Private Memory" gate is now OTP-only: the name + phone verification step has been removed. Viewers just enter the 6-digit one-time code the sender generated (still salted-hashed, single-use, ~10-minute expiry, brute-force throttled).',
   '🔒 NEW tab — 🔒 Private Media in the ✏️ Edit Your Card panel: upload photos & videos exactly like the 📸 Photos tab, but everything added there is automatically flagged Private and plays ONLY in the OTP-locked "Our Private Memory" slideshow.',
   '✨ The 📸 Photos tab now shows only public slideshow rows; toggling a row\'s 🔒 checkbox instantly moves it to the Private Media tab (and back) — same data, clearer separation.',

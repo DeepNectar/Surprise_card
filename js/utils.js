@@ -326,6 +326,46 @@ window.__confirm = function(opts){
   });
 };
 
+/* ---------- Custom prompt dialog (non-blocking replacement for window.prompt) ---------- */
+window.__prompt = function(opts, defaultVal){
+  return new Promise(resolve => {
+    const o = typeof opts === 'string' ? {message: opts} : (opts || {});
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML =
+      '<div class="confirm-box">'
+      + '<div class="cf-icon">' + (o.icon || '⌨️') + '</div>'
+      + '<div class="cf-title">' + (o.title ? esc(o.title) : 'Enter value') + '</div>'
+      + '<div class="cf-msg">' + esc(o.message || '').replace(/\n/g, '<br>') + '</div>'
+      + '<input type="text" class="cf-input" style="width:100%;box-sizing:border-box;margin:.4rem 0;" />'
+      + '<div class="cf-btns">'
+      +   '<button type="button" class="cf-cancel">' + esc(o.cancelText || 'Cancel') + '</button>'
+      +   '<button type="button" class="cf-ok">' + esc(o.okText || 'OK') + '</button>'
+      + '</div></div>';
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('.cf-input');
+    input.value = (defaultVal != null ? String(defaultVal) : (o.value || ''));
+    requestAnimationFrame(() => { overlay.classList.add('active'); try{ input.focus(); input.select(); }catch(e){} });
+
+    function close(val){
+      overlay.classList.remove('active');
+      setTimeout(() => overlay.remove(), 240);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    function onKey(e){
+      if(e.key === 'Escape') close(null);
+      if(e.key === 'Enter'){ e.preventDefault(); close(input.value); }
+    }
+    overlay.querySelector('.cf-cancel').onclick = () => close(null);
+    overlay.querySelector('.cf-ok').onclick = () => close(input.value);
+    overlay.addEventListener('click', e => { if(e.target === overlay) close(null); });
+    document.addEventListener('keydown', onKey);
+  });
+};
+
 /* ---------- Button loading state ---------- */
 window.__btnLoading = function(btn, on, label){
   if(!btn) return;

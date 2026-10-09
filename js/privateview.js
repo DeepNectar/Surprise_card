@@ -272,7 +272,7 @@ async function pgInlineFallback(){
   /* Last-resort, non-blocking path when the modal markup is absent. */
   const p = S.CURRENT_PERSON;
   if(!p) return;
-  const code = window.prompt('🔒 Enter the 6-digit one-time code the sender generated for you:');
+  const code = await window.__prompt({icon: '🔒', title: 'One-Time Code', message: 'Enter the 6-digit one-time code the sender generated for you:'});
   if(code == null) return;
   const r = await window.lcVerifyOtp(p, String(code).trim());
   if(!r || !r.ok){

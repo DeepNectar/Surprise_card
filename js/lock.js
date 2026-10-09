@@ -52,7 +52,7 @@ window.__openEarlyHandler__ = function(){
   const locked = unlockDate && !isNaN(unlockDate) && new Date() < unlockDate;
   if(locked){
     const tpl = getText('pwLockedMsg', '🔒 This surprise unlocks on {date}. Please come back then.');
-    alert(tpl.replace('{date}', unlockDate.toLocaleString()));
+    if(window.__showToast) window.__showToast(tpl.replace('{date}', unlockDate.toLocaleString()), false);
     return;
   }
   window.stopCountdownFull();
