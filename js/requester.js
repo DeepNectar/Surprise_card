@@ -364,7 +364,7 @@ function renderRECounters(){
 
 async function openRequesterEditor(){
   const p = S.CURRENT_PERSON;
-  if(!p){ alert('No person.'); return; }
+  if(!p){ if(window.__showToast) window.__showToast('No person.', false); return; }
 
   /* ✏️ OTP generation and the 🔒 Private tab are guarded by REQUESTER_MODE
      (js/privateview.js). Entering the edit panel always claims that mode —

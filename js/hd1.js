@@ -61,7 +61,7 @@ window.lcShortLink = function(slug){
         'font-family:Georgia,serif;box-shadow:0 6px 18px rgba(0,0,0,.4);max-width:90vw;text-align:center;';
       n.textContent = reason;
       document.body.appendChild(n);
-    }catch(e){ alert(reason); }
+    }catch(e){ if(window.__showToast) window.__showToast(reason, false); }
   }
   function tryOpen(){
     try{
@@ -375,7 +375,7 @@ function buildShareExtras(p){
   const copyBtn = $id('lcCopyShort');
   if(copyBtn) copyBtn.onclick = async () => {
     try{ await navigator.clipboard.writeText(shortUrl); copyBtn.textContent = '✅ Copied'; }
-    catch(e){ prompt('Copy the short link:', shortUrl); }
+    catch(e){ window.__prompt({message: 'Copy the short link:', okText: 'Done'}, shortUrl); }
     setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 1500);
   };
   const qrBtn = $id('lcQrShow');

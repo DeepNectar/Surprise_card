@@ -384,7 +384,7 @@ function renderFinishedSection(){
         removeFinishedPerson(slug);
         renderFinishedSection();
       } else {
-        alert('💐 This surprise has been completed and archived.\n\nThank you for being part of it 💕');
+        if(window.__showToast) window.__showToast('💐 This surprise has been completed and archived. Thank you for being part of it 💕');
       }
     };
   });

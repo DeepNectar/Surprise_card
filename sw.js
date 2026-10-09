@@ -7,8 +7,10 @@
    ============================================================ */
 'use strict';
 
-const VERSION    = 'v8';                       // bump on any precache-list or core-js change
+const VERSION    = 'v9';                       // bump on any precache-list or core-js change
                                                // v8: HD 1.7 — added /js/privateview.js + /version.json
+                                               // v9: stuck-free fix — removed all blocking alert/confirm/prompt;
+                                               //     precache now includes every module index.html loads
 const CACHE_SHELL = 'sc-shell-'  + VERSION;    // index.html, css, js, icons, manifest
 const CACHE_RUNTIME = 'sc-runtime-' + VERSION; // same-origin GETs (images etc.)
 
@@ -67,6 +69,15 @@ const PRECACHE = [
   '/js/v3admin.js',
   '/js/privateview.js',
   '/js/update.js',
+  '/js/analytics.js',
+  '/js/security.js',
+  '/js/media.js',
+  '/js/offline.js',
+  '/js/hd1.js',
+  '/js/e2ee.js',
+  '/js/sharelinks.js',
+  '/js/securitywire.js',
+  '/js/viewer.js',
   '/version.json'
 ];
 

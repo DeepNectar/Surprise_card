@@ -2323,7 +2323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(gwa && gwa.replace(/\D/g, '').length < 6) missing.push('• WhatsApp must have 6+ digits');
 
     if(missing.length){
-      alert('⚠️ Please fill all mandatory fields:\n\n' + missing.join('\n'));
+      if(window.__showToast) window.__showToast('⚠️ Please fill all mandatory fields: ' + missing.join(' '), false);
       st.textContent = '❌ Missing field(s).';
       st.className = 'panel-status err';
       return;
@@ -2386,8 +2386,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       st.textContent = '✅ Submitted!';
       st.className = 'panel-status ok';
-      setTimeout(() => {
-        if(confirm('Submitted!\n\nWe will WhatsApp you the Login ID + Card password and your card link once approved. (Your edit password is kept private for admin reference only.)\n\nSend us a WhatsApp message now to speed up the approval?')){
+      setTimeout(async () => {
+        const ok = await window.__confirm({
+          icon: '✅',
+          title: 'Submitted!',
+          message: 'We will WhatsApp you the Login ID + Card password and your card link once approved. (Your edit password is kept private for admin reference only.)\n\nSend us a WhatsApp message now to speed up the approval?',
+          okText: 'WhatsApp us',
+          cancelText: 'Later'
+        });
+        if(ok){
           const msg = 'Hi Deep, I just submitted a request to add "' + newName + '". Please review and approve. Thank you!';
           window.open('https://wa.me/971553488512?text=' + encodeURIComponent(msg), '_blank');
         }
