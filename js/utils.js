@@ -288,83 +288,159 @@ window.clampDuration = function(v, def, min, max){
   }
 })();
 
-/* ---------- Custom confirm dialog ---------- */
-window.__confirm = function(opts){
-  return new Promise(resolve => {
-    const o = typeof opts === 'string' ? {message: opts} : (opts || {});
-    const overlay = document.createElement('div');
+/* ---------- Shared modal engine for __confirm / __prompt ----------
+   🧊 STUCK-FREE FIX: the old dialogs registered a GLOBAL keydown listener
+   that stayed alive until "close()" ran. If code ever forgot to await a
+   dialog (or opened two at once), every Enter/Escape key closed the WRONG
+   dialog and stale invisible overlays stacked up in the DOM — taps landed
+   on an invisible full-screen layer and the page felt frozen ("Page
+   Unresponsive"). Now:
+     • only ONE dialog can exist at a time (a second open instantly replaces
+       the first, whose promise resolves safely);
+     • keyboard handling is bound to the overlay element itself (which is
+       focused), so there are ZERO document-level listeners to leak;
+     • a watchdog removes any dialog left mounted for >5 minutes. */
+(function(){
+  var CF_CSS =
+    '.confirm-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;' +
+    'align-items:center;justify-content:center;background:rgba(10,0,8,.55);' +
+    'backdrop-filter:blur(2px);opacity:0;transition:opacity .18s ease;padding:1rem;}' +
+    '.confirm-overlay.active{opacity:1;}' +
+    '.confirm-box{background:#fff;color:#2a1216;border-radius:18px;padding:1.1rem 1.2rem;' +
+    'max-width:340px;width:100%;text-align:center;font-family:Georgia,"Times New Roman",serif;' +
+    'box-shadow:0 12px 34px rgba(0,0,0,.35);transform:translateY(8px);transition:transform .18s ease;}' +
+    '.confirm-overlay.active .confirm-box{transform:translateY(0);}' +
+    '.cf-icon{font-size:1.6rem;margin-bottom:.2rem;}' +
+    '.cf-title{font-weight:800;font-size:1rem;margin-bottom:.25rem;}' +
+    '.cf-msg{font-size:.82rem;line-height:1.5;color:#5a3a42;}' +
+    '.cf-input{border:1px solid #d8b9c2;border-radius:10px;padding:.5rem .7rem;' +
+    'font-size:.9rem;font-family:inherit;outline:none;}' +
+    '.cf-input:focus{border-color:#c41e3a;}' +
+    '.cf-btns{display:flex;gap:.5rem;justify-content:center;margin-top:.9rem;}' +
+    '.cf-btns button{border:none;border-radius:10px;padding:.5rem .95rem;font-weight:700;' +
+    'cursor:pointer;font-family:inherit;font-size:.82rem;}' +
+    '.cf-cancel{background:#eee;color:#444;}' +
+    '.cf-ok{background:#c41e3a;color:#fff;}' +
+    '.cf-danger{background:#8f1223;color:#fff;}';
+
+  function ensureCss(){
+    try{
+      if(document.getElementById('lcConfirmCss')) return;
+      var s = document.createElement('style');
+      s.id = 'lcConfirmCss';
+      s.textContent = CF_CSS;
+      (document.head || document.documentElement).appendChild(s);
+    }catch(e){}
+  }
+
+  var current = null;            /* the single live dialog controller */
+
+  function teardown(dlg){
+    if(!dlg || dlg.dead) return;
+    dlg.dead = true;
+    try{ dlg.overlay.classList.remove('active'); }catch(e){}
+    setTimeout(() => { try{ dlg.overlay.remove(); }catch(e){} }, 240);
+    if(current === dlg) current = null;
+  }
+
+  function mount(html, focusEl, onCloseClick, onOkClick){
+    ensureCss();
+    /* Replace (never stack): a leftover invisible dialog would eat clicks. */
+    if(current){ try{ current.finish(current.cancelVal); }catch(e){} }
+
+    var overlay = document.createElement('div');
     overlay.className = 'confirm-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.innerHTML =
-      '<div class="confirm-box">'
-      + '<div class="cf-icon">' + (o.icon || '❓') + '</div>'
-      + '<div class="cf-title">' + (o.title ? esc(o.title) : 'Are you sure?') + '</div>'
-      + '<div class="cf-msg">' + esc(o.message || '').replace(/\n/g, '<br>') + '</div>'
-      + '<div class="cf-btns">'
-      +   '<button type="button" class="cf-cancel">' + esc(o.cancelText || 'Cancel') + '</button>'
-      +   '<button type="button" class="' + (o.danger ? 'cf-danger' : 'cf-ok') + '">' + esc(o.okText || 'Confirm') + '</button>'
-      + '</div></div>';
+    overlay.tabIndex = -1;
+    overlay.innerHTML = html;
     document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('active'));
 
-    function close(val){
-      overlay.classList.remove('active');
-      setTimeout(() => overlay.remove(), 240);
-      document.removeEventListener('keydown', onKey);
-      resolve(val);
-    }
-    function onKey(e){
-      if(e.key === 'Escape') close(false);
-      if(e.key === 'Enter')  close(true);
-    }
-    overlay.querySelector('.cf-cancel').onclick = () => close(false);
-    overlay.querySelector('.cf-ok, .cf-danger').onclick = () => close(true);
-    overlay.addEventListener('click', e => { if(e.target === overlay) close(false); });
-    document.addEventListener('keydown', onKey);
-    setTimeout(() => overlay.querySelector('.cf-ok, .cf-danger').focus(), 30);
-  });
-};
+    var dlg = { overlay: overlay, dead: false, finish: null, cancelVal: false };
+    current = dlg;
 
-/* ---------- Custom prompt dialog (non-blocking replacement for window.prompt) ---------- */
-window.__prompt = function(opts, defaultVal){
-  return new Promise(resolve => {
-    const o = typeof opts === 'string' ? {message: opts} : (opts || {});
-    const overlay = document.createElement('div');
-    overlay.className = 'confirm-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.innerHTML =
-      '<div class="confirm-box">'
-      + '<div class="cf-icon">' + (o.icon || '⌨️') + '</div>'
-      + '<div class="cf-title">' + (o.title ? esc(o.title) : 'Enter value') + '</div>'
-      + '<div class="cf-msg">' + esc(o.message || '').replace(/\n/g, '<br>') + '</div>'
-      + '<input type="text" class="cf-input" style="width:100%;box-sizing:border-box;margin:.4rem 0;" />'
-      + '<div class="cf-btns">'
-      +   '<button type="button" class="cf-cancel">' + esc(o.cancelText || 'Cancel') + '</button>'
-      +   '<button type="button" class="cf-ok">' + esc(o.okText || 'OK') + '</button>'
-      + '</div></div>';
-    document.body.appendChild(overlay);
-    const input = overlay.querySelector('.cf-input');
-    input.value = (defaultVal != null ? String(defaultVal) : (o.value || ''));
-    requestAnimationFrame(() => { overlay.classList.add('active'); try{ input.focus(); input.select(); }catch(e){} });
+    var done = false;
+    dlg.finish = function(val){
+      if(done || dlg.dead) return;
+      done = true;
+      teardown(dlg);
+      if(typeof val === 'string'){           /* copy-friendly prompts */
+        try{ navigator.clipboard.writeText(val); }catch(e){}
+      }
+      onCloseClick(val);
+    };
 
-    function close(val){
-      overlay.classList.remove('active');
-      setTimeout(() => overlay.remove(), 240);
-      document.removeEventListener('keydown', onKey);
-      resolve(val);
-    }
-    function onKey(e){
-      if(e.key === 'Escape') close(null);
-      if(e.key === 'Enter'){ e.preventDefault(); close(input.value); }
-    }
-    overlay.querySelector('.cf-cancel').onclick = () => close(null);
-    overlay.querySelector('.cf-ok').onclick = () => close(input.value);
-    overlay.addEventListener('click', e => { if(e.target === overlay) close(null); });
-    document.addEventListener('keydown', onKey);
-  });
-};
+    requestAnimationFrame(() => {
+      overlay.classList.add('active');
+      try{ (focusEl || overlay).focus({ preventScroll: true }); }catch(e){}
+    });
+
+    /* Keyboard bound to the overlay (not document) — cannot leak. */
+    overlay.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ e.preventDefault(); dlg.finish(dlg.cancelVal); }
+      else if(e.key === 'Enter'){ e.preventDefault(); onOkClick(); }
+    });
+    overlay.addEventListener('click', function(e){
+      if(e.target === overlay) dlg.finish(dlg.cancelVal);
+    });
+
+    /* Watchdog: nothing should stay mounted this long; guarantees the page
+       can never end up with an invisible click-eating layer. */
+    setTimeout(function(){ if(!dlg.dead) dlg.finish(dlg.cancelVal); }, 300000);
+
+    return dlg;
+  }
+
+  /* ---------- Custom confirm dialog ---------- */
+  window.__confirm = function(opts){
+    return new Promise(resolve => {
+      const o = typeof opts === 'string' ? {message: opts} : (opts || {});
+      const html =
+        '<div class="confirm-box">'
+        + '<div class="cf-icon">' + (o.icon || '❓') + '</div>'
+        + '<div class="cf-title">' + (o.title ? esc(o.title) : 'Are you sure?') + '</div>'
+        + '<div class="cf-msg">' + esc(o.message || '').replace(/\n/g, '<br>') + '</div>'
+        + '<div class="cf-btns">'
+        +   '<button type="button" class="cf-cancel">' + esc(o.cancelText || 'Cancel') + '</button>'
+        +   '<button type="button" class="' + (o.danger ? 'cf-danger' : 'cf-ok') + '">' + esc(o.okText || 'Confirm') + '</button>'
+        + '</div></div>';
+      let dlg;
+      const okFn = () => dlg.finish(true);
+      dlg = mount(html, null, resolve, okFn);
+      dlg.cancelVal = false;
+      dlg.overlay.querySelector('.cf-cancel').onclick = () => dlg.finish(false);
+      dlg.overlay.querySelector('.cf-ok, .cf-danger').onclick = okFn;
+      setTimeout(() => { try{ dlg.overlay.querySelector('.cf-ok, .cf-danger').focus(); }catch(e){} }, 30);
+    });
+  };
+
+  /* ---------- Custom prompt dialog (non-blocking window.prompt replacement) ---------- */
+  window.__prompt = function(opts, defaultVal){
+    return new Promise(resolve => {
+      const o = typeof opts === 'string' ? {message: opts} : (opts || {});
+      const html =
+        '<div class="confirm-box">'
+        + '<div class="cf-icon">' + (o.icon || '⌨️') + '</div>'
+        + '<div class="cf-title">' + (o.title ? esc(o.title) : 'Enter value') + '</div>'
+        + '<div class="cf-msg">' + esc(o.message || '').replace(/\n/g, '<br>') + '</div>'
+        + '<input type="text" class="cf-input" style="width:100%;box-sizing:border-box;margin:.4rem 0;" />'
+        + '<div class="cf-btns">'
+        +   '<button type="button" class="cf-cancel">' + esc(o.cancelText || 'Cancel') + '</button>'
+        +   '<button type="button" class="cf-ok">' + esc(o.okText || 'OK') + '</button>'
+        + '</div></div>';
+      let dlg;
+      const okFn = () => dlg.finish(dlg.inputEl.value);
+      dlg = mount(html, null, resolve, okFn);
+      dlg.cancelVal = null;
+      const input = dlg.overlay.querySelector('.cf-input');
+      dlg.inputEl = input;
+      input.value = (defaultVal != null ? String(defaultVal) : (o.value || ''));
+      dlg.overlay.querySelector('.cf-cancel').onclick = () => dlg.finish(null);
+      dlg.overlay.querySelector('.cf-ok').onclick = okFn;
+      requestAnimationFrame(() => { try{ input.focus(); input.select(); }catch(e){} });
+    });
+  };
+})();
 
 /* ---------- Button loading state ---------- */
 window.__btnLoading = function(btn, on, label){
