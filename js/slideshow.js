@@ -607,30 +607,61 @@ function SS_close(){
    normal slideshow and vice-versa. */
 let SS_MODE = 'public';
 
+/* ---------- media fetch with NO-LOAD fallback (HD1.9.1 perf/robustness)
+   ssGetMedia returns the media rows for the current card WITHOUT ever
+   hanging or breaking the tap:
+     • a live snapshot (S.CURR.media) is used immediately when present,
+     • an in-flight cloud read is shared between callers (no duplicates),
+     • a failed / empty cloud read falls back to the last known snapshot,
+     • the promise ALWAYS resolves — nothing can get "stuck". */
+let SS_MEDIA_PROMISE = null;
+function ssGetMedia(){
+  const snap = (S.CURR && Array.isArray(S.CURR.media)) ? S.CURR.media : null;
+  if(snap && snap.length) return Promise.resolve(snap);
+  if(!SS_MEDIA_PROMISE){
+    SS_MEDIA_PROMISE = (async () => {
+      try{
+        const rows = (window.sb && window.T_MEDIA)
+          ? await sb.rows(T_MEDIA, S.CURRENT_PERSON.id)
+          : [];
+        return rows || [];
+      }catch(e){
+        console.warn('slideshow media fetch failed', e && e.message);
+        return [];
+      }finally{
+        setTimeout(() => { SS_MEDIA_PROMISE = null; }, 4000);
+      }
+    })();
+  }
+  return SS_MEDIA_PROMISE;
+}
+
 async function SS_openShow(mode){
     SS_MODE = (mode === 'private') ? 'private' : 'public';
-    if(!S.CURRENT_PERSON){ alert('No person selected.'); return; }
+    if(!S.CURRENT_PERSON){
+      if(window.__showToast) window.__showToast('No card is open yet.', false);
+      return;
+    }
 
     /* 🔒 HARD BLOCK (media level): the PRIVATE slideshow may ONLY be
        opened after the one-time-code (OTP) gate was passed
        (S.PRIVATE_OK is set once per unlock inside privateview.js).
-       When the card itself is private, even the normal "Our Memories"
-       button must pass through the gate first.
+       HD1.9.1: the OTP gate applies ONLY to the 🔒 "Our Private Memory"
+       button. The normal 📸 "Our Memories" show always opens without a
+       code (public rows only — private scenes still never leak into it,
+       they are filtered out below).
        This guard lives here — at the single entry point of every
        slideshow path (button, deep-link, programmatic) — so there is
-       no way around it. */
-    if(SS_MODE === 'private'){
-      if(!S.PRIVATE_OK){
-        if(window.openPrivateGate) window.openPrivateGate();
-        return;
-      }
-    } else if(window.lcCardIsPrivate && window.lcCardIsPrivate() && !S.PRIVATE_OK){
-      /* 🔒 card-level lock: private cards hard-block the normal show too */
+       no way around it for the private list. */
+    if(SS_MODE === 'private' && !S.PRIVATE_OK){
       if(window.openPrivateGate) window.openPrivateGate();
       return;
     }
 
-    const rows = await sb.rows(T_MEDIA, S.CURRENT_PERSON.id) || [];
+    let rows = [];
+    try{
+      rows = await ssGetMedia();
+    }catch(e){ rows = []; }
     const filtered = (rows || []).filter(r => {
       /* privacy split — public show hides ALL private rows, private
          show only ever contains private rows */
@@ -641,7 +672,17 @@ async function SS_openShow(mode){
              (r.type === 'photo' && r.drive_id);
     });
     if(!filtered.length){
-      alert(SS_MODE === 'private' ? 'No private memories yet 🔒' : 'No memories yet 💕');
+      /* NEVER alert() — a blocking dialog froze the page ("site gets
+         stuck"). Friendly toast instead; for the private mode also make
+         sure the OTP gate is visible so the flow never dead-ends. */
+      if(window.__showToast){
+        window.__showToast(SS_MODE === 'private'
+          ? '🔒 No private memories on this card yet.'
+          : '💕 No memories yet — photos will appear here soon!', false);
+      }
+      if(SS_MODE === 'private' && !S.PRIVATE_OK && window.openPrivateGate){
+        window.openPrivateGate();
+      }
       return;
     }
 
