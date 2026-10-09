@@ -1,1 +1,5 @@
-(empty)
+# Dependencies
+node_modules/
+
+# Lock files (optional, but often ignored if you want to commit package.json only)
+package-lock.json
