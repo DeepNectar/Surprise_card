@@ -289,17 +289,26 @@ window.clampDuration = function(v, def, min, max){
 })();
 
 /* ---------- Shared modal engine for __confirm / __prompt ----------
-   🧊 STUCK-FREE FIX: the old dialogs registered a GLOBAL keydown listener
-   that stayed alive until "close()" ran. If code ever forgot to await a
-   dialog (or opened two at once), every Enter/Escape key closed the WRONG
-   dialog and stale invisible overlays stacked up in the DOM — taps landed
-   on an invisible full-screen layer and the page felt frozen ("Page
-   Unresponsive"). Now:
-     • only ONE dialog can exist at a time (a second open instantly replaces
-       the first, whose promise resolves safely);
-     • keyboard handling is bound to the overlay element itself (which is
-       focused), so there are ZERO document-level listeners to leak;
-     • a watchdog removes any dialog left mounted for >5 minutes. */
+   🧊 STUCK-FREE FIX v2 (the real root cause of "Page Unresponsive"):
+
+   The previous version kept the full-screen `.confirm-overlay` mounted in
+   the DOM *after* the dialog was closed (opacity fade + 240 ms delayed
+   removal). On mobile browsers — and whenever a heavy re-render happened
+   right after a tap — that invisible layer still covered the whole
+   viewport at z-index 2147483647, so EVERY subsequent click hit the dead
+   layer instead of the page: the site felt frozen even though JS was fine.
+
+   Guarantees now:
+     • the overlay element is removed SYNCHRONOUSLY inside finish(), before
+       the awaiting caller resumes — no window where a dead layer exists;
+     • ALL .confirm-overlay nodes are force-purged the instant a new dialog
+       opens (stacking is physically impossible);
+     • the Promise resolution is deferred one microtask so callers' DOM work
+       never runs while a layer is mid-teardown;
+     • keyboard handling is bound to the overlay element itself — zero
+       document-level listeners that could leak;
+     • a watchdog auto-dismisses any dialog left mounted for >2 minutes;
+     • a self-healing sweep removes any stray overlay every 500 ms. */
 (function(){
   var CF_CSS =
     '.confirm-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;' +
@@ -335,18 +344,36 @@ window.clampDuration = function(v, def, min, max){
 
   var current = null;            /* the single live dialog controller */
 
+  /* Nuclear option: whatever state the DOM is in, guarantee that NO
+     leftover dialog layer survives to eat clicks. */
+  function purgeStaleOverlays(){
+    try{
+      var leftovers = document.querySelectorAll('.confirm-overlay');
+      for(var i = 0; i < leftovers.length; i++){
+        try{ leftovers[i].remove(); }catch(e){}
+      }
+    }catch(e){}
+  }
+
   function teardown(dlg){
     if(!dlg || dlg.dead) return;
     dlg.dead = true;
-    try{ dlg.overlay.classList.remove('active'); }catch(e){}
-    setTimeout(() => { try{ dlg.overlay.remove(); }catch(e){} }, 240);
+    /* Remove the layer IMMEDIATELY (no transition delay): an invisible
+       fixed-position overlay is exactly what made the page feel stuck. */
+    try{ dlg.overlay.remove(); }catch(e){}
     if(current === dlg) current = null;
   }
 
   function mount(html, focusEl, onCloseClick, onOkClick){
     ensureCss();
-    /* Replace (never stack): a leftover invisible dialog would eat clicks. */
-    if(current){ try{ current.finish(current.cancelVal); }catch(e){} }
+    /* Replace (NEVER stack): finish + yank any older dialog off the DOM
+       synchronously before appending the new one. */
+    if(current){
+      var prev = current;
+      current = null;
+      try{ prev.finish(prev.cancelVal); }catch(e){}
+    }
+    purgeStaleOverlays();
 
     var overlay = document.createElement('div');
     overlay.className = 'confirm-overlay';
@@ -363,14 +390,19 @@ window.clampDuration = function(v, def, min, max){
     dlg.finish = function(val){
       if(done || dlg.dead) return;
       done = true;
-      teardown(dlg);
-      if(typeof val === 'string'){           /* copy-friendly prompts */
+      teardown(dlg);                                   /* layer gone FIRST */
+      if(typeof val === 'string'){                     /* copy-friendly prompts */
         try{ navigator.clipboard.writeText(val); }catch(e){}
       }
-      onCloseClick(val);
+      /* Defer resolving the caller's promise by one microtask so their
+         continuation (often a big re-render) never interleaves with
+         teardown, and any pointer event still in flight lands on the
+         real page, not a dying overlay. */
+      Promise.resolve().then(function(){ onCloseClick(val); });
     };
 
     requestAnimationFrame(() => {
+      if(dlg.dead) return;                             /* closed before paint */
       overlay.classList.add('active');
       try{ (focusEl || overlay).focus({ preventScroll: true }); }catch(e){}
     });
@@ -386,10 +418,17 @@ window.clampDuration = function(v, def, min, max){
 
     /* Watchdog: nothing should stay mounted this long; guarantees the page
        can never end up with an invisible click-eating layer. */
-    setTimeout(function(){ if(!dlg.dead) dlg.finish(dlg.cancelVal); }, 300000);
+    setTimeout(function(){ if(!dlg.dead) dlg.finish(dlg.cancelVal); }, 120000);
 
     return dlg;
   }
+
+  /* Self-healing safety net: twice a second, if no dialog thinks it is
+     open but a stray overlay somehow survived in the DOM, remove it.
+     This makes a "invisible layer eats all clicks" state IMPOSSIBLE. */
+  setInterval(function(){
+    if(!current) purgeStaleOverlays();
+  }, 500);
 
   /* ---------- Custom confirm dialog ---------- */
   window.__confirm = function(opts){
@@ -397,7 +436,7 @@ window.clampDuration = function(v, def, min, max){
       const o = typeof opts === 'string' ? {message: opts} : (opts || {});
       const html =
         '<div class="confirm-box">'
-        + '<div class="cf-icon">' + (o.icon || '❓') + '</div>'
+        + '<div class="cf-icon">' + esc(o.icon || '\u2753') + '</div>'
         + '<div class="cf-title">' + (o.title ? esc(o.title) : 'Are you sure?') + '</div>'
         + '<div class="cf-msg">' + esc(o.message || '').replace(/\n/g, '<br>') + '</div>'
         + '<div class="cf-btns">'
@@ -405,12 +444,12 @@ window.clampDuration = function(v, def, min, max){
         +   '<button type="button" class="' + (o.danger ? 'cf-danger' : 'cf-ok') + '">' + esc(o.okText || 'Confirm') + '</button>'
         + '</div></div>';
       let dlg;
-      const okFn = () => dlg.finish(true);
+      const okFn = () => { if(!dlg.dead) dlg.finish(true); };
       dlg = mount(html, null, resolve, okFn);
       dlg.cancelVal = false;
-      dlg.overlay.querySelector('.cf-cancel').onclick = () => dlg.finish(false);
+      dlg.overlay.querySelector('.cf-cancel').onclick = () => { if(!dlg.dead) dlg.finish(false); };
       dlg.overlay.querySelector('.cf-ok, .cf-danger').onclick = okFn;
-      setTimeout(() => { try{ dlg.overlay.querySelector('.cf-ok, .cf-danger').focus(); }catch(e){} }, 30);
+      setTimeout(() => { if(dlg.dead) return; try{ dlg.overlay.querySelector('.cf-ok, .cf-danger').focus(); }catch(e){} }, 30);
     });
   };
 
@@ -420,7 +459,7 @@ window.clampDuration = function(v, def, min, max){
       const o = typeof opts === 'string' ? {message: opts} : (opts || {});
       const html =
         '<div class="confirm-box">'
-        + '<div class="cf-icon">' + (o.icon || '⌨️') + '</div>'
+        + '<div class="cf-icon">' + esc(o.icon || '\u2328\ufe0f') + '</div>'
         + '<div class="cf-title">' + (o.title ? esc(o.title) : 'Enter value') + '</div>'
         + '<div class="cf-msg">' + esc(o.message || '').replace(/\n/g, '<br>') + '</div>'
         + '<input type="text" class="cf-input" style="width:100%;box-sizing:border-box;margin:.4rem 0;" />'
@@ -429,15 +468,15 @@ window.clampDuration = function(v, def, min, max){
         +   '<button type="button" class="cf-ok">' + esc(o.okText || 'OK') + '</button>'
         + '</div></div>';
       let dlg;
-      const okFn = () => dlg.finish(dlg.inputEl.value);
+      const okFn = () => { if(!dlg.dead) dlg.finish(dlg.inputEl.value); };
       dlg = mount(html, null, resolve, okFn);
       dlg.cancelVal = null;
       const input = dlg.overlay.querySelector('.cf-input');
       dlg.inputEl = input;
       input.value = (defaultVal != null ? String(defaultVal) : (o.value || ''));
-      dlg.overlay.querySelector('.cf-cancel').onclick = () => dlg.finish(null);
+      dlg.overlay.querySelector('.cf-cancel').onclick = () => { if(!dlg.dead) dlg.finish(null); };
       dlg.overlay.querySelector('.cf-ok').onclick = okFn;
-      requestAnimationFrame(() => { try{ input.focus(); input.select(); }catch(e){} });
+      requestAnimationFrame(() => { if(dlg.dead) return; try{ input.focus(); input.select(); }catch(e){} });
     });
   };
 })();
