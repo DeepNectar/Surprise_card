@@ -159,10 +159,6 @@ function install(){
         return;
       }
     }
-    if(pw && p && S.ADMIN_MODE && !beforeAdmin){
-      /* admin just opened a card — expose one-tap encrypt/decrypt UI */
-      try{ if(window.lcInjectE2eeAdminUi) window.lcInjectE2eeAdminUi(); }catch(e){}
-    }
   };
 }
 
